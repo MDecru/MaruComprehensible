@@ -329,6 +329,11 @@ function _ytResetForNewVideo() {
   if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
   _ytSetSubActive(false);
   if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
+  // Reset score to dash while new video loads
+  const scoreEl = document.getElementById('mc-yt-score');
+  if (scoreEl) scoreEl.textContent = '–';
+  // Close sidebar so it doesn't show the previous video's transcript
+  if (sidebarIsOpen()) sidebarToggle(null);
 }
 
 function _ytToggleSettings(player) {
