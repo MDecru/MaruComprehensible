@@ -164,24 +164,32 @@ function parseVTT(text) {
   return lines.join('\n');
 }
 
-function getVocab() {
+function _chromeGet(keys) {
   return new Promise(resolve => {
-    chrome.storage.local.get(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji'], d => {
-      const set = new Set(d.mm_vocab || []);
-      for (const v of (d.mm_extra_vocab || [])) set.add(v);
-      for (const k of (d.mm_extra_kanji || [])) set.add(k);
-      resolve(set);
-    });
+    if (!chrome.runtime?.id) { resolve({}); return; }
+    try {
+      chrome.storage.local.get(keys, d => {
+        if (chrome.runtime.lastError) { resolve({}); return; }
+        resolve(d);
+      });
+    } catch { resolve({}); }
+  });
+}
+
+function getVocab() {
+  return _chromeGet(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji']).then(d => {
+    const set = new Set(d.mm_vocab || []);
+    for (const v of (d.mm_extra_vocab || [])) set.add(v);
+    for (const k of (d.mm_extra_kanji || [])) set.add(k);
+    return set;
   });
 }
 
 function getKanji() {
-  return new Promise(resolve => {
-    chrome.storage.local.get(['mm_kanji', 'mm_extra_kanji'], d => {
-      const set = new Set(d.mm_kanji || []);
-      for (const k of (d.mm_extra_kanji || [])) set.add(k);
-      resolve(set);
-    });
+  return _chromeGet(['mm_kanji', 'mm_extra_kanji']).then(d => {
+    const set = new Set(d.mm_kanji || []);
+    for (const k of (d.mm_extra_kanji || [])) set.add(k);
+    return set;
   });
 }
 

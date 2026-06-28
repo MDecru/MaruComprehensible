@@ -281,22 +281,26 @@ const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
 
 function _ytSaveSettings() {
-  chrome.storage.local.set({ yt_sub_settings: {
+  if (!chrome.runtime?.id) return;
+  try { chrome.storage.local.set({ yt_sub_settings: {
     fontSize: _ytFontSize, bgOpacity: _ytBgOpacity,
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
-  }});
+  }}); } catch {}
 }
 
 function _ytLoadSettings() {
-  chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
-    if (!s) return;
-    if (s.fontSize    !== undefined) _ytFontSize     = s.fontSize;
-    if (s.bgOpacity   !== undefined) _ytBgOpacity    = s.bgOpacity;
-    if (s.fontWeight  !== undefined) _ytFontWeight   = s.fontWeight;
-    if (s.colorblind  !== undefined) _ytColorblind   = s.colorblind;
-    if (s.pauseOnHover !== undefined) _ytPauseOnHover = s.pauseOnHover;
-  });
+  if (!chrome.runtime?.id) return;
+  try {
+    chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
+      if (!s || chrome.runtime.lastError) return;
+      if (s.fontSize    !== undefined) _ytFontSize     = s.fontSize;
+      if (s.bgOpacity   !== undefined) _ytBgOpacity    = s.bgOpacity;
+      if (s.fontWeight  !== undefined) _ytFontWeight   = s.fontWeight;
+      if (s.colorblind  !== undefined) _ytColorblind   = s.colorblind;
+      if (s.pauseOnHover !== undefined) _ytPauseOnHover = s.pauseOnHover;
+    });
+  } catch {}
 }
 _ytLoadSettings();
 
