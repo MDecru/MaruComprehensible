@@ -270,13 +270,35 @@ let _ytSettingsPnl = null;   // settings panel
 let _ytCues        = null;   // [{start, end, text}]
 let _ytLastCueIdx  = -2;
 let _ytSubCleanup  = null;
-let _ytFontSize    = 20;
-let _ytBgOpacity   = 0.78;
-let _ytFontWeight  = 400;
-let _ytColorblind  = false;
+let _ytFontSize      = 20;
+let _ytBgOpacity     = 0.78;
+let _ytFontWeight    = 400;
+let _ytColorblind    = false;
+let _ytPauseOnHover  = false;
+let _ytPausedByHover = false;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
+
+function _ytSaveSettings() {
+  chrome.storage.local.set({ yt_sub_settings: {
+    fontSize: _ytFontSize, bgOpacity: _ytBgOpacity,
+    fontWeight: _ytFontWeight, colorblind: _ytColorblind,
+    pauseOnHover: _ytPauseOnHover,
+  }});
+}
+
+function _ytLoadSettings() {
+  chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
+    if (!s) return;
+    if (s.fontSize    !== undefined) _ytFontSize     = s.fontSize;
+    if (s.bgOpacity   !== undefined) _ytBgOpacity    = s.bgOpacity;
+    if (s.fontWeight  !== undefined) _ytFontWeight   = s.fontWeight;
+    if (s.colorblind  !== undefined) _ytColorblind   = s.colorblind;
+    if (s.pauseOnHover !== undefined) _ytPauseOnHover = s.pauseOnHover;
+  });
+}
+_ytLoadSettings();
 
 function _ytGetPlayer() {
   return document.getElementById('movie_player') || document.querySelector('.html5-video-player');
@@ -308,6 +330,16 @@ function _ytEnsureOverlay(player) {
     'z-index:9996', 'display:flex', 'justify-content:center',
     'pointer-events:auto', 'text-align:center',
   ].join(';');
+  _ytSubOverlay.addEventListener('mouseenter', () => {
+    if (!_ytPauseOnHover) return;
+    const video = document.querySelector('video');
+    if (video && !video.paused) { video.pause(); _ytPausedByHover = true; }
+  });
+  _ytSubOverlay.addEventListener('mouseleave', () => {
+    if (!_ytPausedByHover) return;
+    _ytPausedByHover = false;
+    document.querySelector('video')?.play().catch(() => {});
+  });
   player.appendChild(_ytSubOverlay);
   return _ytSubOverlay;
 }
@@ -320,6 +352,7 @@ function _ytDestroyAll() {
   _ytSettingsPnl?.remove(); _ytSettingsPnl = null;
   _ytSubBtn = null; _ytSettingsBtn = null;
   _ytCues = null; _ytLastCueIdx = -2;
+  _ytPausedByHover = false;
 }
 
 // Reset subtitle state for a new video (bar persists, score updates).
@@ -387,6 +420,7 @@ function _ytToggleSettings(player) {
       fsRow.querySelectorAll('[data-sz]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_pnlActiveStyle(+b.dataset.sz === _ytFontSize)}`; });
       const w = _ytSubOverlay?.querySelector('span');
       if (w) w.style.fontSize = `${_ytFontSize}px`;
+      _ytSaveSettings();
     });
     fsRow.appendChild(btn);
   });
@@ -405,6 +439,7 @@ function _ytToggleSettings(player) {
       fwRow.querySelectorAll('[data-fw]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:${b.dataset.fw};transition:all .15s;${_pnlActiveStyle(+b.dataset.fw === _ytFontWeight)}`; });
       const w = _ytSubOverlay?.querySelector('span');
       if (w) w.style.fontWeight = `${_ytFontWeight}`;
+      _ytSaveSettings();
     });
     fwRow.appendChild(btn);
   });
@@ -424,6 +459,7 @@ function _ytToggleSettings(player) {
     bgVal.textContent = `${slider.value}%`;
     const w = _ytSubOverlay?.querySelector('span');
     if (w) w.style.background = `rgba(0,0,0,${_ytBgOpacity})`;
+    _ytSaveSettings();
   });
   const bgVal = document.createElement('span');
   bgVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
@@ -449,13 +485,36 @@ function _ytToggleSettings(player) {
       cmRow.querySelectorAll('[data-cb]').forEach(b => { b.style.cssText = `flex:1;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.cb === 'true') === _ytColorblind)}`; });
       _ytRecolorOverlay();
       _ytLastCueIdx = -2;
+      _ytSaveSettings();
     });
     cmRow.appendChild(btn);
   });
   const cmHint = document.createElement('div');
-  cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px';
+  cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px;margin-bottom:14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
   pnl.appendChild(cmHint);
+
+  // ── Pause on hover ────────────────────────────────────────
+  _pnlLabel('Pause on hover');
+  const phRow = _pnlBtnRow(6, 4);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.ph = val;
+    btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytPauseOnHover)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _ytPauseOnHover = val;
+      if (!val && _ytPausedByHover) { _ytPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
+      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ph === 'true') === _ytPauseOnHover)}`; });
+      _ytSaveSettings();
+    });
+    phRow.appendChild(btn);
+  });
+  const phHint = document.createElement('div');
+  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
+  phHint.textContent = 'Pauses playback while hovering a subtitle';
+  pnl.appendChild(phHint);
 
   player.appendChild(pnl);
   _ytSettingsPnl = pnl;
