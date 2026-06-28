@@ -388,6 +388,39 @@ function _cijCreateControlBar(player, score) {
   _cijSettingsBtn.addEventListener('click', e => { e.stopPropagation(); _cijToggleSettings(player); });
   bar.appendChild(_cijSettingsBtn);
 
+  // ⛶ fullscreen button
+  const fsBtn = document.createElement('button');
+  fsBtn.id = 'mc-cij-fs-btn';
+  fsBtn.title = 'Fullscreen';
+  fsBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><path d="M0 0h4v1.5H1.5V4H0zm9 0h4v4h-1.5V1.5H9zM0 9h1.5v2.5H4V13H0zm11.5 2.5V9H13v4H9v-1.5z"/></svg>';
+  fsBtn.style.cssText = 'padding:9px 10px;color:#888;background:none;border:none;border-left:1px solid rgba(255,255,255,.12);cursor:pointer;display:flex;align-items:center';
+  fsBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else player.requestFullscreen().catch(() => {});
+  });
+  bar.appendChild(fsBtn);
+
+  // Transparent overlay over the native fullscreen button (bottom-right of video).
+  // Intercepts the click so the wrap—not the bare video—goes fullscreen.
+  const fsOverlay = document.createElement('div');
+  fsOverlay.style.cssText = 'position:absolute;bottom:0;right:0;width:60px;height:60px;z-index:9998;cursor:pointer;';
+  fsOverlay.title = 'Fullscreen';
+  fsOverlay.addEventListener('click', e => {
+    e.stopPropagation();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else player.requestFullscreen().catch(() => {});
+  });
+  player.appendChild(fsOverlay);
+
+  // F key shortcut
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'f' || e.key === 'F') && !e.target.matches('input,textarea')) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else player.requestFullscreen().catch(() => {});
+    }
+  });
+
   player.appendChild(bar);
   _cijControlBar = bar;
 }
@@ -480,33 +513,20 @@ document.addEventListener('fullscreenchange', () => {
   const fs = document.fullscreenElement;
   const video = document.querySelector('video');
   const wrap = document.getElementById('mc-cij-wrap');
+  const fsBtn = document.getElementById('mc-cij-fs-btn');
   if (!wrap) return;
 
-  const entering = fs && (fs === wrap || wrap.contains(fs) || fs === video);
-  if (entering) {
+  if (fs === wrap) {
     wrap.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;background:#000;width:100vw;height:100vh;';
     if (video) { video.style.maxWidth = '100vw'; video.style.maxHeight = '100vh'; }
-    // If a child went fullscreen instead of wrap, move our UI into the fullscreen element
-    const target = (fs === wrap) ? wrap : fs;
-    const bar = document.getElementById('mc-cij-bar');
-    const overlay = document.getElementById('mc-cij-overlay');
-    const settings = document.getElementById('mc-cij-settings');
-    if (bar && !target.contains(bar)) target.appendChild(bar);
-    if (overlay && !target.contains(overlay)) target.appendChild(overlay);
-    if (settings && !target.contains(settings)) target.appendChild(settings);
+    if (fsBtn) fsBtn.title = 'Exit fullscreen';
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
-      const el = document.getElementById(id); if (el) target.appendChild(el);
+      const el = document.getElementById(id); if (el) wrap.appendChild(el);
     }
-  } else {
+  } else if (!fs) {
     wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
     if (video) { video.style.maxWidth = ''; video.style.maxHeight = ''; }
-    // Move our UI back into wrap
-    const bar = document.getElementById('mc-cij-bar');
-    const overlay = document.getElementById('mc-cij-overlay');
-    const settings = document.getElementById('mc-cij-settings');
-    if (bar && !wrap.contains(bar)) wrap.appendChild(bar);
-    if (overlay && !wrap.contains(overlay)) wrap.appendChild(overlay);
-    if (settings) document.getElementById('mc-cij-settings')?.remove();
+    if (fsBtn) fsBtn.title = 'Fullscreen';
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
       const el = document.getElementById(id); if (el) document.body.appendChild(el);
     }
