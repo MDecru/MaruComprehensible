@@ -61,7 +61,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "content_local.js", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
+      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "content_local.js", "player.js", "player.html", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
       "matches": ["<all_urls>"]
     }
   ]

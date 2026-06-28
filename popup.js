@@ -370,6 +370,11 @@ async function init() {
     setExtraStatus([], []);
   });
 
+  document.getElementById('local-player-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('player.html') });
+    window.close();
+  });
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {
