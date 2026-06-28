@@ -356,5 +356,27 @@ function _buildSettingsPanel() {
   settingsPnl.appendChild(phHint);
 }
 
+// ── Fullscreen ────────────────────────────────────────────────────────────────
+
+const playerContainer = document.getElementById('player-container');
+const fsBtn = document.getElementById('fs-btn');
+
+function _toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    playerContainer.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+fsBtn.addEventListener('click', _toggleFullscreen);
+document.addEventListener('keydown', e => {
+  if (e.key === 'f' || e.key === 'F') _toggleFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+  fsBtn.textContent = document.fullscreenElement ? '✕' : '⛶';
+  fsBtn.title = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+});
+
 // Pre-warm tokenizer
 getTokenizer().catch(() => {});

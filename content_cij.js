@@ -84,15 +84,20 @@ function _cijSaveSettings() {
 
 function _cijGetPlayer() {
   const video = document.querySelector('video');
-  return video?.closest('[class*="player"],[class*="video"],[id*="player"],[id*="video"]')
-      || video?.parentElement
-      || null;
+  if (!video) return null;
+  // Reuse wrapper if already created
+  if (video.parentElement?.id === 'mc-cij-wrap') return video.parentElement;
+  // Insert a positioned wrapper around the video so overlay/bar sit on top of it
+  const wrap = document.createElement('div');
+  wrap.id = 'mc-cij-wrap';
+  wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
+  video.before(wrap);
+  wrap.appendChild(video);
+  return wrap;
 }
 
 function _cijEnsureOverlay(player) {
   if (_cijSubOverlay) return _cijSubOverlay;
-  // Overlay needs a positioned ancestor
-  if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
 
   _cijSubOverlay = document.createElement('div');
   _cijSubOverlay.id = 'mc-cij-overlay';
