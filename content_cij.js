@@ -344,7 +344,7 @@ function _cijCreateControlBar(player, score) {
 
   const scoreEl = document.createElement('span');
   scoreEl.id = 'mc-cij-score';
-  scoreEl.style.cssText = 'padding:5px 10px;font-size:13px;font-weight:700;color:#fff;border-right:1px solid rgba(255,255,255,.12);display:flex;align-items:center';
+  scoreEl.style.cssText = 'padding:9px 10px;font-size:13px;font-weight:700;color:#fff;border-right:1px solid rgba(255,255,255,.12);display:flex;align-items:center';
   scoreEl.textContent = score !== null ? `${score}%` : '–';
   bar.appendChild(scoreEl);
 
@@ -352,7 +352,7 @@ function _cijCreateControlBar(player, score) {
   _cijSubBtn = document.createElement('button');
   _cijSubBtn.id = 'mc-cij-btn';
   _cijSubBtn.textContent = '字幕';
-  _cijSubBtn.style.cssText = 'padding:5px 10px;font-size:13px;font-weight:600;color:#888;background:none;border:none;border-right:1px solid rgba(255,255,255,.12);cursor:pointer;letter-spacing:.3px;transition:color .15s';
+  _cijSubBtn.style.cssText = 'padding:9px 10px;font-size:13px;font-weight:600;color:#888;background:none;border:none;border-right:1px solid rgba(255,255,255,.12);cursor:pointer;letter-spacing:.3px;transition:color .15s';
   let _loading = false;
   _cijSubBtn.addEventListener('click', async e => {
     e.stopPropagation();
@@ -384,7 +384,7 @@ function _cijCreateControlBar(player, score) {
   _cijSettingsBtn = document.createElement('button');
   _cijSettingsBtn.id = 'mc-cij-settings-btn';
   _cijSettingsBtn.textContent = '⚙';
-  _cijSettingsBtn.style.cssText = 'padding:5px 8px;font-size:12px;color:#888;background:none;border:none;cursor:pointer;display:none';
+  _cijSettingsBtn.style.cssText = 'padding:9px 8px;font-size:12px;color:#888;background:none;border:none;cursor:pointer;display:none';
   _cijSettingsBtn.addEventListener('click', e => { e.stopPropagation(); _cijToggleSettings(player); });
   bar.appendChild(_cijSettingsBtn);
 

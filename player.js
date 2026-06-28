@@ -361,6 +361,10 @@ function _buildSettingsPanel() {
 const playerContainer = document.getElementById('player-container');
 const fsBtn = document.getElementById('fs-btn');
 
+// Redirect the native video controls' fullscreen button to playerContainer
+// so our subtitle overlay and control bar (siblings of <video>) stay visible.
+video.requestFullscreen = (options) => playerContainer.requestFullscreen(options);
+
 function _toggleFullscreen() {
   if (!document.fullscreenElement) {
     playerContainer.requestFullscreen().catch(() => {});
