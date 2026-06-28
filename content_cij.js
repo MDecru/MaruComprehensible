@@ -482,15 +482,31 @@ document.addEventListener('fullscreenchange', () => {
   const wrap = document.getElementById('mc-cij-wrap');
   if (!wrap) return;
 
-  if (fs === wrap) {
+  const entering = fs && (fs === wrap || wrap.contains(fs) || fs === video);
+  if (entering) {
     wrap.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;background:#000;width:100vw;height:100vh;';
     if (video) { video.style.maxWidth = '100vw'; video.style.maxHeight = '100vh'; }
+    // If a child went fullscreen instead of wrap, move our UI into the fullscreen element
+    const target = (fs === wrap) ? wrap : fs;
+    const bar = document.getElementById('mc-cij-bar');
+    const overlay = document.getElementById('mc-cij-overlay');
+    const settings = document.getElementById('mc-cij-settings');
+    if (bar && !target.contains(bar)) target.appendChild(bar);
+    if (overlay && !target.contains(overlay)) target.appendChild(overlay);
+    if (settings && !target.contains(settings)) target.appendChild(settings);
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
-      const el = document.getElementById(id); if (el) wrap.appendChild(el);
+      const el = document.getElementById(id); if (el) target.appendChild(el);
     }
   } else {
     wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
     if (video) { video.style.maxWidth = ''; video.style.maxHeight = ''; }
+    // Move our UI back into wrap
+    const bar = document.getElementById('mc-cij-bar');
+    const overlay = document.getElementById('mc-cij-overlay');
+    const settings = document.getElementById('mc-cij-settings');
+    if (bar && !wrap.contains(bar)) wrap.appendChild(bar);
+    if (overlay && !wrap.contains(overlay)) wrap.appendChild(overlay);
+    if (settings) document.getElementById('mc-cij-settings')?.remove();
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
       const el = document.getElementById(id); if (el) document.body.appendChild(el);
     }
