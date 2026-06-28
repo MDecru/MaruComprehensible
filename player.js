@@ -376,6 +376,13 @@ document.addEventListener('keydown', e => {
 document.addEventListener('fullscreenchange', () => {
   fsBtn.textContent = document.fullscreenElement ? '✕' : '⛶';
   fsBtn.title = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+  // Move hover tooltip and sidebar into / out of the fullscreen container
+  for (const id of ['jp-hover-tip', 'jp-sidebar']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (document.fullscreenElement) document.fullscreenElement.appendChild(el);
+    else document.body.appendChild(el);
+  }
 });
 
 // Pre-warm tokenizer
