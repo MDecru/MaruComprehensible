@@ -104,7 +104,7 @@ scanPage();
 
 // Re-tokenize if hover is on when the transcript fills in (it's populated dynamically)
 new MutationObserver(() => {
-  if (_hoverEnabled) {
+  if (typeof _hoverEnabled !== 'undefined' && _hoverEnabled) {
     const container = cijFindTranscriptElement();
     if (container) hoverRetokenize(container);
   }

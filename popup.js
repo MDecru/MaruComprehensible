@@ -222,12 +222,14 @@ async function init() {
     btn.disabled = false;
   });
 
+  const SUPPORTED_HOSTS = ['cijapanese.com', 'nihongo-jikan.com', 'www.nihongo-jikan.com', 'www.youtube.com', 'mdnas.local', 'cij.punchyface.synology.me'];
+
   async function doScore(tab, { silent = false } = {}) {
     const card = document.getElementById('score-block');
     const statusEl = document.getElementById('status');
     if (card) card.classList.add('scoring');
 
-    // Try messaging an already-running content script (YT / NJK)
+    // Try messaging an already-running content script (YT / NJK / CIJ)
     try {
       const resp = await chrome.tabs.sendMessage(tab.id, { action: 'rescore' });
       if (resp?.score != null) {
@@ -243,10 +245,21 @@ async function init() {
       return;
     } catch {}
 
-    // Fallback: inject directly (CIJ or any page with <video>+<track>)
+    // Fallback injection — only on known sites to avoid holding other pages hostage
+    let tabHost = '';
+    try { tabHost = new URL(tab.url || '').hostname; } catch {}
+    if (!SUPPORTED_HOSTS.includes(tabHost)) {
+      if (!silent && statusEl) { statusEl.textContent = 'Not supported on this page'; statusEl.style.color = '#9aa0b4'; }
+      if (card) card.classList.remove('scoring');
+      return;
+    }
+
     try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['dict_xhr_patch.js'] });
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['lib/kuromoji.js'] });
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['common.js'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['hover.js'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['sidebar.js'] });
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content_cij.js'] });
       if (!silent && statusEl) { statusEl.textContent = 'Done — check page for badge'; statusEl.style.color = '#4ade80'; }
     } catch (e) {

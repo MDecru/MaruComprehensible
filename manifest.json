@@ -16,7 +16,9 @@
     "https://www.nihongo-jikan.com/*",
     "https://www.youtube.com/*",
     "https://cdn.jsdelivr.net/*",
-    "https://jisho.org/*"
+    "https://jisho.org/*",
+    "http://mdnas.local:8899/*",
+    "http://cij.punchyface.synology.me:8899/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -33,6 +35,11 @@
     {
       "matches": ["https://cijapanese.com/video/*"],
       "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://mdnas.local:8899/*", "http://cij.punchyface.synology.me:8899/*"],
+      "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "content_local.js"],
       "run_at": "document_idle"
     },
     {
@@ -54,7 +61,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
+      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "content_local.js", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
       "matches": ["<all_urls>"]
     }
   ]

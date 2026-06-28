@@ -4,6 +4,7 @@
 // associated with a tab and bypass that filtering.
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.action === 'fetchText') {
+    if (!sender?.tab?.id) { reply({ ok: false, status: 0, text: '', error: 'no tab context' }); return; }
     // Execute fetch inside the YouTube page (MAIN world) so the browser sends
     // YouTube's own session cookies and sets Origin: https://www.youtube.com.
     // Fetching from the service worker or content script sends a chrome-extension
