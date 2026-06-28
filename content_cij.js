@@ -472,3 +472,38 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 
 getTokenizer().catch(() => {});
+
+// When the user clicks the native video fullscreen button, the browser
+// fullscreens the <video> itself, hiding our sibling bar/overlay.
+// Intercept: if <video> goes fullscreen, immediately swap to #mc-cij-wrap.
+// Also style the wrapper to fill the screen properly.
+document.addEventListener('fullscreenchange', () => {
+  const fs = document.fullscreenElement;
+  const video = document.querySelector('video');
+  const wrap = document.getElementById('mc-cij-wrap');
+  if (!wrap) return;
+
+  if (fs === video) {
+    // Redirect fullscreen to our wrapper
+    document.exitFullscreen().then(() => {
+      wrap.requestFullscreen().catch(() => {});
+    }).catch(() => {});
+  } else if (fs === wrap) {
+    // Wrapper is now fullscreen — make video fill it
+    wrap.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;background:#000;width:100vw;height:100vh;';
+    if (video) { video.style.maxWidth = '100vw'; video.style.maxHeight = '100vh'; }
+    // Move hover tip and sidebar inside fullscreen element so they stay visible
+    for (const id of ['jp-hover-tip', 'jp-sidebar']) {
+      const el = document.getElementById(id);
+      if (el) wrap.appendChild(el);
+    }
+  } else {
+    // Exited fullscreen — restore wrapper and video styles
+    wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
+    if (video) { video.style.maxWidth = ''; video.style.maxHeight = ''; }
+    for (const id of ['jp-hover-tip', 'jp-sidebar']) {
+      const el = document.getElementById(id);
+      if (el) document.body.appendChild(el);
+    }
+  }
+});

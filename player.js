@@ -374,8 +374,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'f' || e.key === 'F') _toggleFullscreen();
 });
 document.addEventListener('fullscreenchange', () => {
-  fsBtn.textContent = document.fullscreenElement ? '✕' : '⛶';
-  fsBtn.title = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+  fsBtn.title = document.fullscreenElement ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
   // Move hover tooltip and sidebar into / out of the fullscreen container
   for (const id of ['jp-hover-tip', 'jp-sidebar']) {
     const el = document.getElementById(id);
