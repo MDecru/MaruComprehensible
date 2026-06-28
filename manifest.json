@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "MaruComprehensible",
+  "version": "1.0",
+  "description": "See your MaruMori comprehension % on Japanese videos. Hover over words for definitions, kanji info, and JLPT levels. Works on CIJ, Nihongo-Jikan, and YouTube.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": [
+    "https://public-api.marumori.io/*",
+    "https://cijapanese.com/*",
+    "https://nihongo-jikan.com/*",
+    "https://www.nihongo-jikan.com/*",
+    "https://www.youtube.com/*",
+    "https://cdn.jsdelivr.net/*",
+    "https://jisho.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://cijapanese.com/video/*"],
+      "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://nihongo-jikan.com/*", "https://www.nihongo-jikan.com/*"],
+      "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_njk.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["yt_bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_yt.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
