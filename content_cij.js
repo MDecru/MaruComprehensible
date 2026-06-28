@@ -93,8 +93,6 @@ function _cijGetPlayer() {
   wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
   video.before(wrap);
   wrap.appendChild(video);
-  // Hide the native fullscreen button — we provide our own in the control bar
-  video.setAttribute('controlslist', (video.getAttribute('controlslist') || '') + ' nofullscreen');
   return wrap;
 }
 
@@ -390,22 +388,6 @@ function _cijCreateControlBar(player, score) {
   _cijSettingsBtn.addEventListener('click', e => { e.stopPropagation(); _cijToggleSettings(player); });
   bar.appendChild(_cijSettingsBtn);
 
-  // ⛶ fullscreen button — requests fullscreen on the wrapper (user gesture context)
-  const fsBtn = document.createElement('button');
-  fsBtn.id = 'mc-cij-fs-btn';
-  fsBtn.title = 'Fullscreen';
-  fsBtn.style.cssText = 'padding:5px 8px;background:none;border:none;color:#fff;cursor:pointer;display:flex;align-items:center';
-  fsBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><path d="M0 0h4v1.5H1.5V4H0zm9 0h4v4h-1.5V1.5H9zM0 9h1.5v2.5H4V13H0zm11.5 2.5V9H13v4H9v-1.5z"/></svg>';
-  fsBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    if (!document.fullscreenElement) {
-      player.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  });
-  bar.appendChild(fsBtn);
-
   player.appendChild(bar);
   _cijControlBar = bar;
 }
@@ -498,20 +480,17 @@ document.addEventListener('fullscreenchange', () => {
   const fs = document.fullscreenElement;
   const video = document.querySelector('video');
   const wrap = document.getElementById('mc-cij-wrap');
-  const fsBtn = document.getElementById('mc-cij-fs-btn');
   if (!wrap) return;
 
   if (fs === wrap) {
     wrap.style.cssText = 'position:relative;display:flex;align-items:center;justify-content:center;background:#000;width:100vw;height:100vh;';
     if (video) { video.style.maxWidth = '100vw'; video.style.maxHeight = '100vh'; }
-    if (fsBtn) fsBtn.title = 'Exit fullscreen';
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
       const el = document.getElementById(id); if (el) wrap.appendChild(el);
     }
   } else {
     wrap.style.cssText = 'position:relative;display:block;width:100%;line-height:0;';
     if (video) { video.style.maxWidth = ''; video.style.maxHeight = ''; }
-    if (fsBtn) fsBtn.title = 'Fullscreen';
     for (const id of ['jp-hover-tip', 'jp-sidebar']) {
       const el = document.getElementById(id); if (el) document.body.appendChild(el);
     }

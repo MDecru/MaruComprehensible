@@ -33,6 +33,12 @@
   },
   "content_scripts": [
     {
+      "matches": ["https://cijapanese.com/video/*", "http://mdnas.local:8899/*", "http://cij.punchyface.synology.me:8899/*"],
+      "js": ["content_cij_main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
       "matches": ["https://cijapanese.com/video/*"],
       "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js"],
       "run_at": "document_idle"
