@@ -191,21 +191,33 @@ function _cijStartTimeSync() {
   return () => video.removeEventListener('timeupdate', handler);
 }
 
-function _cijToggleSettings(player) {
+function _cijReposSettingsPnl() {
+  if (!_cijSettingsPnl || !_cijControlBar) return;
+  const r = _cijControlBar.getBoundingClientRect();
+  _cijSettingsPnl.style.top  = (r.bottom + 6) + 'px';
+  _cijSettingsPnl.style.left = r.left + 'px';
+}
+
+function _cijToggleSettings(_player) {
   if (_cijSettingsPnl) {
-    _cijSettingsPnl.style.display = _cijSettingsPnl.style.display === 'none' ? 'block' : 'none';
+    const opening = _cijSettingsPnl.style.display === 'none';
+    _cijSettingsPnl.style.display = opening ? 'block' : 'none';
+    if (opening) _cijReposSettingsPnl();
     return;
   }
 
   const pnl = document.createElement('div');
   pnl.id = 'mc-cij-settings';
+  // Attach to body so the CIJ site's inherited CSS (font scaling, button resets,
+  // container zoom) cannot affect our panel's appearance.
   pnl.style.cssText = [
-    'position:absolute', 'top:44px', 'left:12px', 'z-index:9998',
+    'position:fixed', 'z-index:2147483647',
     'background:rgba(15,15,15,.96)', 'border:1px solid #3a3f4a',
     'border-radius:10px', 'padding:14px 16px',
     'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
     'white-space:nowrap', 'min-width:240px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
+    'line-height:normal', 'box-sizing:border-box',
   ].join(';');
 
   function _lbl(text) {
@@ -232,7 +244,7 @@ function _cijToggleSettings(player) {
   _CIJ_FONT_SIZES.forEach((sz, i) => {
     const btn = document.createElement('button');
     btn.dataset.sz = sz; btn.textContent = i + 1;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_active(sz === _cijFontSize)}`;
+    btn.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(sz === _cijFontSize)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijFontSize = sz;
       fsRow.querySelectorAll('[data-sz]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_active(+b.dataset.sz === _cijFontSize)}`; });
@@ -320,8 +332,9 @@ function _cijToggleSettings(player) {
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   pnl.appendChild(phHint);
 
-  player.appendChild(pnl);
+  document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
+  _cijReposSettingsPnl();
 }
 
 function _cijCreateControlBar(player, score) {
