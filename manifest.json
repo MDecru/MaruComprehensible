@@ -12,10 +12,10 @@
   "host_permissions": [
     "https://public-api.marumori.io/*",
     "https://cijapanese.com/*",
+    "https://www.cijapanese.com/*",
     "https://nihongo-jikan.com/*",
     "https://www.nihongo-jikan.com/*",
     "https://www.youtube.com/*",
-    "https://cdn.jsdelivr.net/*",
     "https://jisho.org/*",
     "http://mdnas.local:8899/*",
     "http://cij.punchyface.synology.me:8899/*"
@@ -33,13 +33,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://cijapanese.com/video/*", "http://mdnas.local:8899/*", "http://cij.punchyface.synology.me:8899/*"],
+      "matches": ["https://cijapanese.com/video/*", "https://www.cijapanese.com/video/*", "http://mdnas.local:8899/*", "http://cij.punchyface.synology.me:8899/*"],
       "js": ["content_cij_main.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://cijapanese.com/video/*"],
+      "matches": ["https://cijapanese.com/video/*", "https://www.cijapanese.com/video/*"],
       "js": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js"],
       "run_at": "document_idle"
     },
@@ -67,8 +67,16 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dict_xhr_patch.js", "lib/kuromoji.js", "common.js", "hover.js", "sidebar.js", "content_cij.js", "content_local.js", "player.js", "player.html", "dict/*.dat.gz", "data/jlpt_mapping.json", "icons/*.png"],
-      "matches": ["<all_urls>"]
+      "resources": ["dict/*.dat.gz", "data/jlpt_mapping.json"],
+      "matches": [
+        "https://cijapanese.com/*",
+        "https://www.cijapanese.com/*",
+        "https://nihongo-jikan.com/*",
+        "https://www.nihongo-jikan.com/*",
+        "https://www.youtube.com/*",
+        "http://mdnas.local:8899/*",
+        "http://cij.punchyface.synology.me:8899/*"
+      ]
     }
   ]
 }
