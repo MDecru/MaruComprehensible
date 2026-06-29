@@ -167,10 +167,44 @@ async function loadSubtitle(file) {
 
   loading.classList.add('visible');
   try {
+    // Check vocab access before scoring so we can give a helpful error
+    if (!chrome.runtime?.id) {
+      scoreEl.textContent = '–';
+      scoreEl.title = 'Extension was reloaded — please close and reopen this player tab';
+      console.warn('[MaruComprehensible] Extension context invalidated. Close this tab and reopen the local player from the extension popup.');
+      loading.classList.remove('visible');
+      return;
+    }
+    const vocab = await getVocab();
+    if (!vocab.size) {
+      scoreEl.textContent = '–';
+      scoreEl.title = 'No MaruMori vocab loaded — open the extension popup and connect your account';
+      console.warn('[MaruComprehensible] Vocab is empty. Open the extension popup and connect your MaruMori account, then reload this page.');
+      loading.classList.remove('visible');
+      return;
+    }
+
+    const parsedText = parseVTT(_vtt);
+    if (!parsedText.trim()) {
+      scoreEl.textContent = '–';
+      scoreEl.title = 'No Japanese text found in this subtitle file';
+      console.warn('[MaruComprehensible] parseVTT returned empty string — subtitle may be in an unsupported format or have no Japanese text.');
+      loading.classList.remove('visible');
+      return;
+    }
+
     const res = await scoreVTT(_vtt);
-    scoreEl.textContent = res?.score != null ? `${res.score}%` : '–';
-  } catch {
+    if (res?.score != null) {
+      scoreEl.textContent = `${res.score}%`;
+      scoreEl.title = `Frequency: ${res.freqKnown}/${res.freqTotal} · Unique: ${res.uniqueKnown}/${res.uniqueTotal} · Kanji: ${res.kanjiKnown}/${res.kanjiTotal}`;
+    } else {
+      scoreEl.textContent = '–';
+      scoreEl.title = '';
+    }
+  } catch (e) {
+    console.error('[MaruComprehensible] Scoring error:', e);
     scoreEl.textContent = '?';
+    scoreEl.title = e.message;
   }
   loading.classList.remove('visible');
 }
@@ -394,3 +428,43 @@ new MutationObserver(() => {
 
 // Pre-warm tokenizer
 getTokenizer().catch(() => {});
+
+// Allow the popup to query status and trigger scoring when player.html is the active tab.
+// chrome.tabs.sendMessage reaches extension pages open as tabs (they share the tab channel).
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg.action === 'tokStatus') {
+    reply({ ready: _tokenizer !== null });
+    return;
+  }
+  if (msg.action === 'hoverStatus') {
+    reply({ enabled: typeof _hoverEnabled !== 'undefined' && _hoverEnabled });
+    return;
+  }
+  if (msg.action === 'sidebarStatus') {
+    reply({ open: sidebarIsOpen() });
+    return;
+  }
+  if (msg.action === 'openSidebar') {
+    if (!_vtt) { reply({ ok: false, error: 'No subtitle loaded' }); return; }
+    sidebarToggle(parseVTT(_vtt))
+      .then(r => reply(r))
+      .catch(e => reply({ ok: false, error: e.message }));
+    return true;
+  }
+  if (msg.action === 'rescore') {
+    if (!_vtt) { reply({ error: 'No subtitle loaded yet' }); return; }
+    scoreVTT(_vtt)
+      .then(res => {
+        if (res?.score != null) {
+          scoreEl.textContent = `${res.score}%`;
+          reply({ score: res.score, freqKnown: res.freqKnown, freqTotal: res.freqTotal,
+                  uniqueKnown: res.uniqueKnown, uniqueTotal: res.uniqueTotal,
+                  kanjiKnown: res.kanjiKnown, kanjiTotal: res.kanjiTotal });
+        } else {
+          reply({ error: res === null ? 'No vocab or no Japanese text' : 'No content words scored' });
+        }
+      })
+      .catch(e => reply({ error: e.message }));
+    return true;
+  }
+});
