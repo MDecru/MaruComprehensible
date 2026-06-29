@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — MaruComprehensible</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: #f7f8fa;
+    color: #2c2f33;
+    line-height: 1.7;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; color: #1a1c1f; }
+  .meta { font-size: 13px; color: #6a748a; margin-bottom: 36px; }
+  h2 { font-size: 16px; font-weight: 700; margin: 28px 0 8px; color: #1a1c1f; }
+  p { margin-bottom: 12px; font-size: 15px; }
+  ul { margin: 8px 0 12px 20px; font-size: 15px; }
+  ul li { margin-bottom: 5px; }
+  a { color: #66AAE8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .card {
+    background: #fff;
+    border: 1px solid #dde1ea;
+    border-radius: 12px;
+    padding: 28px 32px;
+  }
+  .highlight {
+    background: #edf6ff;
+    border-left: 3px solid #66AAE8;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 14px;
+    color: #3a4a6a;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Privacy Policy</h1>
+    <p class="meta">MaruComprehensible Chrome Extension &nbsp;·&nbsp; Last updated: June 2025</p>
+
+    <div class="highlight">
+      Short version: MaruComprehensible stores your MaruMori API token locally on your device and never transmits it to anyone other than MaruMori. No browsing data, no analytics, no ads.
+    </div>
+
+    <h2>What data we collect</h2>
+    <p>MaruComprehensible stores the following data locally on your device using <code>chrome.storage.local</code>:</p>
+    <ul>
+      <li>Your <strong>MaruMori API token</strong>, which you paste voluntarily to connect your account</li>
+      <li>Your <strong>vocab and kanji lists</strong>, downloaded from MaruMori and cached locally so scoring works offline</li>
+      <li><strong>UI preferences</strong> (theme, font size, sort order)</li>
+    </ul>
+    <p>This data never leaves your device except as described below.</p>
+
+    <h2>Network requests</h2>
+    <p>The extension makes the following outbound requests:</p>
+    <ul>
+      <li><strong>MaruMori API</strong> (<code>public-api.marumori.io</code>) — to fetch your vocab and kanji lists using your API token. This request is made only when you click "Connect" or "Refresh" in the popup.</li>
+      <li><strong>YouTube timedtext API</strong> (<code>youtube.com</code>) — to fetch Japanese subtitle tracks for the video currently playing, for comprehension scoring. No account credentials are sent; only a public caption URL is fetched.</li>
+      <li><strong>Jisho dictionary API</strong> (<code>jisho.org</code>) — to look up word definitions when you hover over a word. Only the hovered word is sent.</li>
+    </ul>
+    <p>No other external servers are contacted. The extension does not use analytics, crash reporting, or advertising services.</p>
+
+    <h2>Data sharing</h2>
+    <p>We do not sell, share, or transmit your data to any third party. The only external services the extension communicates with are those listed above, solely to provide the extension's core functionality.</p>
+
+    <h2>Data stored on your device</h2>
+    <p>All data is stored locally via the Chrome storage API and is never synced to any remote server controlled by this extension. You can clear all stored data at any time by clicking "Disconnect" in the extension popup, or by removing the extension from Chrome.</p>
+
+    <h2>Permissions used</h2>
+    <ul>
+      <li><strong>storage</strong> — to save your API token and preferences locally</li>
+      <li><strong>activeTab</strong> — to read the current tab's URL so the popup can show the correct score</li>
+      <li><strong>scripting</strong> — to fetch YouTube caption files using the page's session cookies (required because YouTube rejects requests from extension origins)</li>
+      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports (CIJ, Nihongo-Jikan, YouTube, MaruMori API, Jisho)</li>
+    </ul>
+
+    <h2>Children's privacy</h2>
+    <p>This extension is not directed at children under 13 and does not knowingly collect data from them.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If this policy changes materially, the "Last updated" date above will be revised. Continued use of the extension after a change constitutes acceptance of the updated policy.</p>
+
+    <h2>Contact</h2>
+    <p>Questions or concerns? Open an issue on <a href="https://github.com/MDecru/MaruComprehensible" target="_blank">GitHub</a> or email <a href="mailto:marucomprehensible@gmail.com">marucomprehensible@gmail.com</a>.</p>
+  </div>
+</div>
+</body>
+</html>
