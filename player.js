@@ -384,5 +384,13 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 
+// Shift #player-wrap when the sidebar opens — body.marginRight has no effect
+// here because html/body have overflow:hidden and the wrap is position:fixed.
+new MutationObserver(() => {
+  const open = !!document.getElementById('jp-sidebar');
+  playerWrap.style.transition = 'right .2s ease';
+  playerWrap.style.right = open ? '260px' : '';
+}).observe(document.body, { childList: true });
+
 // Pre-warm tokenizer
 getTokenizer().catch(() => {});

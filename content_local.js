@@ -19,4 +19,16 @@
     _cijVttCache = null;
     scanPage();
   });
+
+  // The sidebar sets body.marginRight to push content, but #detail is
+  // position:fixed so it ignores body margins. Watch for the sidebar and
+  // shift #detail directly so the player view also moves aside.
+  const detail = document.getElementById('detail');
+  if (detail) {
+    detail.style.transition = 'right .2s ease';
+    new MutationObserver(() => {
+      const open = !!document.getElementById('jp-sidebar');
+      detail.style.right = open ? '260px' : '';
+    }).observe(document.body, { childList: true });
+  }
 })();
