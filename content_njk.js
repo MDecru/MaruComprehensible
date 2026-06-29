@@ -162,3 +162,20 @@ let _observer = new MutationObserver(() => {
 _observer.observe(document.body, { childList: true, subtree: true });
 
 getTokenizer().catch(() => {});
+
+// nihongo-jikan.com likely wraps content in a framework root element rather
+// than relying on body layout, so body.marginRight has no visible effect.
+// Shift the outermost content container instead.
+sbRegisterPush(
+  () => {
+    const el = document.querySelector('main, #__next, #app, #root') || document.body;
+    el.dataset.sbPrevMargin = el.style.marginRight;
+    el.style.transition = 'margin-right .2s ease';
+    el.style.marginRight = '260px';
+  },
+  () => {
+    const el = document.querySelector('main, #__next, #app, #root') || document.body;
+    el.style.marginRight = el.dataset.sbPrevMargin || '';
+    delete el.dataset.sbPrevMargin;
+  }
+);

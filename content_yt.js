@@ -746,3 +746,21 @@ new MutationObserver(() => {
 
 // Pre-warm the tokenizer in the background so it's ready when the user clicks score.
 getTokenizer().catch(() => {});
+
+// YouTube sets overflow:hidden on body, so body.marginRight does nothing.
+// Push ytd-app (the root custom element) instead.
+sbRegisterPush(
+  () => {
+    const app = document.querySelector('ytd-app');
+    if (!app) return;
+    app.dataset.sbPrevMargin = app.style.marginRight;
+    app.style.transition = 'margin-right .2s ease';
+    app.style.marginRight = '260px';
+  },
+  () => {
+    const app = document.querySelector('ytd-app');
+    if (!app) return;
+    app.style.marginRight = app.dataset.sbPrevMargin || '';
+    delete app.dataset.sbPrevMargin;
+  }
+);

@@ -4,7 +4,13 @@
 
 let _sidebarEl = null;
 let _sbPrevBodyMargin = '';
+let _sbPushFn = null;
+let _sbPopFn  = null;
 let _sbLastGroups = null;
+
+// Site content scripts can register custom push/restore handlers when body
+// marginRight doesn't work (e.g. YouTube, NJK where body overflow is hidden).
+function sbRegisterPush(pushFn, popFn) { _sbPushFn = pushFn; _sbPopFn = popFn; }
 let _sbSortMode = 'jlpt';   // 'jlpt' | 'freq'
 let _sbActiveFilter = 'unknown';
 let _sbViewMode = 'words';  // 'words' | 'kanji'
@@ -77,8 +83,12 @@ async function sidebarToggle(text) {
 function _sidebarClose() {
   _sidebarEl?.remove();
   _sidebarEl = null;
-  document.body.style.transition = 'margin-right .2s ease';
-  document.body.style.marginRight = _sbPrevBodyMargin;
+  if (_sbPopFn) {
+    _sbPopFn();
+  } else {
+    document.body.style.transition = 'margin-right .2s ease';
+    document.body.style.marginRight = _sbPrevBodyMargin;
+  }
 }
 
 async function _sbLoadJlptMap() {
@@ -288,9 +298,13 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
   <div id="jp-sb-body">${_sbBuildSections(_sbViewMode === 'kanji' ? kanjiGroups : groups, isLight, _sbSortMode)}</div>`;
 
   // Push page content left so sidebar doesn't overlay it
-  _sbPrevBodyMargin = document.body.style.marginRight;
-  document.body.style.transition = 'margin-right .2s ease';
-  document.body.style.marginRight = '260px';
+  if (_sbPushFn) {
+    _sbPushFn();
+  } else {
+    _sbPrevBodyMargin = document.body.style.marginRight;
+    document.body.style.transition = 'margin-right .2s ease';
+    document.body.style.marginRight = '260px';
+  }
 
   document.body.appendChild(el);
   _sidebarEl = el;
