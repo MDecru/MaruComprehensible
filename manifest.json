@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MaruComprehensible",
   "version": "1.0",
-  "description": "See your MaruMori comprehension % on Japanese videos. Hover over words for definitions, kanji info, and JLPT levels. Works on CIJ, Nihongo-Jikan, and YouTube.",
+  "description": "MaruMori comprehension % for Japanese videos. Colored subtitles, hover definitions, and word sidebar on CIJ, NJK, and YouTube.",
   "icons": {
     "16":  "icons/icon16.png",
     "48":  "icons/icon48.png",
