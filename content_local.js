@@ -15,8 +15,13 @@
   document.head.appendChild(style);
 
   video.addEventListener('loadstart', () => {
-    // src was just set — reset the VTT cache and re-score with the new video
+    // Reset all subtitle state for the new video — stale cues from the previous
+    // video would cause 字幕 to match no timestamps and show nothing.
     _cijVttCache = null;
+    if (_cijSubCleanup) { _cijSubCleanup(); _cijSubCleanup = null; }
+    if (_cijSubOverlay) _cijSubOverlay.innerHTML = '';
+    _cijCues = null;
+    _cijSetSubActive(false);
     scanPage();
   });
 
