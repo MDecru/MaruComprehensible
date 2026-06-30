@@ -118,7 +118,6 @@ function _cijEnsureOverlay(player) {
     'position:absolute', `bottom:${_cijSubPosition}%`, 'left:0', 'right:0',
     'z-index:9996', 'display:flex', 'justify-content:center',
     'pointer-events:auto', 'text-align:center',
-    `max-width:${_cijSubMaxWidth}%`,
   ].join(';');
   _cijSubOverlay.addEventListener('mouseenter', () => {
     if (!_cijPauseOnHover) return;
@@ -202,6 +201,7 @@ function _cijStartTimeSync() {
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
       `font-size:${_cijFontSize}px`, `font-weight:${_cijFontWeight}`, 'line-height:1.6',
+      `max-width:${_cijSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cijCues[idx].text;
     _cijSubOverlay.appendChild(wrap);
@@ -254,59 +254,76 @@ function _cijToggleSettings(_player) {
   hdrClose.addEventListener('click', e => { e.stopPropagation(); pnl.style.display = 'none'; });
   hdr.appendChild(hdrTitle); hdr.appendChild(hdrClose); pnl.appendChild(hdr);
 
+  // ── Tab bar ───────────────────────────────────────────────
+  const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
+  let _activeTab = 0;
+  const _B = 'border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;transition:all .15s';
+  const _tabOn  = `background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;${_B}`;
+  const _tabOff = `background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;${_B}`;
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:16px';
+  const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _secs[_activeTab].style.display = 'none'; _tabBtns[_activeTab].style.cssText = _tabOff;
+      _activeTab = i; _secs[i].style.display = 'block'; _tabBtns[i].style.cssText = _tabOn;
+    });
+    tabBar.appendChild(btn); return btn;
+  });
+  pnl.appendChild(tabBar);
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; pnl.appendChild(s); });
+
+  let _cur = _secs[0];
+  const _btnBase = 'flex:1;border-radius:6px;cursor:pointer;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s';
   function _lbl(text) {
     const el = document.createElement('div');
     el.style.cssText = 'font-size:11px;color:#888;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
-    el.textContent = text; pnl.appendChild(el);
+    el.textContent = text; _cur.appendChild(el);
   }
   function _row(gap, mb) {
     const row = document.createElement('div');
     row.style.cssText = `display:flex;gap:${gap}px;margin-bottom:${mb}px`;
-    pnl.appendChild(row); return row;
+    _cur.appendChild(row); return row;
   }
   function _active(on) {
-    return [
-      `background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`,
-      `color:${on ? '#66AAE8' : '#888'}`,
-      `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`,
-    ].join(';');
+    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#888'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
   }
 
-  // Font size
+  // ═══ Style tab ═══════════════════════════════════════════
+  _cur = _secs[0];
+
   _lbl('Font size');
   const fsRow = _row(6, 14);
   _CIJ_FONT_SIZES.forEach((sz, i) => {
     const btn = document.createElement('button');
     btn.dataset.sz = sz; btn.textContent = i + 1;
-    btn.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(sz === _cijFontSize)}`;
+    btn.style.cssText = `padding:7px 4px;font-size:13px;font-weight:600;${_btnBase};${_active(sz === _cijFontSize)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijFontSize = sz;
-      fsRow.querySelectorAll('[data-sz]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_active(+b.dataset.sz === _cijFontSize)}`; });
-      const w = _cijSubOverlay?.querySelector('span');
-      if (w) w.style.fontSize = `${_cijFontSize}px`;
+      fsRow.querySelectorAll('[data-sz]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:13px;font-weight:600;${_btnBase};${_active(+b.dataset.sz === _cijFontSize)}`; });
+      const w = _cijSubOverlay?.querySelector('span'); if (w) w.style.fontSize = `${_cijFontSize}px`;
       _cijSaveSettings();
     });
     fsRow.appendChild(btn);
   });
 
-  // Font weight
   _lbl('Font weight');
   const fwRow = _row(6, 14);
   _CIJ_FONT_WEIGHTS.forEach(({ label, value }) => {
     const btn = document.createElement('button');
     btn.dataset.fw = value; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:${value};transition:all .15s;${_active(value === _cijFontWeight)}`;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:${value};${_btnBase};${_active(value === _cijFontWeight)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijFontWeight = value;
-      fwRow.querySelectorAll('[data-fw]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:${b.dataset.fw};transition:all .15s;${_active(+b.dataset.fw === _cijFontWeight)}`; });
-      const w = _cijSubOverlay?.querySelector('span');
-      if (w) w.style.fontWeight = `${_cijFontWeight}`;
+      fwRow.querySelectorAll('[data-fw]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:${b.dataset.fw};${_btnBase};${_active(+b.dataset.fw === _cijFontWeight)}`; });
+      const w = _cijSubOverlay?.querySelector('span'); if (w) w.style.fontWeight = `${_cijFontWeight}`;
       _cijSaveSettings();
     });
     fwRow.appendChild(btn);
   });
 
-  // BG opacity
   _lbl('Background opacity');
   const bgRow = document.createElement('div');
   bgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
@@ -319,24 +336,23 @@ function _cijToggleSettings(_player) {
     e.stopPropagation(); _cijBgOpacity = slider.value / 100;
     bgVal.textContent = `${slider.value}%`;
     const w = _cijSubOverlay?.querySelector('span');
-    if (w) w.style.background = `rgba(0,0,0,${_cijBgOpacity})`;
+    if (w && _cijSubStyle !== 'outline') w.style.background = `rgba(0,0,0,${_cijBgOpacity})`;
     _cijSaveSettings();
   });
   const bgVal = document.createElement('span');
   bgVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
   bgVal.textContent = `${slider.value}%`;
-  bgRow.appendChild(slider); bgRow.appendChild(bgVal); pnl.appendChild(bgRow);
+  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _cur.appendChild(bgRow);
 
-  // Color mode
   _lbl('Color mode');
   const cmRow = _row(6, 6);
   [{ label: 'Blue / Red', cb: false }, { label: 'Blue / Orange', cb: true }].forEach(({ label, cb }) => {
     const btn = document.createElement('button');
     btn.dataset.cb = cb; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_active(cb === _cijColorblind)}`;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(cb === _cijColorblind)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijColorblind = cb;
-      cmRow.querySelectorAll('[data-cb]').forEach(b => { b.style.cssText = `flex:1;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_active((b.dataset.cb === 'true') === _cijColorblind)}`; });
+      cmRow.querySelectorAll('[data-cb]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.cb === 'true') === _cijColorblind)}`; });
       _cijRecolorOverlay(); _cijLastCueIdx = -2; _cijSaveSettings();
     });
     cmRow.appendChild(btn);
@@ -344,29 +360,25 @@ function _cijToggleSettings(_player) {
   const cmHint = document.createElement('div');
   cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px;margin-bottom:14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
-  pnl.appendChild(cmHint);
+  _cur.appendChild(cmHint);
 
-  // Pause on hover
-  _lbl('Pause on hover');
-  const phRow = _row(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+  _lbl('Style');
+  const stRow = _row(6, 0);
+  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
-    btn.dataset.ph = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_active(val === _cijPauseOnHover)}`;
+    btn.dataset.st = val; btn.textContent = label;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijSubStyle)}`;
     btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijPauseOnHover = val;
-      if (!val && _cijPausedByHover) { _cijPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
-      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_active((b.dataset.ph === 'true') === _cijPauseOnHover)}`; });
-      _cijSaveSettings();
+      e.stopPropagation(); _cijSubStyle = val;
+      stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(b.dataset.st === _cijSubStyle)}`; });
+      _cijLastCueIdx = -2; _cijSaveSettings();
     });
-    phRow.appendChild(btn);
+    stRow.appendChild(btn);
   });
-  const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
-  phHint.textContent = 'Pauses playback while hovering a subtitle';
-  pnl.appendChild(phHint);
 
-  // ── Vertical position ─────────────────────────────────────
+  // ═══ Layout tab ══════════════════════════════════════════
+  _cur = _secs[1];
+
   _lbl('Vertical position');
   const vpRow = document.createElement('div');
   vpRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
@@ -380,18 +392,57 @@ function _cijToggleSettings(_player) {
   vpVal.textContent = `${_cijSubPosition}%`;
   vpSlider.addEventListener('input', e => {
     e.stopPropagation();
-    _cijSubPosition = +vpSlider.value;
-    vpVal.textContent = `${_cijSubPosition}%`;
+    _cijSubPosition = +vpSlider.value; vpVal.textContent = `${_cijSubPosition}%`;
     if (_cijSubOverlay) _cijSubOverlay.style.bottom = `${_cijSubPosition}%`;
     _cijSaveSettings();
   });
-  vpRow.appendChild(vpSlider); vpRow.appendChild(vpVal); pnl.appendChild(vpRow);
+  vpRow.appendChild(vpSlider); vpRow.appendChild(vpVal); _cur.appendChild(vpRow);
 
-  // ── Subtitle delay ────────────────────────────────────────
+  _lbl('Max width');
+  const mwRow = document.createElement('div');
+  mwRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:0';
+  const mwSlider = document.createElement('input');
+  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
+  mwSlider.value = _cijSubMaxWidth;
+  mwSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  mwSlider.addEventListener('click', e => e.stopPropagation());
+  const mwVal = document.createElement('span');
+  mwVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+  mwVal.textContent = `${_cijSubMaxWidth}%`;
+  mwSlider.addEventListener('input', e => {
+    e.stopPropagation();
+    _cijSubMaxWidth = +mwSlider.value; mwVal.textContent = `${_cijSubMaxWidth}%`;
+    if (_cijSubOverlay) { const w = _cijSubOverlay.querySelector('span'); if (w) w.style.maxWidth = `${_cijSubMaxWidth}%`; }
+    _cijSaveSettings();
+  });
+  mwRow.appendChild(mwSlider); mwRow.appendChild(mwVal); _cur.appendChild(mwRow);
+
+  // ═══ Playback tab ════════════════════════════════════════
+  _cur = _secs[2];
+
+  _lbl('Pause on hover');
+  const phRow = _row(6, 4);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.ph = val; btn.textContent = label;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijPauseOnHover)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _cijPauseOnHover = val;
+      if (!val && _cijPausedByHover) { _cijPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
+      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.ph === 'true') === _cijPauseOnHover)}`; });
+      _cijSaveSettings();
+    });
+    phRow.appendChild(btn);
+  });
+  const phHint = document.createElement('div');
+  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  phHint.textContent = 'Pauses playback while hovering a subtitle';
+  _cur.appendChild(phHint);
+
   _lbl('Subtitle delay');
   const dlRow = _row(6, 14);
   const dlMinus = document.createElement('button');
-  dlMinus.textContent = '−'; dlMinus.style.cssText = `padding:5px 10px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;${_active(false)}`;
+  dlMinus.textContent = '−'; dlMinus.style.cssText = `padding:5px 10px;font-size:16px;font-weight:700;${_btnBase};${_active(false)}`;
   const dlPlus = document.createElement('button');
   dlPlus.textContent = '+'; dlPlus.style.cssText = dlMinus.style.cssText;
   const dlVal = document.createElement('span');
@@ -404,54 +455,17 @@ function _cijToggleSettings(_player) {
   const dlHint = document.createElement('div');
   dlHint.style.cssText = 'font-size:11px;color:#555;margin-top:-10px;margin-bottom:14px';
   dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
-  pnl.appendChild(dlHint);
+  _cur.appendChild(dlHint);
 
-  // ── Style ─────────────────────────────────────────────────
-  _lbl('Style');
-  const stRow = _row(6, 14);
-  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.st = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(val === _cijSubStyle)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijSubStyle = val;
-      stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(b.dataset.st === _cijSubStyle)}`; });
-      _cijLastCueIdx = -2; _cijSaveSettings();
-    });
-    stRow.appendChild(btn);
-  });
-
-  // ── Max width ─────────────────────────────────────────────
-  _lbl('Max width');
-  const mwRow = document.createElement('div');
-  mwRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
-  const mwSlider = document.createElement('input');
-  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
-  mwSlider.value = _cijSubMaxWidth;
-  mwSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
-  mwSlider.addEventListener('click', e => e.stopPropagation());
-  const mwVal = document.createElement('span');
-  mwVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
-  mwVal.textContent = `${_cijSubMaxWidth}%`;
-  mwSlider.addEventListener('input', e => {
-    e.stopPropagation();
-    _cijSubMaxWidth = +mwSlider.value;
-    mwVal.textContent = `${_cijSubMaxWidth}%`;
-    if (_cijSubOverlay) _cijSubOverlay.style.maxWidth = `${_cijSubMaxWidth}%`;
-    _cijSaveSettings();
-  });
-  mwRow.appendChild(mwSlider); mwRow.appendChild(mwVal); pnl.appendChild(mwRow);
-
-  // ── Auto-pause ────────────────────────────────────────────
   _lbl('Auto-pause at cue end');
   const apRow = _row(6, 4);
   [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
     btn.dataset.ap = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(val === _cijAutoPause)}`;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijAutoPause)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijAutoPause = val;
-      apRow.querySelectorAll('[data-ap]').forEach(b => { b.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active((b.dataset.ap === 'true') === _cijAutoPause)}`; });
+      apRow.querySelectorAll('[data-ap]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.ap === 'true') === _cijAutoPause)}`; });
       _cijSaveSettings();
     });
     apRow.appendChild(btn);
@@ -459,18 +473,17 @@ function _cijToggleSettings(_player) {
   const apHint = document.createElement('div');
   apHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
-  pnl.appendChild(apHint);
+  _cur.appendChild(apHint);
 
-  // ── Unknown only ──────────────────────────────────────────
   _lbl('Unknown words only');
   const uoRow = _row(6, 4);
   [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
     btn.dataset.uo = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active(val === _cijUnknownOnly)}`;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijUnknownOnly)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijUnknownOnly = val;
-      uoRow.querySelectorAll('[data-uo]').forEach(b => { b.style.cssText = `flex:1;padding:7px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s;${_active((b.dataset.uo === 'true') === _cijUnknownOnly)}`; });
+      uoRow.querySelectorAll('[data-uo]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.uo === 'true') === _cijUnknownOnly)}`; });
       _cijRecolorOverlay(); _cijSaveSettings();
     });
     uoRow.appendChild(btn);
@@ -478,7 +491,7 @@ function _cijToggleSettings(_player) {
   const uoHint = document.createElement('div');
   uoHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
-  pnl.appendChild(uoHint);
+  _cur.appendChild(uoHint);
 
   document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
@@ -598,6 +611,9 @@ async function scanPage() {
   if (player) {
     if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
     _cijCreateControlBar(player, res?.score ?? null);
+    chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+      if (videoToolEnabled === false && _cijControlBar) _cijControlBar.style.display = 'none';
+    });
   } else if (video) {
     showBadge(video.parentElement || document.body, res?.score ?? null, { top: '12px', left: '12px' });
   }
@@ -636,6 +652,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   if (msg.action === 'tokStatus') {
     reply({ ready: _tokenizer !== null }); return;
+  }
+  if (msg.action === 'videoToolStatus') {
+    reply({ enabled: !!_cijControlBar && _cijControlBar.style.display !== 'none' }); return;
+  }
+  if (msg.action === 'disableVideoTool') {
+    _cijSubCleanup?.(); _cijSubCleanup = null;
+    if (_cijSubOverlay) _cijSubOverlay.innerHTML = '';
+    if (_cijSettingsPnl) _cijSettingsPnl.style.display = 'none';
+    if (_cijControlBar) _cijControlBar.style.display = 'none';
+    _cijCues = null; _cijLastCueIdx = -2;
+    _cijSetSubActive(false);
+    chrome.storage.local.set({ videoToolEnabled: false });
+    reply({ ok: true }); return;
+  }
+  if (msg.action === 'enableVideoTool') {
+    if (_cijControlBar) { _cijControlBar.style.display = ''; }
+    else { const p = _cijGetPlayer(); if (p) _cijCreateControlBar(p, null); }
+    chrome.storage.local.set({ videoToolEnabled: true });
+    _cijVttCache = null; scanPage();
+    reply({ ok: true }); return;
   }
   if (msg.action !== 'rescore') return;
   _cijVttCache = null;

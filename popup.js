@@ -299,36 +299,55 @@ async function init() {
     e.target.value = '';
   });
 
-  // Hover mode
-  const hoverBtn = document.getElementById('hover-btn');
+  // Hover toggle
+  const hoverToggle = document.getElementById('hover-toggle');
   if (tab) {
     chrome.tabs.sendMessage(tab.id, { action: 'hoverStatus' })
-      .then(r => { if (r?.enabled) hoverBtn.textContent = '↖ Disable hover on transcript'; })
+      .then(r => { hoverToggle.checked = !!r?.enabled; })
       .catch(() => {});
   }
-  hoverBtn.addEventListener('click', async () => {
+  hoverToggle.addEventListener('change', async () => {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!activeTab) return;
-    const isOn = hoverBtn.textContent.includes('Disable');
-    if (isOn) {
+    if (!hoverToggle.checked) {
       await chrome.tabs.sendMessage(activeTab.id, { action: 'disableHover' }).catch(() => {});
-      hoverBtn.textContent = '↖ Enable hover on transcript';
     } else {
-      hoverBtn.disabled = true;
-      hoverBtn.textContent = 'Loading…';
+      hoverToggle.disabled = true;
       try {
         const r = await chrome.tabs.sendMessage(activeTab.id, { action: 'enableHover' });
-        if (r?.ok) {
-          hoverBtn.textContent = '↖ Disable hover on transcript';
-        } else {
+        if (!r?.ok) {
           setStatus(r?.error || 'Hover failed', '#f44336');
-          hoverBtn.textContent = '↖ Enable hover on transcript';
+          hoverToggle.checked = false;
         }
       } catch (e) {
         setStatus(`Hover error: ${e.message}`, '#f44336');
-        hoverBtn.textContent = '↖ Enable hover on transcript';
+        hoverToggle.checked = false;
       }
-      hoverBtn.disabled = false;
+      hoverToggle.disabled = false;
+    }
+  });
+
+  // Video subtitle tool toggle
+  const videoSubToggle = document.getElementById('video-sub-toggle');
+  if (tab) {
+    chrome.tabs.sendMessage(tab.id, { action: 'videoToolStatus' })
+      .then(r => { videoSubToggle.checked = r?.enabled !== false; })
+      .catch(() => { videoSubToggle.checked = true; });
+  }
+  videoSubToggle.addEventListener('change', async () => {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab) return;
+    if (!videoSubToggle.checked) {
+      await chrome.tabs.sendMessage(activeTab.id, { action: 'disableVideoTool' }).catch(() => {});
+    } else {
+      videoSubToggle.disabled = true;
+      try {
+        await chrome.tabs.sendMessage(activeTab.id, { action: 'enableVideoTool' });
+      } catch (e) {
+        setStatus(`Video tool error: ${e.message}`, '#f44336');
+        videoSubToggle.checked = false;
+      }
+      videoSubToggle.disabled = false;
     }
   });
 

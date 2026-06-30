@@ -229,7 +229,12 @@ async function scoreVideo() {
     const vtt = await fetchJaVTT(videoId);
     const res = vtt ? await scoreVTT(vtt) : null;
     const player = _ytGetPlayer();
-    if (player) _ytCreateControlBar(player, res?.score ?? null);
+    if (player) {
+      _ytCreateControlBar(player, res?.score ?? null);
+      chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+        if (videoToolEnabled === false && _ytControlBar) _ytControlBar.style.display = 'none';
+      });
+    }
   } catch {
     // scoring failed silently
   } finally {
@@ -347,7 +352,6 @@ function _ytEnsureOverlay(player) {
     'position:absolute', `bottom:${_ytSubPosition}%`, 'left:0', 'right:0',
     'z-index:9996', 'display:flex', 'justify-content:center',
     'pointer-events:auto', 'text-align:center',
-    `max-width:${_ytSubMaxWidth}%`,
   ].join(';');
   _ytSubOverlay.addEventListener('mouseenter', () => {
     if (!_ytPauseOnHover) return;
@@ -405,40 +409,55 @@ function _ytToggleSettings(player) {
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
   ].join(';');
 
+  // ── Tab bar ───────────────────────────────────────────────
+  const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
+  let _activeTab = 0;
+  const _tabOn  = 'background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;transition:all .15s';
+  const _tabOff = 'background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;transition:all .15s';
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:16px';
+  const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _secs[_activeTab].style.display = 'none'; _tabBtns[_activeTab].style.cssText = _tabOff;
+      _activeTab = i; _secs[i].style.display = 'block'; _tabBtns[i].style.cssText = _tabOn;
+    });
+    tabBar.appendChild(btn); return btn;
+  });
+  pnl.appendChild(tabBar);
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; pnl.appendChild(s); });
+
+  let _cur = _secs[0];
   function _pnlLabel(text) {
     const el = document.createElement('div');
     el.style.cssText = 'font-size:11px;color:#888;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
-    el.textContent = text;
-    pnl.appendChild(el);
+    el.textContent = text; _cur.appendChild(el);
   }
   function _pnlBtnRow(gap, mb) {
     const row = document.createElement('div');
     row.style.cssText = `display:flex;gap:${gap}px;margin-bottom:${mb}px`;
-    pnl.appendChild(row);
-    return row;
+    _cur.appendChild(row); return row;
   }
   function _pnlActiveStyle(on) {
-    return [
-      `background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`,
-      `color:${on ? '#66AAE8' : '#888'}`,
-      `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`,
-    ].join(';');
+    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#888'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
   }
+
+  // ═══ Style tab ═══════════════════════════════════════════
+  _cur = _secs[0];
 
   // ── Font size ──────────────────────────────────────────────
   _pnlLabel('Font size');
   const fsRow = _pnlBtnRow(6, 14);
   _YT_FONT_SIZES.forEach((sz, i) => {
     const btn = document.createElement('button');
-    btn.dataset.sz = sz;
-    btn.textContent = i + 1;
+    btn.dataset.sz = sz; btn.textContent = i + 1;
     btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_pnlActiveStyle(sz === _ytFontSize)}`;
     btn.addEventListener('click', e => {
-      e.stopPropagation();
-      _ytFontSize = sz;
+      e.stopPropagation(); _ytFontSize = sz;
       fsRow.querySelectorAll('[data-sz]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;${_pnlActiveStyle(+b.dataset.sz === _ytFontSize)}`; });
-      const w = _ytSubOverlay?.querySelector('span');
-      if (w) w.style.fontSize = `${_ytFontSize}px`;
+      const w = _ytSubOverlay?.querySelector('span'); if (w) w.style.fontSize = `${_ytFontSize}px`;
       _ytSaveSettings();
     });
     fsRow.appendChild(btn);
@@ -449,15 +468,12 @@ function _ytToggleSettings(player) {
   const fwRow = _pnlBtnRow(6, 14);
   _YT_FONT_WEIGHTS.forEach(({ label, value }) => {
     const btn = document.createElement('button');
-    btn.dataset.fw = value;
-    btn.textContent = label;
+    btn.dataset.fw = value; btn.textContent = label;
     btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:${value};transition:all .15s;${_pnlActiveStyle(value === _ytFontWeight)}`;
     btn.addEventListener('click', e => {
-      e.stopPropagation();
-      _ytFontWeight = value;
+      e.stopPropagation(); _ytFontWeight = value;
       fwRow.querySelectorAll('[data-fw]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:${b.dataset.fw};transition:all .15s;${_pnlActiveStyle(+b.dataset.fw === _ytFontWeight)}`; });
-      const w = _ytSubOverlay?.querySelector('span');
-      if (w) w.style.fontWeight = `${_ytFontWeight}`;
+      const w = _ytSubOverlay?.querySelector('span'); if (w) w.style.fontWeight = `${_ytFontWeight}`;
       _ytSaveSettings();
     });
     fwRow.appendChild(btn);
@@ -474,17 +490,16 @@ function _ytToggleSettings(player) {
   slider.addEventListener('click', e => e.stopPropagation());
   slider.addEventListener('input', e => {
     e.stopPropagation();
-    _ytBgOpacity = slider.value / 100;
-    bgVal.textContent = `${slider.value}%`;
+    _ytBgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`;
     const w = _ytSubOverlay?.querySelector('span');
-    if (w) w.style.background = `rgba(0,0,0,${_ytBgOpacity})`;
+    if (w && _ytSubStyle !== 'outline') w.style.background = `rgba(0,0,0,${_ytBgOpacity})`;
     _ytSaveSettings();
   });
   const bgVal = document.createElement('span');
   bgVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
   bgVal.textContent = `${slider.value}%`;
   bgRow.appendChild(slider); bgRow.appendChild(bgVal);
-  pnl.appendChild(bgRow);
+  _cur.appendChild(bgRow);
 
   // ── Color mode ────────────────────────────────────────────
   _pnlLabel('Color mode');
@@ -494,46 +509,37 @@ function _ytToggleSettings(player) {
     { label: 'Blue / Orange', cb: true,  tip: 'Colorblind-friendly: known = blue, unknown = orange' },
   ].forEach(({ label, cb, tip }) => {
     const btn = document.createElement('button');
-    btn.dataset.cb = cb;
-    btn.textContent = label;
-    btn.title = tip;
+    btn.dataset.cb = cb; btn.textContent = label; btn.title = tip;
     btn.style.cssText = `flex:1;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(cb === _ytColorblind)}`;
     btn.addEventListener('click', e => {
-      e.stopPropagation();
-      _ytColorblind = cb;
+      e.stopPropagation(); _ytColorblind = cb;
       cmRow.querySelectorAll('[data-cb]').forEach(b => { b.style.cssText = `flex:1;padding:5px 4px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.cb === 'true') === _ytColorblind)}`; });
-      _ytRecolorOverlay();
-      _ytLastCueIdx = -2;
-      _ytSaveSettings();
+      _ytRecolorOverlay(); _ytLastCueIdx = -2; _ytSaveSettings();
     });
     cmRow.appendChild(btn);
   });
   const cmHint = document.createElement('div');
   cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px;margin-bottom:14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
-  pnl.appendChild(cmHint);
+  _cur.appendChild(cmHint);
 
-  // ── Pause on hover ────────────────────────────────────────
-  _pnlLabel('Pause on hover');
-  const phRow = _pnlBtnRow(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+  // ── Style ─────────────────────────────────────────────────
+  _pnlLabel('Style');
+  const stRow = _pnlBtnRow(6, 0);
+  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
-    btn.dataset.ph = val;
-    btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytPauseOnHover)}`;
+    btn.dataset.st = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytSubStyle)}`;
     btn.addEventListener('click', e => {
-      e.stopPropagation();
-      _ytPauseOnHover = val;
-      if (!val && _ytPausedByHover) { _ytPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
-      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ph === 'true') === _ytPauseOnHover)}`; });
-      _ytSaveSettings();
+      e.stopPropagation(); _ytSubStyle = val;
+      stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(b.dataset.st === _ytSubStyle)}`; });
+      _ytLastCueIdx = -2; _ytSaveSettings();
     });
-    phRow.appendChild(btn);
+    stRow.appendChild(btn);
   });
-  const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
-  phHint.textContent = 'Pauses playback while hovering a subtitle';
-  pnl.appendChild(phHint);
+
+  // ═══ Layout tab ══════════════════════════════════════════
+  _cur = _secs[1];
 
   // ── Vertical position ─────────────────────────────────────
   _pnlLabel('Vertical position');
@@ -549,12 +555,54 @@ function _ytToggleSettings(player) {
   vpVal.textContent = `${_ytSubPosition}%`;
   vpSlider.addEventListener('input', e => {
     e.stopPropagation();
-    _ytSubPosition = +vpSlider.value;
-    vpVal.textContent = `${_ytSubPosition}%`;
+    _ytSubPosition = +vpSlider.value; vpVal.textContent = `${_ytSubPosition}%`;
     if (_ytSubOverlay) _ytSubOverlay.style.bottom = `${_ytSubPosition}%`;
     _ytSaveSettings();
   });
-  vpRow.appendChild(vpSlider); vpRow.appendChild(vpVal); pnl.appendChild(vpRow);
+  vpRow.appendChild(vpSlider); vpRow.appendChild(vpVal); _cur.appendChild(vpRow);
+
+  // ── Max width ─────────────────────────────────────────────
+  _pnlLabel('Max width');
+  const mwRow = document.createElement('div');
+  mwRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:0';
+  const mwSlider = document.createElement('input');
+  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
+  mwSlider.value = _ytSubMaxWidth;
+  mwSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  mwSlider.addEventListener('click', e => e.stopPropagation());
+  const mwVal = document.createElement('span');
+  mwVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+  mwVal.textContent = `${_ytSubMaxWidth}%`;
+  mwSlider.addEventListener('input', e => {
+    e.stopPropagation();
+    _ytSubMaxWidth = +mwSlider.value; mwVal.textContent = `${_ytSubMaxWidth}%`;
+    if (_ytSubOverlay) { const w = _ytSubOverlay.querySelector('span'); if (w) w.style.maxWidth = `${_ytSubMaxWidth}%`; }
+    _ytSaveSettings();
+  });
+  mwRow.appendChild(mwSlider); mwRow.appendChild(mwVal); _cur.appendChild(mwRow);
+
+  // ═══ Playback tab ════════════════════════════════════════
+  _cur = _secs[2];
+
+  // ── Pause on hover ────────────────────────────────────────
+  _pnlLabel('Pause on hover');
+  const phRow = _pnlBtnRow(6, 4);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.ph = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytPauseOnHover)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _ytPauseOnHover = val;
+      if (!val && _ytPausedByHover) { _ytPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
+      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ph === 'true') === _ytPauseOnHover)}`; });
+      _ytSaveSettings();
+    });
+    phRow.appendChild(btn);
+  });
+  const phHint = document.createElement('div');
+  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  phHint.textContent = 'Pauses playback while hovering a subtitle';
+  _cur.appendChild(phHint);
 
   // ── Subtitle delay ────────────────────────────────────────
   _pnlLabel('Subtitle delay');
@@ -570,47 +618,11 @@ function _ytToggleSettings(player) {
   dlVal.textContent = _dlFmt(_ytSubDelay);
   dlMinus.addEventListener('click', e => { e.stopPropagation(); _ytSubDelay = Math.max(-5000, _ytSubDelay - 100); dlVal.textContent = _dlFmt(_ytSubDelay); _ytLastCueIdx = -2; _ytSaveSettings(); });
   dlPlus.addEventListener('click',  e => { e.stopPropagation(); _ytSubDelay = Math.min(5000,  _ytSubDelay + 100); dlVal.textContent = _dlFmt(_ytSubDelay); _ytLastCueIdx = -2; _ytSaveSettings(); });
-  dlRow.appendChild(dlMinus); dlRow.appendChild(dlVal); dlRow.appendChild(dlPlus); pnl.appendChild(dlRow);
+  dlRow.appendChild(dlMinus); dlRow.appendChild(dlVal); dlRow.appendChild(dlPlus); _cur.appendChild(dlRow);
   const dlHint = document.createElement('div');
   dlHint.style.cssText = 'font-size:11px;color:#555;margin-top:-10px;margin-bottom:14px';
   dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
-  pnl.appendChild(dlHint);
-
-  // ── Style ─────────────────────────────────────────────────
-  _pnlLabel('Style');
-  const stRow = _pnlBtnRow(6, 14);
-  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.st = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytSubStyle)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _ytSubStyle = val;
-      stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(b.dataset.st === _ytSubStyle)}`; });
-      _ytLastCueIdx = -2; _ytSaveSettings();
-    });
-    stRow.appendChild(btn);
-  });
-
-  // ── Max width ─────────────────────────────────────────────
-  _pnlLabel('Max width');
-  const mwRow = document.createElement('div');
-  mwRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
-  const mwSlider = document.createElement('input');
-  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
-  mwSlider.value = _ytSubMaxWidth;
-  mwSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
-  mwSlider.addEventListener('click', e => e.stopPropagation());
-  const mwVal = document.createElement('span');
-  mwVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
-  mwVal.textContent = `${_ytSubMaxWidth}%`;
-  mwSlider.addEventListener('input', e => {
-    e.stopPropagation();
-    _ytSubMaxWidth = +mwSlider.value;
-    mwVal.textContent = `${_ytSubMaxWidth}%`;
-    if (_ytSubOverlay) _ytSubOverlay.style.maxWidth = `${_ytSubMaxWidth}%`;
-    _ytSaveSettings();
-  });
-  mwRow.appendChild(mwSlider); mwRow.appendChild(mwVal); pnl.appendChild(mwRow);
+  _cur.appendChild(dlHint);
 
   // ── Auto-pause ────────────────────────────────────────────
   _pnlLabel('Auto-pause at cue end');
@@ -629,7 +641,7 @@ function _ytToggleSettings(player) {
   const apHint = document.createElement('div');
   apHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
-  pnl.appendChild(apHint);
+  _cur.appendChild(apHint);
 
   // ── Unknown only ──────────────────────────────────────────
   _pnlLabel('Unknown words only');
@@ -648,7 +660,7 @@ function _ytToggleSettings(player) {
   const uoHint = document.createElement('div');
   uoHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
-  pnl.appendChild(uoHint);
+  _cur.appendChild(uoHint);
 
   player.appendChild(pnl);
   _ytSettingsPnl = pnl;
@@ -684,6 +696,7 @@ function _ytStartTimeSync() {
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
       `font-size:${_ytFontSize}px`, `font-weight:${_ytFontWeight}`, 'line-height:1.6',
+      `max-width:${_ytSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _ytCues[idx].text;
     _ytSubOverlay.appendChild(wrap);
@@ -841,6 +854,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   if (msg.action === 'sidebarStatus') {
     reply({ open: sidebarIsOpen() }); return;
+  }
+  if (msg.action === 'videoToolStatus') {
+    reply({ enabled: !!_ytControlBar && _ytControlBar.style.display !== 'none' }); return;
+  }
+  if (msg.action === 'disableVideoTool') {
+    _ytSubCleanup?.(); _ytSubCleanup = null;
+    if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
+    if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
+    if (_ytControlBar) _ytControlBar.style.display = 'none';
+    _ytCues = null; _ytLastCueIdx = -2;
+    _ytSetSubActive(false);
+    chrome.storage.local.set({ videoToolEnabled: false });
+    reply({ ok: true }); return;
+  }
+  if (msg.action === 'enableVideoTool') {
+    if (_ytControlBar) { _ytControlBar.style.display = ''; }
+    else { const p = _ytGetPlayer(); if (p) _ytCreateControlBar(p, null); }
+    chrome.storage.local.set({ videoToolEnabled: true });
+    _lastVideoId = null; scoreVideo();
+    reply({ ok: true }); return;
   }
   if (msg.action !== 'rescore') return;
   const videoId = currentVideoId();

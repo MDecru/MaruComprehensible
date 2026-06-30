@@ -45,7 +45,6 @@ chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
   if (s.autoPause    !== undefined) _autoPause     = s.autoPause;
   if (s.unknownOnly  !== undefined) _unknownOnly   = s.unknownOnly;
   subOverlay.style.bottom = _subPosition + '%';
-  subOverlay.style.maxWidth = _subMaxWidth + '%';
 });
 
 function _saveSettings() {
@@ -133,6 +132,7 @@ function _startTimeSync() {
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
       `font-size:${_fontSize}px`, `font-weight:${_fontWeight}`, 'line-height:1.6',
+      `max-width:${_subMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cues[idx].text;
     subOverlay.appendChild(wrap);
@@ -307,16 +307,17 @@ settingsBtn.addEventListener('click', e => {
 document.addEventListener('click', () => settingsPnl.classList.remove('visible'));
 settingsPnl.addEventListener('click', e => e.stopPropagation());
 
+let _curPnl = settingsPnl;
 function _pnlLabel(text) {
   const el = document.createElement('div');
   el.className = 'pnl-label';
   el.textContent = text;
-  settingsPnl.appendChild(el);
+  _curPnl.appendChild(el);
 }
 function _pnlRow() {
   const row = document.createElement('div');
   row.className = 'pnl-row';
-  settingsPnl.appendChild(row);
+  _curPnl.appendChild(row);
   return row;
 }
 function _pnlBtn(label, active, onClick) {
@@ -333,33 +334,52 @@ function _setRowActive(row, activeBtn) {
 function _buildSettingsPanel() {
   settingsPnl.innerHTML = '';
 
-  // Font size
+  // ── Tab bar ───────────────────────────────────────────────
+  const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
+  let _activeTab = 0;
+  const _tBase = 'border-radius:5px;padding:4px 0;flex:1;cursor:pointer;font-size:11px;font-weight:600;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;transition:all .15s';
+  const _tabOn  = `background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;${_tBase}`;
+  const _tabOff = `background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;${_tBase}`;
+  const tabBar = document.createElement('div');
+  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:12px';
+  const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _secs[_activeTab].style.display = 'none'; _tabBtns[_activeTab].style.cssText = _tabOff;
+      _activeTab = i; _secs[i].style.display = 'block'; _tabBtns[i].style.cssText = _tabOn;
+    });
+    tabBar.appendChild(btn); return btn;
+  });
+  settingsPnl.appendChild(tabBar);
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; settingsPnl.appendChild(s); });
+
+  // ═══ Style tab ═══════════════════════════════════════════
+  _curPnl = _secs[0];
+
   _pnlLabel('Font size');
   const fsRow = _pnlRow();
   FONT_SIZES.forEach((sz, i) => {
     const btn = _pnlBtn(i + 1, sz === _fontSize, btn => {
       _fontSize = sz; _setRowActive(fsRow, btn);
-      const w = subOverlay.querySelector('span');
-      if (w) w.style.fontSize = `${_fontSize}px`;
+      const w = subOverlay.querySelector('span'); if (w) w.style.fontSize = `${_fontSize}px`;
       _saveSettings();
     });
     fsRow.appendChild(btn);
   });
 
-  // Font weight
   _pnlLabel('Font weight');
   const fwRow = _pnlRow();
   FONT_WEIGHTS.forEach(({ label, value }) => {
     const btn = _pnlBtn(label, value === _fontWeight, btn => {
       _fontWeight = value; _setRowActive(fwRow, btn);
-      const w = subOverlay.querySelector('span');
-      if (w) w.style.fontWeight = `${_fontWeight}`;
+      const w = subOverlay.querySelector('span'); if (w) w.style.fontWeight = `${_fontWeight}`;
       _saveSettings();
     });
     fwRow.appendChild(btn);
   });
 
-  // BG opacity
   _pnlLabel('Background opacity');
   const bgRow = document.createElement('div');
   bgRow.className = 'pnl-slider-row';
@@ -367,36 +387,73 @@ function _buildSettingsPanel() {
   slider.type = 'range'; slider.min = '0'; slider.max = '100';
   slider.value = Math.round(_bgOpacity * 100);
   slider.addEventListener('input', e => {
-    e.stopPropagation();
-    _bgOpacity = slider.value / 100;
-    bgVal.textContent = `${slider.value}%`;
+    e.stopPropagation(); _bgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`;
     const w = subOverlay.querySelector('span');
-    if (w) w.style.background = `rgba(0,0,0,${_bgOpacity})`;
+    if (w && _subStyle !== 'outline') w.style.background = `rgba(0,0,0,${_bgOpacity})`;
     _saveSettings();
   });
   const bgVal = document.createElement('span');
-  bgVal.className = 'pnl-val';
-  bgVal.textContent = `${slider.value}%`;
-  bgRow.appendChild(slider); bgRow.appendChild(bgVal);
-  settingsPnl.appendChild(bgRow);
+  bgVal.className = 'pnl-val'; bgVal.textContent = `${slider.value}%`;
+  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _curPnl.appendChild(bgRow);
 
-  // Color mode
   _pnlLabel('Color mode');
   const cmRow = _pnlRow();
   [{ label: 'Blue / Red', cb: false }, { label: 'Blue / Orange', cb: true }].forEach(({ label, cb }) => {
     const btn = _pnlBtn(label, cb === _colorblind, btn => {
       _colorblind = cb; _setRowActive(cmRow, btn);
-      _recolorOverlay(); _lastCueIdx = -2;
-      _saveSettings();
+      _recolorOverlay(); _lastCueIdx = -2; _saveSettings();
     });
     cmRow.appendChild(btn);
   });
   const cmHint = document.createElement('div');
   cmHint.className = 'pnl-hint'; cmHint.style.marginBottom = '14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
-  settingsPnl.appendChild(cmHint);
+  _curPnl.appendChild(cmHint);
 
-  // Pause on hover
+  _pnlLabel('Style');
+  const stRow = _pnlRow();
+  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
+    const btn = _pnlBtn(label, val === _subStyle, btn => {
+      _subStyle = val; _setRowActive(stRow, btn); _lastCueIdx = -2; _saveSettings();
+    });
+    stRow.appendChild(btn);
+  });
+
+  // ═══ Layout tab ══════════════════════════════════════════
+  _curPnl = _secs[1];
+
+  _pnlLabel('Vertical position');
+  const vpSliderRow = document.createElement('div');
+  vpSliderRow.className = 'pnl-slider-row';
+  const vpSlider = document.createElement('input');
+  vpSlider.type = 'range'; vpSlider.min = '2'; vpSlider.max = '80'; vpSlider.step = '1';
+  vpSlider.value = _subPosition;
+  vpSlider.addEventListener('input', e => {
+    e.stopPropagation(); _subPosition = +vpSlider.value; vpValEl.textContent = `${_subPosition}%`;
+    subOverlay.style.bottom = `${_subPosition}%`; _saveSettings();
+  });
+  const vpValEl = document.createElement('span');
+  vpValEl.className = 'pnl-val'; vpValEl.textContent = `${_subPosition}%`;
+  vpSliderRow.appendChild(vpSlider); vpSliderRow.appendChild(vpValEl); _curPnl.appendChild(vpSliderRow);
+
+  _pnlLabel('Max width');
+  const mwSliderRow = document.createElement('div');
+  mwSliderRow.className = 'pnl-slider-row';
+  const mwSlider = document.createElement('input');
+  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
+  mwSlider.value = _subMaxWidth;
+  mwSlider.addEventListener('input', e => {
+    e.stopPropagation(); _subMaxWidth = +mwSlider.value; mwValEl.textContent = `${_subMaxWidth}%`;
+    const w = subOverlay.querySelector('span'); if (w) w.style.maxWidth = `${_subMaxWidth}%`;
+    _saveSettings();
+  });
+  const mwValEl = document.createElement('span');
+  mwValEl.className = 'pnl-val'; mwValEl.textContent = `${_subMaxWidth}%`;
+  mwSliderRow.appendChild(mwSlider); mwSliderRow.appendChild(mwValEl); _curPnl.appendChild(mwSliderRow);
+
+  // ═══ Playback tab ════════════════════════════════════════
+  _curPnl = _secs[2];
+
   _pnlLabel('Pause on hover');
   const phRow = _pnlRow();
   [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
@@ -408,106 +465,49 @@ function _buildSettingsPanel() {
     phRow.appendChild(btn);
   });
   const phHint = document.createElement('div');
-  phHint.className = 'pnl-hint';
+  phHint.className = 'pnl-hint'; phHint.style.marginBottom = '14px';
   phHint.textContent = 'Pauses playback while hovering a subtitle';
-  settingsPnl.appendChild(phHint);
+  _curPnl.appendChild(phHint);
 
-  // Vertical position
-  _pnlLabel('Vertical position');
-  const vpSliderRow = document.createElement('div');
-  vpSliderRow.className = 'pnl-slider-row';
-  const vpSlider = document.createElement('input');
-  vpSlider.type = 'range'; vpSlider.min = '2'; vpSlider.max = '80'; vpSlider.step = '1';
-  vpSlider.value = _subPosition;
-  vpSlider.addEventListener('input', e => {
-    e.stopPropagation();
-    _subPosition = +vpSlider.value;
-    vpValEl.textContent = `${_subPosition}%`;
-    subOverlay.style.bottom = `${_subPosition}%`;
-    _saveSettings();
-  });
-  const vpValEl = document.createElement('span');
-  vpValEl.className = 'pnl-val';
-  vpValEl.textContent = `${_subPosition}%`;
-  vpSliderRow.appendChild(vpSlider); vpSliderRow.appendChild(vpValEl);
-  settingsPnl.appendChild(vpSliderRow);
-
-  // Subtitle delay
   _pnlLabel('Subtitle delay');
-  const dlRow2 = document.createElement('div');
-  dlRow2.className = 'pnl-row';
+  const dlRow2 = document.createElement('div'); dlRow2.className = 'pnl-row';
   const _dlFmt2 = v => v === 0 ? '0.0s' : (v > 0 ? `+${(v/1000).toFixed(1)}s` : `${(v/1000).toFixed(1)}s`);
   const dlVal2 = document.createElement('span');
   dlVal2.style.cssText = 'flex:1;text-align:center;font-size:13px;color:#66AAE8;font-weight:600;display:flex;align-items:center;justify-content:center';
   dlVal2.textContent = _dlFmt2(_subDelay);
   const dlMinus2 = _pnlBtn('−', false, () => { _subDelay = Math.max(-5000, _subDelay - 100); dlVal2.textContent = _dlFmt2(_subDelay); _lastCueIdx = -2; _saveSettings(); });
-  const dlPlus2 = _pnlBtn('+', false, () => { _subDelay = Math.min(5000, _subDelay + 100); dlVal2.textContent = _dlFmt2(_subDelay); _lastCueIdx = -2; _saveSettings(); });
+  const dlPlus2  = _pnlBtn('+', false, () => { _subDelay = Math.min(5000,  _subDelay + 100); dlVal2.textContent = _dlFmt2(_subDelay); _lastCueIdx = -2; _saveSettings(); });
   dlRow2.appendChild(dlMinus2); dlRow2.appendChild(dlVal2); dlRow2.appendChild(dlPlus2);
-  settingsPnl.appendChild(dlRow2);
+  _curPnl.appendChild(dlRow2);
   const dlHint2 = document.createElement('div'); dlHint2.className = 'pnl-hint';
   dlHint2.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
-  settingsPnl.appendChild(dlHint2);
+  _curPnl.appendChild(dlHint2);
 
-  // Style
-  _pnlLabel('Style');
-  const stRow = _pnlRow();
-  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
-    const btn = _pnlBtn(label, val === _subStyle, btn => {
-      _subStyle = val; _setRowActive(stRow, btn);
-      _lastCueIdx = -2; _saveSettings();
-    });
-    stRow.appendChild(btn);
-  });
-
-  // Max width
-  _pnlLabel('Max width');
-  const mwSliderRow = document.createElement('div');
-  mwSliderRow.className = 'pnl-slider-row';
-  const mwSlider = document.createElement('input');
-  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
-  mwSlider.value = _subMaxWidth;
-  mwSlider.addEventListener('input', e => {
-    e.stopPropagation();
-    _subMaxWidth = +mwSlider.value;
-    mwValEl.textContent = `${_subMaxWidth}%`;
-    subOverlay.style.maxWidth = `${_subMaxWidth}%`;
-    _saveSettings();
-  });
-  const mwValEl = document.createElement('span');
-  mwValEl.className = 'pnl-val';
-  mwValEl.textContent = `${_subMaxWidth}%`;
-  mwSliderRow.appendChild(mwSlider); mwSliderRow.appendChild(mwValEl);
-  settingsPnl.appendChild(mwSliderRow);
-
-  // Auto-pause
   _pnlLabel('Auto-pause at cue end');
   const apRow = _pnlRow();
   [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
     const btn = _pnlBtn(label, val === _autoPause, btn => {
-      _autoPause = val; _setRowActive(apRow, btn);
-      _saveSettings();
+      _autoPause = val; _setRowActive(apRow, btn); _saveSettings();
     });
     apRow.appendChild(btn);
   });
   const apHint = document.createElement('div');
   apHint.className = 'pnl-hint'; apHint.style.marginBottom = '14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
-  settingsPnl.appendChild(apHint);
+  _curPnl.appendChild(apHint);
 
-  // Unknown only
   _pnlLabel('Unknown words only');
   const uoRow = _pnlRow();
   [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
     const btn = _pnlBtn(label, val === _unknownOnly, btn => {
-      _unknownOnly = val; _setRowActive(uoRow, btn);
-      _recolorOverlay(); _saveSettings();
+      _unknownOnly = val; _setRowActive(uoRow, btn); _recolorOverlay(); _saveSettings();
     });
     uoRow.appendChild(btn);
   });
   const uoHint = document.createElement('div');
   uoHint.className = 'pnl-hint';
   uoHint.textContent = 'Hides known words, shows only unknowns';
-  settingsPnl.appendChild(uoHint);
+  _curPnl.appendChild(uoHint);
 }
 
 // ── Fullscreen ────────────────────────────────────────────────────────────────
