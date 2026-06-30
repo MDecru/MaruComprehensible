@@ -276,6 +276,12 @@ let _ytFontWeight    = 400;
 let _ytColorblind    = false;
 let _ytPauseOnHover  = false;
 let _ytPausedByHover = false;
+let _ytSubPosition   = 12;
+let _ytSubDelay      = 0;
+let _ytSubStyle      = 'box';
+let _ytSubMaxWidth   = 90;
+let _ytAutoPause     = false;
+let _ytUnknownOnly   = false;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -286,6 +292,7 @@ function _ytSaveSettings() {
     fontSize: _ytFontSize, bgOpacity: _ytBgOpacity,
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
+    subPosition: _ytSubPosition, subDelay: _ytSubDelay, subStyle: _ytSubStyle, subMaxWidth: _ytSubMaxWidth, autoPause: _ytAutoPause, unknownOnly: _ytUnknownOnly,
   }}); } catch {}
 }
 
@@ -299,6 +306,12 @@ function _ytLoadSettings() {
       if (s.fontWeight  !== undefined) _ytFontWeight   = s.fontWeight;
       if (s.colorblind  !== undefined) _ytColorblind   = s.colorblind;
       if (s.pauseOnHover !== undefined) _ytPauseOnHover = s.pauseOnHover;
+      if (s.subPosition  !== undefined) _ytSubPosition  = s.subPosition;
+      if (s.subDelay     !== undefined) _ytSubDelay      = s.subDelay;
+      if (s.subStyle     !== undefined) _ytSubStyle      = s.subStyle;
+      if (s.subMaxWidth  !== undefined) _ytSubMaxWidth   = s.subMaxWidth;
+      if (s.autoPause    !== undefined) _ytAutoPause     = s.autoPause;
+      if (s.unknownOnly  !== undefined) _ytUnknownOnly   = s.unknownOnly;
     });
   } catch {}
 }
@@ -321,6 +334,7 @@ function _ytRecolorOverlay() {
   for (const span of (_ytSubOverlay?.querySelectorAll('.jp-tok') || [])) {
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
     span.style.color = known ? '#66AAE8' : (_ytColorblind ? '#FDC281' : '#ED7989');
+    span.style.display = (_ytUnknownOnly && known) ? 'none' : '';
   }
 }
 
@@ -330,9 +344,10 @@ function _ytEnsureOverlay(player) {
   _ytSubOverlay = document.createElement('div');
   _ytSubOverlay.id = 'mc-yt-overlay';
   _ytSubOverlay.style.cssText = [
-    'position:absolute', 'bottom:12%', 'left:0', 'right:0',
+    'position:absolute', `bottom:${_ytSubPosition}%`, 'left:0', 'right:0',
     'z-index:9996', 'display:flex', 'justify-content:center',
     'pointer-events:auto', 'text-align:center',
+    `max-width:${_ytSubMaxWidth}%`,
   ].join(';');
   _ytSubOverlay.addEventListener('mouseenter', () => {
     if (!_ytPauseOnHover) return;
@@ -520,6 +535,121 @@ function _ytToggleSettings(player) {
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   pnl.appendChild(phHint);
 
+  // ── Vertical position ─────────────────────────────────────
+  _pnlLabel('Vertical position');
+  const vpRow = document.createElement('div');
+  vpRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  const vpSlider = document.createElement('input');
+  vpSlider.type = 'range'; vpSlider.min = '2'; vpSlider.max = '80'; vpSlider.step = '1';
+  vpSlider.value = _ytSubPosition;
+  vpSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  vpSlider.addEventListener('click', e => e.stopPropagation());
+  const vpVal = document.createElement('span');
+  vpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+  vpVal.textContent = `${_ytSubPosition}%`;
+  vpSlider.addEventListener('input', e => {
+    e.stopPropagation();
+    _ytSubPosition = +vpSlider.value;
+    vpVal.textContent = `${_ytSubPosition}%`;
+    if (_ytSubOverlay) _ytSubOverlay.style.bottom = `${_ytSubPosition}%`;
+    _ytSaveSettings();
+  });
+  vpRow.appendChild(vpSlider); vpRow.appendChild(vpVal); pnl.appendChild(vpRow);
+
+  // ── Subtitle delay ────────────────────────────────────────
+  _pnlLabel('Subtitle delay');
+  const dlRow = document.createElement('div');
+  dlRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:14px';
+  const dlMinus = document.createElement('button');
+  dlMinus.textContent = '−'; dlMinus.style.cssText = 'width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;background:rgba(255,255,255,.06);color:#888;border:1px solid #3a3f4a;flex-shrink:0';
+  const dlPlus = document.createElement('button');
+  dlPlus.textContent = '+'; dlPlus.style.cssText = dlMinus.style.cssText;
+  const dlVal = document.createElement('span');
+  dlVal.style.cssText = 'flex:1;text-align:center;font-size:13px;color:#66AAE8;font-weight:600';
+  const _dlFmt = v => v === 0 ? '0.0s' : (v > 0 ? `+${(v/1000).toFixed(1)}s` : `${(v/1000).toFixed(1)}s`);
+  dlVal.textContent = _dlFmt(_ytSubDelay);
+  dlMinus.addEventListener('click', e => { e.stopPropagation(); _ytSubDelay = Math.max(-5000, _ytSubDelay - 100); dlVal.textContent = _dlFmt(_ytSubDelay); _ytLastCueIdx = -2; _ytSaveSettings(); });
+  dlPlus.addEventListener('click',  e => { e.stopPropagation(); _ytSubDelay = Math.min(5000,  _ytSubDelay + 100); dlVal.textContent = _dlFmt(_ytSubDelay); _ytLastCueIdx = -2; _ytSaveSettings(); });
+  dlRow.appendChild(dlMinus); dlRow.appendChild(dlVal); dlRow.appendChild(dlPlus); pnl.appendChild(dlRow);
+  const dlHint = document.createElement('div');
+  dlHint.style.cssText = 'font-size:11px;color:#555;margin-top:-10px;margin-bottom:14px';
+  dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
+  pnl.appendChild(dlHint);
+
+  // ── Style ─────────────────────────────────────────────────
+  _pnlLabel('Style');
+  const stRow = _pnlBtnRow(6, 14);
+  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.st = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytSubStyle)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _ytSubStyle = val;
+      stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(b.dataset.st === _ytSubStyle)}`; });
+      _ytLastCueIdx = -2; _ytSaveSettings();
+    });
+    stRow.appendChild(btn);
+  });
+
+  // ── Max width ─────────────────────────────────────────────
+  _pnlLabel('Max width');
+  const mwRow = document.createElement('div');
+  mwRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  const mwSlider = document.createElement('input');
+  mwSlider.type = 'range'; mwSlider.min = '30'; mwSlider.max = '100'; mwSlider.step = '5';
+  mwSlider.value = _ytSubMaxWidth;
+  mwSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  mwSlider.addEventListener('click', e => e.stopPropagation());
+  const mwVal = document.createElement('span');
+  mwVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+  mwVal.textContent = `${_ytSubMaxWidth}%`;
+  mwSlider.addEventListener('input', e => {
+    e.stopPropagation();
+    _ytSubMaxWidth = +mwSlider.value;
+    mwVal.textContent = `${_ytSubMaxWidth}%`;
+    if (_ytSubOverlay) _ytSubOverlay.style.maxWidth = `${_ytSubMaxWidth}%`;
+    _ytSaveSettings();
+  });
+  mwRow.appendChild(mwSlider); mwRow.appendChild(mwVal); pnl.appendChild(mwRow);
+
+  // ── Auto-pause ────────────────────────────────────────────
+  _pnlLabel('Auto-pause at cue end');
+  const apRow = _pnlBtnRow(6, 4);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.ap = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytAutoPause)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _ytAutoPause = val;
+      apRow.querySelectorAll('[data-ap]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ap === 'true') === _ytAutoPause)}`; });
+      _ytSaveSettings();
+    });
+    apRow.appendChild(btn);
+  });
+  const apHint = document.createElement('div');
+  apHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  apHint.textContent = 'Pauses at the end of each subtitle cue';
+  pnl.appendChild(apHint);
+
+  // ── Unknown only ──────────────────────────────────────────
+  _pnlLabel('Unknown words only');
+  const uoRow = _pnlBtnRow(6, 4);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.uo = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytUnknownOnly)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _ytUnknownOnly = val;
+      uoRow.querySelectorAll('[data-uo]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.uo === 'true') === _ytUnknownOnly)}`; });
+      _ytRecolorOverlay(); _ytSaveSettings();
+    });
+    uoRow.appendChild(btn);
+  });
+  const uoHint = document.createElement('div');
+  uoHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
+  uoHint.textContent = 'Hides known words, shows only unknowns';
+  pnl.appendChild(uoHint);
+
   player.appendChild(pnl);
   _ytSettingsPnl = pnl;
 }
@@ -531,27 +661,34 @@ function _ytStartTimeSync() {
 
   const handler = async () => {
     if (!_ytCues || !_ytSubOverlay) return;
-    const ms = video.currentTime * 1000;
+    const ms = video.currentTime * 1000 + _ytSubDelay;
     let idx = -1;
     for (let i = 0; i < _ytCues.length; i++) {
       if (ms >= _ytCues[i].start && ms < _ytCues[i].end) { idx = i; break; }
     }
+    const prevIdx = _ytLastCueIdx;
     if (idx === _ytLastCueIdx) return;
     _ytLastCueIdx = idx;
 
     _ytSubOverlay.innerHTML = '';
-    if (idx < 0) return;
+    if (idx < 0) {
+      if (_ytAutoPause && prevIdx >= 0) video.pause();
+      return;
+    }
 
     const wrap = document.createElement('span');
+    const _wrapBg = _ytSubStyle === 'outline'
+      ? 'background:transparent;text-shadow:-1px -1px 2px #000,1px -1px 2px #000,-1px 1px 2px #000,1px 1px 2px #000'
+      : `background:rgba(0,0,0,${_ytBgOpacity})`;
     wrap.style.cssText = [
-      `background:rgba(0,0,0,${_ytBgOpacity})`, 'color:#fff',
+      _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
       `font-size:${_ytFontSize}px`, `font-weight:${_ytFontWeight}`, 'line-height:1.6',
     ].join(';');
     wrap.textContent = _ytCues[idx].text;
     _ytSubOverlay.appendChild(wrap);
     await hoverRetokenize(_ytSubOverlay);
-    if (_ytColorblind) _ytRecolorOverlay();
+    _ytRecolorOverlay();
   };
 
   video.addEventListener('timeupdate', handler);
