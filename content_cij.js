@@ -136,7 +136,7 @@ function _cijRecolorOverlay() {
 
 function _cijParseVTTCues(vtt) {
   const toMs = str => {
-    const s = str.trim().replace(/,/, '.');
+    const s = str.trim().split(/\s/)[0].replace(/,/, '.');
     const parts = s.split(':').map(Number);
     const [h, m, sec] = parts.length === 3 ? parts : [0, ...parts];
     return Math.round((h * 3600 + m * 60 + sec) * 1000);
