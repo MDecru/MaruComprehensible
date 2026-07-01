@@ -175,6 +175,7 @@
   .hist-site { font-size:9px; font-weight:700; padding:2px 5px; border-radius:4px; white-space:nowrap; flex-shrink:0; }
   .hs-yt     { background:rgba(237,60,60,.15);   color:#f87070; }
   .hs-cij    { background:rgba(102,170,232,.15); color:#66AAE8; }
+  .hs-njk    { background:rgba(253,194,129,.15); color:#FDC281; }
   .hs-player { background:rgba(126,105,240,.15); color:#9E8CF8; }
   .hist-title { font-size:12px; color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .15s; }
   .hist-score { font-size:12px; font-weight:800; flex-shrink:0; }
@@ -185,6 +186,7 @@
 
 <div class="tabs">
   <button class="tab-btn active" data-tab="main">Main</button>
+  <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn" data-tab="vocab">Settings</button>
   <button class="tab-btn" data-tab="advanced">Advanced</button>
 </div>
@@ -260,27 +262,39 @@
 
   <hr>
 
-  <div class="theme-row" style="margin-bottom:10px">
+  <div class="stats">
+    <div class="stat-card vocab"><div class="lbl">Vocab</div><div class="val" id="vocab-count">—</div></div>
+    <div class="stat-card kanji"><div class="lbl">Kanji</div><div class="val" id="kanji-count">—</div></div>
+  </div>
+  <div id="tok-status">Tokenizer: not loaded</div>
+</div>
+
+<!-- ── History ── -->
+<div class="tab-panel" id="tab-history">
+  <div class="theme-row" style="margin-bottom:8px">
     <span>Show watched score badges</span>
     <label class="theme-switch">
       <input type="checkbox" id="badges-toggle">
       <span class="theme-track"></span>
     </label>
   </div>
-
+  <div class="theme-row" style="margin-bottom:12px">
+    <span>Track videos &amp; unknown words</span>
+    <label class="theme-switch">
+      <input type="checkbox" id="history-toggle" checked>
+      <span class="theme-track"></span>
+    </label>
+  </div>
+  <hr style="margin-top:0">
   <div class="hist-header">
     <p class="sec-label">Recent</p>
     <button class="hist-view-all" id="hist-view-all-btn">View all</button>
   </div>
   <div id="hist-list"></div>
-
-  <hr>
-
-  <div class="stats">
-    <div class="stat-card vocab"><div class="lbl">Vocab</div><div class="val" id="vocab-count">—</div></div>
-    <div class="stat-card kanji"><div class="lbl">Kanji</div><div class="val" id="kanji-count">—</div></div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="btn btn-blue" id="history-btn" style="flex:1;margin-bottom:0">&#8599; Open history</button>
+    <button class="btn btn-pink" id="clear-history-btn" style="flex:0 0 auto;width:auto;padding:9px 13px;margin-bottom:0">&#10005; Clear</button>
   </div>
-  <div id="tok-status">Tokenizer: not loaded</div>
 </div>
 
 <!-- ── Vocab / Settings ── -->
@@ -340,19 +354,6 @@
   <div style="display:flex;gap:8px;margin-bottom:0">
     <button class="btn btn-slate" id="known-words-btn" style="flex:1;margin-bottom:0">&#10003; Manage known words</button>
     <span id="known-words-count" style="font-size:11px;color:var(--dim);display:flex;align-items:center;flex-shrink:0;min-width:28px;justify-content:flex-end"></span>
-  </div>
-  <hr>
-  <p class="sec-label">Watch history</p>
-  <div class="theme-row" style="margin-bottom:8px">
-    <span style="font-size:12px;color:var(--muted)">Track videos &amp; unknown words</span>
-    <label class="theme-switch">
-      <input type="checkbox" id="history-toggle" checked>
-      <span class="theme-track"></span>
-    </label>
-  </div>
-  <div style="display:flex;gap:8px;margin-bottom:0">
-    <button class="btn btn-slate" id="history-btn" style="flex:1;margin-bottom:0">View History</button>
-    <button class="btn btn-pink" id="clear-history-btn" style="flex:0 0 auto;width:auto;padding:9px 13px;margin-bottom:0">✕ Clear</button>
   </div>
   <hr>
   <div style="display:flex;align-items:center;gap:10px">

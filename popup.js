@@ -414,6 +414,7 @@ async function init() {
     if (!vn && !wn) { alert('History is already empty.'); return; }
     if (!confirm(`Clear ${vn} video${vn !== 1 ? 's' : ''} and ${wn} word${wn !== 1 ? 's' : ''} from history?`)) return;
     await chrome.storage.local.set({ mc_video_history: {}, mc_word_history: {} });
+    histListEl.innerHTML = '<div id="hist-empty">No history yet</div>';
   });
 
   document.getElementById('changelog-btn').addEventListener('click', () => {
@@ -444,7 +445,7 @@ async function init() {
   chrome.storage.local.get(['mc_history_enabled', 'mc_video_history'], ({ mc_history_enabled = true, mc_video_history = {} }) => {
     const entries = Object.entries(mc_video_history)
       .sort((a, b) => (b[1].lastWatched || 0) - (a[1].lastWatched || 0))
-      .slice(0, 5);
+      .slice(0, 8);
 
     if (!mc_history_enabled || !entries.length) {
       histListEl.innerHTML = '<div id="hist-empty">No history yet</div>';
@@ -456,7 +457,7 @@ async function init() {
       const scoreHtml = score != null
         ? `<span class="hist-score" style="color:${_compColorPop(score)}">${score}%</span>` : '';
       const siteClass = `hs-${v.site || 'yt'}`;
-      const siteLabel = v.site === 'cij' ? 'CIJ' : v.site === 'player' ? 'Local' : 'YT';
+      const siteLabel = v.site === 'cij' ? 'CIJ' : v.site === 'njk' ? 'NJK' : v.site === 'player' ? 'Local' : 'YT';
       const url = v.url || '';
       return `<div class="hist-row" data-url="${url.replace(/"/g,'&quot;')}">
         <span class="hist-site ${siteClass}">${siteLabel}</span>
