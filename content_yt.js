@@ -989,34 +989,35 @@ async function _ytInitBadges() {
   if (!mc_history_enabled || !mc_badges_enabled || !Object.keys(mc_video_history).length) return;
 
   function _inject() {
-    document.querySelectorAll('a[href*="watch?v="]').forEach(a => {
+    document.querySelectorAll('a[href*="watch?v="]:not([data-mc-yt-chk])').forEach(a => {
+      a.dataset.mcYtChk = '1';
       const img = a.querySelector('img');
-      if (!img) return; // skip title/text links — only inject on thumbnail links
-      if (a.querySelector('.mc-watched-badge')) return;
+      if (!img) return;
       let vid;
       try { vid = new URLSearchParams(a.href.split('?')[1] || '').get('v'); } catch {}
       if (!vid) return;
       const entry = mc_video_history[`yt_${vid}`];
       if (!entry) return;
       const score = entry.lastScore?.score;
-      const color = compColor(score ?? 50);
       const badge = document.createElement('div');
       badge.className = 'mc-watched-badge';
       badge.style.cssText = [
         'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
-        'background:rgba(0,0,0,.85)', `color:${color}`,
+        'background:rgba(0,0,0,.85)', `color:${compColor(score ?? 50)}`,
         'font:700 13px/1 -apple-system,sans-serif',
         'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
       const parent = img.parentElement || a;
-      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      if (!parent.style.position) parent.style.position = 'relative';
       parent.appendChild(badge);
     });
   }
 
+  let _ytBadgeTimer = null;
   _inject();
-  new MutationObserver(_inject).observe(document.documentElement, { childList: true, subtree: true });
+  new MutationObserver(() => { clearTimeout(_ytBadgeTimer); _ytBadgeTimer = setTimeout(_inject, 250); })
+    .observe(document.documentElement, { childList: true, subtree: true });
 }
 _ytInitBadges();
 

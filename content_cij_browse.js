@@ -17,21 +17,19 @@
   }
 
   function _inject() {
-    // Use a.href (resolved absolute URL) not the attribute, so relative hrefs match too
-    document.querySelectorAll('a').forEach(a => {
+    document.querySelectorAll('a:not([data-mc-cij-chk])').forEach(a => {
+      a.dataset.mcCijChk = '1';
       const m = a.href.match(/\/video\/(\d+)/);
       if (!m) return;
-      if (a.querySelector('.mc-watched-badge')) return;
       const entry = mc_video_history[`cij_${m[1]}`];
       if (!entry) return;
 
       const score = entry.lastScore?.score;
-      const color = _color(score);
       const badge = document.createElement('div');
       badge.className = 'mc-watched-badge';
       badge.style.cssText = [
         'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
-        'background:rgba(0,0,0,.85)', `color:${color}`,
+        'background:rgba(0,0,0,.85)', `color:${_color(score)}`,
         'font:700 13px/1 -apple-system,sans-serif',
         'padding:5px 10px', 'border-radius:6px', 'pointer-events:none',
         'letter-spacing:.3px',
@@ -40,11 +38,13 @@
 
       const img = a.querySelector('img');
       const parent = img?.parentElement || a;
-      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      if (!parent.style.position) parent.style.position = 'relative';
       parent.appendChild(badge);
     });
   }
 
+  let _cijTimer = null;
   _inject();
-  new MutationObserver(_inject).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { clearTimeout(_cijTimer); _cijTimer = setTimeout(_inject, 250); })
+    .observe(document.body, { childList: true, subtree: true });
 })();

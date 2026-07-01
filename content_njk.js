@@ -194,11 +194,14 @@ getTokenizer().catch(() => {});
   }
 
   function _njkInject() {
-    document.querySelectorAll('a').forEach(a => {
+    // Only visit anchors not yet checked — avoids re-scanning the whole page
+    // and calling getComputedStyle on every mutation (which forces reflow).
+    document.querySelectorAll('a:not([data-mc-njk-chk])').forEach(a => {
+      a.dataset.mcNjkChk = '1'; // mark regardless so we skip it next time
       if (!a.href.includes('nihongo-jikan.com')) return;
-      const path = new URL(a.href).pathname;
+      let path;
+      try { path = new URL(a.href).pathname; } catch { return; }
       if (!path || path === '/') return;
-      if (a.querySelector('.mc-watched-badge')) return;
       const entry = mc_video_history[`njk_${path}`];
       if (!entry) return;
 
@@ -215,13 +218,20 @@ getTokenizer().catch(() => {});
 
       const img = a.querySelector('img');
       const parent = img?.parentElement || a;
-      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      // Avoid getComputedStyle (forces reflow) — just set position if not already set
+      if (!parent.style.position) parent.style.position = 'relative';
       parent.appendChild(badge);
     });
   }
 
+  let _njkTimer = null;
+  function _njkInjectDebounced() {
+    clearTimeout(_njkTimer);
+    _njkTimer = setTimeout(_njkInject, 250);
+  }
+
   _njkInject();
-  new MutationObserver(_njkInject).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(_njkInjectDebounced).observe(document.body, { childList: true, subtree: true });
 })();
 
 // nihongo-jikan.com likely wraps content in a framework root element rather
