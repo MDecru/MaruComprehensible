@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MaruComprehension",
-  "version": "1.3",
+  "version": "1.4",
   "description": "MaruMori comprehension % for Japanese videos. Colored subtitles, hover definitions, and word sidebar on CIJ, NJK, and YouTube.",
   "icons": {
     "16":  "icons/icon16.png",
