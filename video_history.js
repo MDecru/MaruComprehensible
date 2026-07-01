@@ -83,6 +83,7 @@ async function _renderWords() {
 
   $('clear-words-btn').disabled  = !Object.keys(_words).length;
   $('export-words-btn').disabled = !Object.keys(_words).length;
+  $('copy-words-btn').disabled   = !Object.keys(_words).length;
   const con = $('word-list-container');
 
   if (!Object.keys(_words).length) {
@@ -156,6 +157,17 @@ $('clear-words-btn').addEventListener('click', async () => {
   _words = {};
   await chrome.storage.local.set({ mc_word_history: {} });
   _renderStats(); await _renderWords();
+});
+
+$('copy-words-btn').addEventListener('click', async () => {
+  const entries = Object.entries(_words).sort((a, b) => b[1].count - a[1].count);
+  if (!entries.length) return;
+  const text = entries.map(([w]) => w).join(', ');
+  await navigator.clipboard.writeText(text);
+  const btn = $('copy-words-btn');
+  const prev = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => { btn.textContent = prev; }, 1500);
 });
 
 $('export-words-btn').addEventListener('click', () => {
