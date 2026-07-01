@@ -511,7 +511,7 @@ function _hoverOut(e) {
 function _hoverClick(e) {
   const tok = e.target.closest('.jp-tok');
   if (tok) {
-    e.stopPropagation();
+    e.stopImmediatePropagation(); // prevent other document-level capture listeners (e.g. site player) from firing
     if (_hoverPinned === tok) { _hoverHide(); return; }
     if (_hoverPinned) _hoverPinned.classList.remove('jp-tok-sel');
 
