@@ -195,6 +195,9 @@ getTokenizer().catch(() => {});
 
   function _njkInject() {
     document.querySelectorAll('a').forEach(a => {
+      // Only badge thumbnail links (those that contain an img) — skip title/text links
+      const img = a.querySelector('img');
+      if (!img) return;
       if (!a.href.includes('nihongo-jikan.com')) return;
       if (a.querySelector('.mc-watched-badge')) return;
       let path;
@@ -214,8 +217,7 @@ getTokenizer().catch(() => {});
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
 
-      const img = a.querySelector('img');
-      const parent = img?.parentElement || a;
+      const parent = img.parentElement || a;
       if (!parent.style.position) parent.style.position = 'relative';
       parent.appendChild(badge);
     });
