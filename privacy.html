@@ -43,46 +43,57 @@
 <div class="wrap">
   <div class="card">
     <h1>Privacy Policy</h1>
-    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Last updated: June 2025</p>
+    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Last updated: July 2026</p>
 
     <div class="highlight">
-      Short version: MaruComprehension stores your MaruMori API token locally on your device and never transmits it to anyone other than MaruMori. No browsing data, no analytics, no ads.
+      Short version: MaruComprehension stores everything locally on your device. Your API token never leaves your browser except to reach MaruMori directly. No tracking, no analytics, no ads.
     </div>
 
-    <h2>What data we collect</h2>
-    <p>MaruComprehension stores the following data locally on your device using <code>chrome.storage.local</code>:</p>
+    <h2>What this extension does</h2>
+    <p>MaruComprehension is an unofficial fan app that connects to your <a href="https://marumori.io" target="_blank">MaruMori</a> account to fetch your learned vocabulary and kanji. It uses that data to:</p>
     <ul>
-      <li>Your <strong>MaruMori API token</strong>, which you paste voluntarily to connect your account</li>
-      <li>Your <strong>vocab and kanji lists</strong>, downloaded from MaruMori and cached locally so scoring works offline</li>
-      <li><strong>UI preferences</strong> (theme, font size, sort order)</li>
+      <li>Color-highlight subtitles and transcripts on <strong>Comprehensible Japanese</strong>, <strong>Nihongo-Jikan</strong>, and <strong>YouTube</strong> — known words in one color, unknown in another</li>
+      <li>Calculate a <strong>comprehension score</strong> for each video based on how many subtitle words you already know</li>
+      <li>Show <strong>hover cards</strong> with reading, definitions, and known/unknown status when you hover over any Japanese word in a subtitle or transcript</li>
+      <li>Display a <strong>word sidebar</strong> listing all unknown words in the current video with JLPT level indicators</li>
+      <li>Save a <strong>watch history</strong> and an <strong>unknown word frequency list</strong> so you can track progress over time</li>
+      <li>Let you <strong>mark words as Known</strong> directly from a hover card, stored separately from MaruMori</li>
     </ul>
-    <p>This data never leaves your device except as described below.</p>
-
-    <h2>Network requests</h2>
-    <p>The extension makes the following outbound requests:</p>
-    <ul>
-      <li><strong>MaruMori API</strong> (<code>public-api.marumori.io</code>) — to fetch your vocab and kanji lists using your API token. This request is made only when you click "Connect" or "Refresh" in the popup.</li>
-      <li><strong>YouTube timedtext API</strong> (<code>youtube.com</code>) — to fetch Japanese subtitle tracks for the video currently playing, for comprehension scoring. No account credentials are sent; only a public caption URL is fetched.</li>
-      <li><strong>Jisho dictionary API</strong> (<code>jisho.org</code>) — to look up word definitions when you hover over a word. Only the hovered word is sent.</li>
-    </ul>
-    <p>No other external servers are contacted. The extension does not use analytics, crash reporting, or advertising services.</p>
-
-    <h2>Data sharing</h2>
-    <p>We do not sell, share, or transmit your data to any third party. The only external services the extension communicates with are those listed above, solely to provide the extension's core functionality.</p>
 
     <h2>Data stored on your device</h2>
-    <p>All data is stored locally via the Chrome storage API and is never synced to any remote server controlled by this extension. You can clear all stored data at any time by clicking "Disconnect" in the extension popup, or by removing the extension from Chrome.</p>
-
-    <h2>Permissions used</h2>
+    <p>All data is stored locally using <code>chrome.storage.local</code> and never leaves your device except as described in Network requests below.</p>
     <ul>
-      <li><strong>storage</strong> — to save your API token and preferences locally</li>
-      <li><strong>activeTab</strong> — to read the current tab's URL so the popup can show the correct score</li>
-      <li><strong>scripting</strong> — to fetch YouTube caption files using the page's session cookies (required because YouTube rejects requests from extension origins)</li>
-      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports (CIJ, Nihongo-Jikan, YouTube, MaruMori API, Jisho)</li>
+      <li><strong>MaruMori API token</strong> — pasted voluntarily to connect your account</li>
+      <li><strong>Vocab and kanji lists</strong> — downloaded from MaruMori and cached locally so scoring works without repeated API calls</li>
+      <li><strong>Watch history</strong> — titles, URLs, comprehension scores, and watch counts for Japanese videos you have watched</li>
+      <li><strong>Unknown word frequency</strong> — words that appeared as unknown across your watched videos, with occurrence counts</li>
+      <li><strong>Manually known words</strong> — words you have marked as Known from hover cards, stored separately from MaruMori</li>
+      <li><strong>Settings and preferences</strong> — subtitle style, hover toggle, badge visibility, and other UI preferences</li>
+    </ul>
+    <p>You can clear watch history and word data at any time from the History page inside the extension. Removing the extension from Chrome deletes all stored data.</p>
+
+    <h2>Network requests</h2>
+    <p>The extension contacts only the following external services:</p>
+    <ul>
+      <li><strong>MaruMori API</strong> (<code>public-api.marumori.io</code>) — to fetch your vocab and kanji lists using your API token. Requested only when you connect your account or manually refresh.</li>
+      <li><strong>YouTube timedtext API</strong> (<code>youtube.com</code>) — to fetch Japanese subtitle tracks for the video currently open, for comprehension scoring. No account credentials are sent; only a public caption endpoint is used.</li>
+      <li><strong>Jisho dictionary</strong> (<code>jisho.org</code>) — to look up word definitions when you hover over a word. Only the individual word being hovered is sent.</li>
+    </ul>
+    <p>No analytics services, crash reporters, advertising networks, or any other third-party servers are contacted.</p>
+
+    <h2>Data sharing</h2>
+    <p>No data is sold, shared, or transmitted to any party other than the services listed above. Those requests exist solely to provide the extension's features and contain no personally identifiable information beyond what you explicitly provide (your API token).</p>
+
+    <h2>Permissions explained</h2>
+    <ul>
+      <li><strong>storage</strong> — saves your API token, vocabulary cache, watch history, and preferences locally on your device</li>
+      <li><strong>activeTab</strong> — reads the current tab's URL so the popup can show the correct comprehension score for the page you are on</li>
+      <li><strong>scripting</strong> — injects the subtitle coloring and hover card logic into supported video pages; also used to fetch YouTube caption files from within the page context (required because YouTube rejects requests from extension origins)</li>
+      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports: Comprehensible Japanese, Nihongo-Jikan, YouTube, MaruMori API, and Jisho</li>
     </ul>
 
     <h2>Disclaimer</h2>
-    <p>MaruComprehension is an independent, unofficial study aid created by a MaruMori user. It is not affiliated with, endorsed by, or in any way associated with <a href="https://marumori.io" target="_blank">MaruMori.io</a> or its parent company. All trademarks and brand names belong to their respective owners. This extension simply reads your own vocab data from MaruMori's public API to help you measure comprehension — nothing more.</p>
+    <p>MaruComprehension is an independent, unofficial fan app created by a MaruMori user. It is not affiliated with, endorsed by, or in any way associated with <a href="https://marumori.io" target="_blank">MaruMori.io</a>, Comprehensible Japanese, or Nihongo-Jikan. All trademarks and brand names belong to their respective owners.</p>
 
     <h2>Children's privacy</h2>
     <p>This extension is not directed at children under 13 and does not knowingly collect data from them.</p>
@@ -91,7 +102,7 @@
     <p>If this policy changes materially, the "Last updated" date above will be revised. Continued use of the extension after a change constitutes acceptance of the updated policy.</p>
 
     <h2>Contact</h2>
-    <p>Questions or concerns? E-mail <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
+    <p>Questions or concerns? Email <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
   </div>
 </div>
 </body>
