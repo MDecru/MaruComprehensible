@@ -990,6 +990,8 @@ async function _ytInitBadges() {
 
   function _inject() {
     document.querySelectorAll('a[href*="watch?v="]').forEach(a => {
+      const img = a.querySelector('img');
+      if (!img) return; // skip title/text links — only inject on thumbnail links
       if (a.querySelector('.mc-watched-badge')) return;
       let vid;
       try { vid = new URLSearchParams(a.href.split('?')[1] || '').get('v'); } catch {}
@@ -1001,14 +1003,13 @@ async function _ytInitBadges() {
       const badge = document.createElement('div');
       badge.className = 'mc-watched-badge';
       badge.style.cssText = [
-        'position:absolute', 'bottom:6px', 'left:6px', 'z-index:10',
-        'background:rgba(0,0,0,.82)', `color:${color}`,
-        'font:700 11px/1 -apple-system,sans-serif',
-        'padding:3px 7px', 'border-radius:5px', 'pointer-events:none', 'letter-spacing:.2px',
+        'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
+        'background:rgba(0,0,0,.85)', `color:${color}`,
+        'font:700 13px/1 -apple-system,sans-serif',
+        'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
       ].join(';');
-      badge.textContent = score != null ? `✓ ${score}%` : '✓';
-      const img = a.querySelector('img');
-      const parent = img?.parentElement || a;
+      badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
+      const parent = img.parentElement || a;
       if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
       parent.appendChild(badge);
     });
