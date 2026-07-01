@@ -126,31 +126,35 @@ function _cijEnsureOverlay(player) {
     'z-index:9996', 'display:flex', 'justify-content:center',
     'pointer-events:auto', 'text-align:center',
   ].join(';');
+  // Guard against the site calling video.play() while we own the pause
+  const _cijVideo = () => document.querySelector('video');
+  const _cijOnVideoPlay = () => { if (_cijPausedByHover) _cijVideo()?.pause(); };
+
   _cijSubOverlay.addEventListener('mouseenter', () => {
     if (!_cijPauseOnHover) return;
-    const v = document.querySelector('video');
-    if (v && !v.paused) { v.pause(); _cijPausedByHover = true; }
+    const v = _cijVideo();
+    if (v && !v.paused) {
+      v.pause();
+      _cijPausedByHover = true;
+      v.addEventListener('play', _cijOnVideoPlay);
+    }
   });
-  // Re-pause after word click — the CIJ site's click handler may call video.play() before
-  // hover.js fires; setTimeout(0) runs after all sync handlers in the same click stack
-  document.addEventListener('mc-word-pinned', () => {
-    if (!_cijPauseOnHover || !_cijPausedByHover) return;
-    setTimeout(() => {
-      const v = document.querySelector('video');
-      if (v && _cijPausedByHover && !v.paused) v.pause();
-    }, 0);
-  });
+  const _cijHoverResume = () => {
+    const v = _cijVideo();
+    if (v) v.removeEventListener('play', _cijOnVideoPlay);
+    _cijPausedByHover = false;
+    v?.play().catch(() => {});
+  };
+
   _cijSubOverlay.addEventListener('mouseleave', () => {
     if (!_cijPausedByHover) return;
     if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
-    _cijPausedByHover = false;
-    document.querySelector('video')?.play().catch(() => {});
+    _cijHoverResume();
   });
   document.addEventListener('mc-tooltip-closed', () => {
     if (!_cijPausedByHover) return;
     if (_cijSubOverlay?.matches(':hover')) return; // mouse is still on overlay
-    _cijPausedByHover = false;
-    document.querySelector('video')?.play().catch(() => {});
+    _cijHoverResume();
   });
   player.appendChild(_cijSubOverlay);
   return _cijSubOverlay;
