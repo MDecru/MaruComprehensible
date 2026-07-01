@@ -154,24 +154,32 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.mm_vocab?.newValue?.length) setTimeout(scanPage, 500);
 });
 
-// Run on load
-scanPage();
+// Only run heavy work (scoring, observer, tokenizer preload) when there is
+// actually a video player on the page at load time. On listing pages
+// (e.g. /videos) the player check returns null; without this guard the
+// MutationObserver would fire when hover-preview <video> elements are
+// injected by NJK on thumbnail hover, causing scanPage() to score those
+// ephemeral previews and save bogus history entries for the listing URL.
+const _njkHasPlayer = !!document.querySelector('iframe[src*="youtube"], video, [class*="player"]');
 
-let _observer = new MutationObserver(() => {
-  _observer.disconnect();
-  setTimeout(() => {
-    scanPage();
-    // Re-tokenize any new transcript nodes if hover mode is on
-    if (_hoverEnabled) {
-      const container = njkFindTranscriptElement();
-      if (container) hoverRetokenize(container);
-    }
-    _observer.observe(document.body, { childList: true, subtree: true });
-  }, 1200);
-});
-_observer.observe(document.body, { childList: true, subtree: true });
+if (_njkHasPlayer) {
+  scanPage();
 
-getTokenizer().catch(() => {});
+  let _observer = new MutationObserver(() => {
+    _observer.disconnect();
+    setTimeout(() => {
+      scanPage();
+      if (_hoverEnabled) {
+        const container = njkFindTranscriptElement();
+        if (container) hoverRetokenize(container);
+      }
+      _observer.observe(document.body, { childList: true, subtree: true });
+    }, 1200);
+  });
+  _observer.observe(document.body, { childList: true, subtree: true });
+
+  getTokenizer().catch(() => {});
+}
 
 // ── Watched badges on NJK listing pages ──────────────────────────────────────
 (async () => {
