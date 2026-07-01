@@ -243,6 +243,12 @@ function _cijStartTimeSync() {
     if (_cijFurigana) hoverApplyFurigana(_cijSubOverlay);
     _cijSubOverlay.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity);
     _cijRecolorOverlay();
+    if (_hoverVocab) {
+      const unknowns = [];
+      for (const s of (_cijSubOverlay?.querySelectorAll('.jp-tok') || []))
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+      if (unknowns.length) trackUnknownWords(unknowns);
+    }
   };
 
   video.addEventListener('timeupdate', handler);
@@ -656,6 +662,11 @@ async function scanPage() {
   if (!vtt) return null;
 
   const res = await scoreVTT(vtt);
+  if (res?.score != null) {
+    const cijVideoId = location.pathname.split('/').filter(Boolean).pop() || location.pathname;
+    const title = document.querySelector('h1')?.textContent?.trim() || document.title.trim();
+    saveVideoHistory(`cij_${cijVideoId}`, { title, url: location.href, site: 'cij', score: res });
+  }
   const video = document.querySelector('video');
   const player = _cijGetPlayer();
   if (player) {

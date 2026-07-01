@@ -228,9 +228,23 @@ async function scoreVideo() {
   try {
     const vtt = await fetchJaVTT(videoId);
     const res = vtt ? await scoreVTT(vtt) : null;
+    if (res?.score != null) {
+      const title = document.querySelector('h1.ytd-video-primary-info-renderer, #above-the-fold #title h1, ytd-video-primary-info-renderer h1')?.textContent?.trim()
+        || document.title.replace(/ - YouTube.*/, '').trim();
+      saveVideoHistory(`yt_${videoId}`, { title, url: `https://www.youtube.com/watch?v=${videoId}`, site: 'yt', score: res });
+    }
     const player = _ytGetPlayer();
     if (player) {
       _ytCreateControlBar(player, res?.score ?? null);
+      if (res?.score != null) {
+        chrome.storage.local.get(['mc_history_enabled', 'mc_video_history'], ({ mc_history_enabled = true, mc_video_history = {} }) => {
+          if (!mc_history_enabled) return;
+          const entry = mc_video_history[`yt_${videoId}`];
+          if (!entry || entry.watchCount < 2) return;
+          const el = document.getElementById('mc-yt-score');
+          if (el) el.title = `Watched ${entry.watchCount}× · Last: ${new Date(entry.lastWatched).toLocaleDateString()}`;
+        });
+      }
       chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
         if (videoToolEnabled === false && _ytControlBar) _ytControlBar.style.display = 'none';
       });
@@ -735,6 +749,12 @@ function _ytStartTimeSync() {
     if (_ytFurigana) hoverApplyFurigana(_ytSubOverlay);
     _ytSubOverlay.style.setProperty('--mc-rt-opacity', _ytFuriganaOpacity);
     _ytRecolorOverlay();
+    if (_hoverVocab) {
+      const unknowns = [];
+      for (const s of (_ytSubOverlay?.querySelectorAll('.jp-tok') || []))
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+      if (unknowns.length) trackUnknownWords(unknowns);
+    }
   };
 
   video.addEventListener('timeupdate', handler);
@@ -961,6 +981,43 @@ new MutationObserver(() => {
     setTimeout(scoreVideo, 2500);
   }
 }).observe(document.documentElement, { childList: true, subtree: true });
+
+// ── Watched badge injection on YouTube listing/home pages ─────────────────────
+async function _ytInitBadges() {
+  const { mc_history_enabled = true, mc_video_history = {} } =
+    await chrome.storage.local.get(['mc_history_enabled', 'mc_video_history']);
+  if (!mc_history_enabled || !Object.keys(mc_video_history).length) return;
+
+  function _inject() {
+    document.querySelectorAll('a[href*="watch?v="]').forEach(a => {
+      if (a.querySelector('.mc-watched-badge')) return;
+      let vid;
+      try { vid = new URLSearchParams(a.href.split('?')[1] || '').get('v'); } catch {}
+      if (!vid) return;
+      const entry = mc_video_history[`yt_${vid}`];
+      if (!entry) return;
+      const score = entry.lastScore?.score;
+      const color = compColor(score ?? 50);
+      const badge = document.createElement('div');
+      badge.className = 'mc-watched-badge';
+      badge.style.cssText = [
+        'position:absolute', 'bottom:6px', 'left:6px', 'z-index:10',
+        'background:rgba(0,0,0,.82)', `color:${color}`,
+        'font:700 11px/1 -apple-system,sans-serif',
+        'padding:3px 7px', 'border-radius:5px', 'pointer-events:none', 'letter-spacing:.2px',
+      ].join(';');
+      badge.textContent = score != null ? `✓ ${score}%` : '✓';
+      const img = a.querySelector('img');
+      const parent = img?.parentElement || a;
+      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      parent.appendChild(badge);
+    });
+  }
+
+  _inject();
+  new MutationObserver(_inject).observe(document.documentElement, { childList: true, subtree: true });
+}
+_ytInitBadges();
 
 // Pre-warm the tokenizer in the background so it's ready when the user clicks score.
 getTokenizer().catch(() => {});

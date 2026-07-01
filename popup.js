@@ -394,6 +394,28 @@ async function init() {
     window.close();
   });
 
+  // History toggle + page + clear
+  const histToggle = document.getElementById('history-toggle');
+  chrome.storage.local.get('mc_history_enabled', ({ mc_history_enabled }) => {
+    histToggle.checked = mc_history_enabled !== false;
+  });
+  histToggle.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_history_enabled: histToggle.checked });
+  });
+  document.getElementById('history-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('video_history.html') });
+    window.close();
+  });
+  document.getElementById('clear-history-btn').addEventListener('click', async () => {
+    const { mc_video_history = {}, mc_word_history = {} } =
+      await chrome.storage.local.get(['mc_video_history', 'mc_word_history']);
+    const vn = Object.keys(mc_video_history).length;
+    const wn = Object.keys(mc_word_history).length;
+    if (!vn && !wn) { alert('History is already empty.'); return; }
+    if (!confirm(`Clear ${vn} video${vn !== 1 ? 's' : ''} and ${wn} word${wn !== 1 ? 's' : ''} from history?`)) return;
+    await chrome.storage.local.set({ mc_video_history: {}, mc_word_history: {} });
+  });
+
   document.getElementById('changelog-btn').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('changelog.html') });
     window.close();

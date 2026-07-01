@@ -251,6 +251,44 @@ async function scoreText(rawText) {
   return { score: pct, freqKnown: fk, freqTotal: ft, uniqueKnown: uk, uniqueTotal: ut, kanjiKnown: kk, kanjiTotal: kt };
 }
 
+// ── Watch / word history helpers ──────────────────────────────────────────────
+
+async function saveVideoHistory(key, { title, url, site, score }) {
+  try {
+    if (!chrome.runtime?.id) return;
+    const data = await chrome.storage.local.get(['mc_history_enabled', 'mc_video_history']);
+    if (data.mc_history_enabled === false) return;
+    const hist = data.mc_video_history || {};
+    const prev = hist[key];
+    hist[key] = { title: title || key, url, site, lastScore: score, lastWatched: Date.now(), watchCount: (prev?.watchCount || 0) + 1, firstWatched: prev?.firstWatched || Date.now() };
+    await chrome.storage.local.set({ mc_video_history: hist });
+  } catch {}
+}
+
+let _pendingWords = {};
+let _wordFlushTimer = null;
+async function trackUnknownWords(words) {
+  try {
+    if (!chrome.runtime?.id || !words?.length) return;
+    for (const w of words) _pendingWords[w] = (_pendingWords[w] || 0) + 1;
+    if (_wordFlushTimer) return;
+    _wordFlushTimer = setTimeout(async () => {
+      _wordFlushTimer = null;
+      const batch = _pendingWords; _pendingWords = {};
+      if (!Object.keys(batch).length) return;
+      const data = await chrome.storage.local.get(['mc_history_enabled', 'mc_word_history']);
+      if (data.mc_history_enabled === false) return;
+      const hist = data.mc_word_history || {};
+      const now = Date.now();
+      for (const [w, cnt] of Object.entries(batch)) {
+        if (!hist[w]) hist[w] = { count: 0, lastSeen: 0 };
+        hist[w].count += cnt; hist[w].lastSeen = now;
+      }
+      await chrome.storage.local.set({ mc_word_history: hist });
+    }, 5000);
+  } catch {}
+}
+
 async function scoreVTT(vttText) {
   const [vocab, kanji] = await Promise.all([getVocab(), getKanji()]);
   if (!vocab.size) return null;

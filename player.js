@@ -149,6 +149,12 @@ function _startTimeSync() {
     if (_furigana) hoverApplyFurigana(subOverlay);
     subOverlay.style.setProperty('--mc-rt-opacity', _furiganaOpacity);
     _recolorOverlay();
+    if (_hoverVocab) {
+      const unknowns = [];
+      for (const s of (subOverlay?.querySelectorAll('.jp-tok') || []))
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+      if (unknowns.length) trackUnknownWords(unknowns);
+    }
   };
   video.addEventListener('timeupdate', handler);
   return () => video.removeEventListener('timeupdate', handler);
@@ -233,6 +239,8 @@ async function loadSubtitle(file) {
     if (res?.score != null) {
       scoreEl.textContent = `${res.score}%`;
       scoreEl.title = `Frequency: ${res.freqKnown}/${res.freqTotal} · Unique: ${res.uniqueKnown}/${res.uniqueTotal} · Kanji: ${res.kanjiKnown}/${res.kanjiTotal}`;
+      const playerTitle = document.title.replace(' — MaruComprehension', '').trim();
+      saveVideoHistory(`player_${playerTitle}`, { title: playerTitle, url: location.href, site: 'player', score: res });
     } else {
       scoreEl.textContent = '–';
       scoreEl.title = '';
