@@ -17,10 +17,11 @@
   }
 
   function _inject() {
-    document.querySelectorAll('a[href*="/video/"]').forEach(a => {
-      if (a.querySelector('.mc-watched-badge')) return;
+    // Use a.href (resolved absolute URL) not the attribute, so relative hrefs match too
+    document.querySelectorAll('a').forEach(a => {
       const m = a.href.match(/\/video\/(\d+)/);
       if (!m) return;
+      if (a.querySelector('.mc-watched-badge')) return;
       const entry = mc_video_history[`cij_${m[1]}`];
       if (!entry) return;
 
@@ -29,13 +30,13 @@
       const badge = document.createElement('div');
       badge.className = 'mc-watched-badge';
       badge.style.cssText = [
-        'position:absolute', 'bottom:6px', 'left:6px', 'z-index:10',
-        'background:rgba(0,0,0,.82)', `color:${color}`,
-        'font:700 11px/1 -apple-system,sans-serif',
-        'padding:3px 7px', 'border-radius:5px', 'pointer-events:none',
-        'letter-spacing:.2px',
+        'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
+        'background:rgba(0,0,0,.85)', `color:${color}`,
+        'font:700 13px/1 -apple-system,sans-serif',
+        'padding:5px 10px', 'border-radius:6px', 'pointer-events:none',
+        'letter-spacing:.3px',
       ].join(';');
-      badge.textContent = score != null ? `✓ ${score}%` : '✓';
+      badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
 
       const img = a.querySelector('img');
       const parent = img?.parentElement || a;
