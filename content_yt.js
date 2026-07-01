@@ -384,12 +384,20 @@ function _ytEnsureOverlay(player) {
     const video = document.querySelector('video');
     if (video && !video.paused) { video.pause(); _ytPausedByHover = true; }
   });
-  _ytSubOverlay.addEventListener('mouseleave', () => {
+  _ytSubOverlay.addEventListener('mouseleave', (e) => {
     if (!_ytPausedByHover) return;
-    if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
+    if (_hoverPinned) return;
+    if (e.relatedTarget?.closest?.('#jp-hover-tip')) return;
     _ytPausedByHover = false;
     document.querySelector('video')?.play().catch(() => {});
   });
+  document.addEventListener('mouseout', (e) => {
+    if (!_ytPausedByHover || _hoverPinned) return;
+    if (!e.target.closest('#jp-hover-tip')) return;
+    if (e.relatedTarget?.closest?.('#mc-yt-overlay') || e.relatedTarget?.closest?.('#jp-hover-tip')) return;
+    _ytPausedByHover = false;
+    document.querySelector('video')?.play().catch(() => {});
+  }, { passive: true });
   document.addEventListener('mc-tooltip-closed', () => {
     if (!_ytPausedByHover) return;
     if (_ytSubOverlay?.matches(':hover')) return; // mouse is still on overlay

@@ -36,10 +36,8 @@
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
 
-      const img = a.querySelector('img');
-      const parent = img?.parentElement || a;
-      if (!parent.style.position) parent.style.position = 'relative';
-      parent.appendChild(badge);
+      if (!a.style.position) a.style.position = 'relative';
+      a.appendChild(badge);
     });
   }
 
