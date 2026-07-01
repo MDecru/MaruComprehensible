@@ -109,6 +109,12 @@ function _ensureHoverUI() {
     _hoverTip.id = 'jp-hover-tip';
     _hoverTip.classList.toggle('jht-light', _hoverIsLight);
     document.body.appendChild(_hoverTip);
+    // Hide full-hover (non-pinned) card when mouse leaves the tooltip
+    _hoverTip.addEventListener('mouseleave', e => {
+      if (_hoverPinned) return;
+      if (e.relatedTarget?.closest?.('.jp-tok')) return;
+      _hoverTip.style.display = 'none';
+    });
   }
 }
 
@@ -492,20 +498,34 @@ function _hoverPosition(el) {
 
 function _hoverOver(e) {
   if (_hoverPinned) return;
+  if (e.target.closest('#jp-hover-tip')) return; // mouse moved into tooltip, keep it
   const tok = e.target.closest('.jp-tok');
   if (!tok) { _hoverTip.style.display = 'none'; return; }
-  _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, false, null);
+
+  const full = !!tok.closest('[data-mc-full-hover]');
+  _lastTipDataset = tok.dataset; _lastTipDef = undefined;
+  _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, full, full ? undefined : null);
   _hoverTip.style.display = 'block';
   _hoverTip.classList.remove('pinned');
-  _hoverTip.style.pointerEvents = 'none';
+  _hoverTip.style.pointerEvents = full ? 'auto' : 'none';
   _hoverPosition(tok);
+  if (full) {
+    _wireHoverTipButtons();
+    _fetchDef(tok.dataset.basic || tok.dataset.word).then(def => {
+      if (_hoverTip.style.display === 'none' || _lastTipDataset !== tok.dataset) return;
+      _lastTipDef = def;
+      _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, def);
+      _hoverPosition(tok);
+      _wireHoverTipButtons();
+    });
+  }
 }
 
 function _hoverOut(e) {
   if (_hoverPinned) return;
-  if (!e.relatedTarget?.closest?.('.jp-tok')) {
-    _hoverTip.style.display = 'none';
-  }
+  if (e.relatedTarget?.closest?.('.jp-tok')) return;
+  if (e.relatedTarget?.closest?.('#jp-hover-tip')) return; // going into tooltip
+  _hoverTip.style.display = 'none';
 }
 
 function _hoverClick(e) {

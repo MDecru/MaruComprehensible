@@ -121,6 +121,7 @@ function _cijEnsureOverlay(player) {
 
   _cijSubOverlay = document.createElement('div');
   _cijSubOverlay.id = 'mc-cij-overlay';
+  _cijSubOverlay.dataset.mcFullHover = '1';
   _cijSubOverlay.style.cssText = [
     'position:absolute', `bottom:${_cijSubPosition}%`, 'left:0', 'right:0',
     'z-index:9996', 'display:flex', 'justify-content:center',

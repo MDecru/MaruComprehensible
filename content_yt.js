@@ -357,6 +357,7 @@ function _ytEnsureOverlay(player) {
   if (_ytSubOverlay) return _ytSubOverlay;
   _ytSubOverlay = document.createElement('div');
   _ytSubOverlay.id = 'mc-yt-overlay';
+  _ytSubOverlay.dataset.mcFullHover = '1';
   _ytSubOverlay.style.cssText = [
     'position:absolute', `bottom:${_ytSubPosition}%`, 'left:0', 'right:0',
     'z-index:9996', 'display:flex', 'justify-content:center',
