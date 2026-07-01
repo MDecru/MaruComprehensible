@@ -220,7 +220,7 @@ if (_njkHasPlayer) {
       const badge = document.createElement('div');
       badge.className = 'mc-watched-badge';
       badge.style.cssText = [
-        'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
+        'position:absolute', 'top:8px', 'left:8px', 'z-index:10',
         'background:rgba(0,0,0,.85)', `color:${_njkColor(score)}`,
         'font:700 13px/1 -apple-system,sans-serif',
         'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
