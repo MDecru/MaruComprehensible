@@ -165,6 +165,7 @@ const _njkHasPlayer = !!document.querySelector('iframe[src*="youtube"], video, [
 if (_njkHasPlayer) {
   scanPage();
 
+  let _njkAutoHoverPending = false;
   let _observer = new MutationObserver(() => {
     _observer.disconnect();
     setTimeout(() => {
@@ -172,6 +173,11 @@ if (_njkHasPlayer) {
       if (_hoverEnabled) {
         const container = njkFindTranscriptElement();
         if (container) hoverRetokenize(container);
+      }
+      if (_njkAutoHoverPending && !_hoverEnabled) {
+        hoverEnable(njkFindTranscriptElement)
+          .then(r => { if (r?.ok) _njkAutoHoverPending = false; })
+          .catch(() => {});
       }
       _observer.observe(document.body, { childList: true, subtree: true });
     }, 1200);
@@ -181,7 +187,11 @@ if (_njkHasPlayer) {
   getTokenizer().catch(() => {});
 
   chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
-    if (mc_hover_enabled) hoverEnable(njkFindTranscriptElement).catch(() => {});
+    if (!mc_hover_enabled) return;
+    _njkAutoHoverPending = true;
+    hoverEnable(njkFindTranscriptElement)
+      .then(r => { if (r?.ok) _njkAutoHoverPending = false; })
+      .catch(() => {});
   });
 }
 

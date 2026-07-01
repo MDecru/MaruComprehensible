@@ -199,7 +199,10 @@ async function init() {
           // Poll until the in-progress load finishes
           const poll = setInterval(() => {
             chrome.tabs.sendMessage(tab.id, { action: 'tokStatus' })
-              .then(s => { if (s?.ready) { setTokStatus('✓ Ready', '#72CE9D'); clearInterval(poll); } })
+              .then(s => {
+                if (s?.ready) { setTokStatus('✓ Ready', '#72CE9D'); clearInterval(poll); }
+                else if (!s?.loading) { setTokStatus('not loaded — click to load', '#666'); clearInterval(poll); }
+              })
               .catch(() => clearInterval(poll));
           }, 800);
         } else {
@@ -324,11 +327,11 @@ async function init() {
     hoverToggle.checked = !!mc_hover_enabled;
   });
   hoverToggle.addEventListener('change', async () => {
-    chrome.storage.local.set({ mc_hover_enabled: hoverToggle.checked });
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!activeTab) return;
+    if (!activeTab) { hoverToggle.checked = !hoverToggle.checked; return; }
     if (!hoverToggle.checked) {
       await chrome.tabs.sendMessage(activeTab.id, { action: 'disableHover' }).catch(() => {});
+      chrome.storage.local.set({ mc_hover_enabled: false });
     } else {
       hoverToggle.disabled = true;
       try {
@@ -337,6 +340,8 @@ async function init() {
           setStatus(r?.error || 'Hover failed', '#f44336');
           hoverToggle.checked = false;
           chrome.storage.local.set({ mc_hover_enabled: false });
+        } else {
+          chrome.storage.local.set({ mc_hover_enabled: true });
         }
       } catch (e) {
         setStatus(`Hover error: ${e.message}`, '#f44336');
@@ -353,6 +358,7 @@ async function init() {
     videoSubToggle.checked = videoToolEnabled !== false;
   });
   videoSubToggle.addEventListener('change', async () => {
+    chrome.storage.local.set({ videoToolEnabled: videoSubToggle.checked });
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!activeTab) return;
     if (!videoSubToggle.checked) {
@@ -364,6 +370,7 @@ async function init() {
       } catch (e) {
         setStatus(`Video tool error: ${e.message}`, '#f44336');
         videoSubToggle.checked = false;
+        chrome.storage.local.set({ videoToolEnabled: false });
       }
       videoSubToggle.disabled = false;
     }

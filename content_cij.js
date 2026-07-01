@@ -777,18 +777,28 @@ document.addEventListener('mc-word-marked-known', () => {
 // Auto-score on load
 scanPage();
 
-// Re-tokenize transcript panel when it fills in dynamically
+// Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
+let _cijAutoHoverPending = false;
 new MutationObserver(() => {
   if (_transcriptHoverActive) {
     const container = cijFindTranscriptElement();
     if (container) hoverRetokenize(container);
+  }
+  if (_cijAutoHoverPending && !_hoverEnabled) {
+    hoverEnable(cijFindTranscriptElement)
+      .then(r => { if (r?.ok) _cijAutoHoverPending = false; })
+      .catch(() => {});
   }
 }).observe(document.body, { childList: true, subtree: true });
 
 getTokenizer().catch(() => {});
 
 chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
-  if (mc_hover_enabled) hoverEnable(cijFindTranscriptElement).catch(() => {});
+  if (!mc_hover_enabled) return;
+  _cijAutoHoverPending = true;
+  hoverEnable(cijFindTranscriptElement)
+    .then(r => { if (r?.ok) _cijAutoHoverPending = false; })
+    .catch(() => {});
 });
 
 // Style the wrapper when it enters/exits fullscreen, and keep hover/sidebar visible.
