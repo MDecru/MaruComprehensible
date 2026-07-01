@@ -194,11 +194,9 @@ getTokenizer().catch(() => {});
   }
 
   function _njkInject() {
-    // Only visit anchors not yet checked — avoids re-scanning the whole page
-    // and calling getComputedStyle on every mutation (which forces reflow).
-    document.querySelectorAll('a:not([data-mc-njk-chk])').forEach(a => {
-      a.dataset.mcNjkChk = '1'; // mark regardless so we skip it next time
+    document.querySelectorAll('a').forEach(a => {
       if (!a.href.includes('nihongo-jikan.com')) return;
+      if (a.querySelector('.mc-watched-badge')) return;
       let path;
       try { path = new URL(a.href).pathname; } catch { return; }
       if (!path || path === '/') return;
@@ -218,20 +216,15 @@ getTokenizer().catch(() => {});
 
       const img = a.querySelector('img');
       const parent = img?.parentElement || a;
-      // Avoid getComputedStyle (forces reflow) — just set position if not already set
       if (!parent.style.position) parent.style.position = 'relative';
       parent.appendChild(badge);
     });
   }
 
-  let _njkTimer = null;
-  function _njkInjectDebounced() {
-    clearTimeout(_njkTimer);
-    _njkTimer = setTimeout(_njkInject, 250);
-  }
-
-  _njkInject();
-  new MutationObserver(_njkInjectDebounced).observe(document.body, { childList: true, subtree: true });
+  // Run once after a short delay to let the framework finish its initial render.
+  // No MutationObserver — NJK re-renders card DOM on thumbnail hover which would
+  // cause the observer to fire continuously and crash the page.
+  setTimeout(_njkInject, 800);
 })();
 
 // nihongo-jikan.com likely wraps content in a framework root element rather
