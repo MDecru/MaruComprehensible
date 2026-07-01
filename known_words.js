@@ -7,6 +7,7 @@ const listEl    = document.getElementById('list-container');
 const countEl   = document.getElementById('count-label');
 const searchEl  = document.getElementById('search');
 const clearBtn  = document.getElementById('clear-all-btn');
+const exportBtn = document.getElementById('export-btn');
 
 async function _load() {
   const { mc_user_known = [] } = await chrome.storage.local.get('mc_user_known');
@@ -22,6 +23,7 @@ function _render() {
     ? `${_words.length} word${_words.length === 1 ? '' : 's'}`
     : '';
   clearBtn.disabled = _words.length === 0;
+  exportBtn.disabled = _words.length === 0;
 
   if (_words.length === 0) {
     listEl.innerHTML = `<div class="empty">
@@ -62,6 +64,16 @@ clearBtn.addEventListener('click', async () => {
   _words = [];
   await chrome.storage.local.set({ mc_user_known: [] });
   _render();
+});
+
+exportBtn.addEventListener('click', () => {
+  if (!_words.length) return;
+  const csv = 'word\n' + _words.map(w => `"${w.replace(/"/g, '""')}"`).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'known_words.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 });
 
 searchEl.addEventListener('input', () => {

@@ -33,6 +33,22 @@
   }
   .btn-clear-all:hover { background: rgba(237,121,137,.1); }
   .btn-clear-all:disabled { opacity: .35; cursor: default; }
+  .btn-export {
+    padding: 9px 16px; border-radius: 10px; border: 1px solid #66AAE8;
+    background: none; color: #66AAE8; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: background .15s;
+    font-family: inherit; text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn-export:hover { background: rgba(102,170,232,.1); }
+  .btn-export:disabled { opacity: .35; cursor: default; }
+  .mm-link {
+    display: block; margin-top: 24px; padding: 12px 16px;
+    background: #2D3031; border: 1px solid #363A3B; border-radius: 10px;
+    color: #FDC281; font-size: 13px; font-weight: 600; text-decoration: none;
+    transition: border-color .15s, background .15s;
+  }
+  .mm-link:hover { border-color: #FDC281; background: rgba(253,194,129,.06); }
+  .mm-link span { display: block; font-size: 11px; color: #66748a; font-weight: 400; margin-top: 2px; }
 
   .empty {
     text-align: center; color: #4a5068; font-size: 14px;
@@ -71,9 +87,14 @@
   </div>
   <div class="toolbar">
     <input type="search" id="search" placeholder="Filter words…" autocomplete="off">
+    <button class="btn-export" id="export-btn" disabled>↓ Export CSV</button>
     <button class="btn-clear-all" id="clear-all-btn">✕ Clear all</button>
   </div>
   <div id="list-container"></div>
+  <a class="mm-link" href="https://marumori.io/tools/imports" target="_blank">
+    Import into MaruMori ↗
+    <span>Use the CSV export above to add these words to your MaruMori known vocab</span>
+  </a>
 </div>
 <script src="known_words.js"></script>
 </body>
