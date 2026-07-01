@@ -269,6 +269,13 @@ subOverlay.addEventListener('mouseenter', () => {
 });
 subOverlay.addEventListener('mouseleave', () => {
   if (!_pausedByHover) return;
+  if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
+  _pausedByHover = false;
+  video.play().catch(() => {});
+});
+document.addEventListener('mc-tooltip-closed', () => {
+  if (!_pausedByHover) return;
+  if (subOverlay.matches(':hover')) return; // mouse is still on overlay
   _pausedByHover = false;
   video.play().catch(() => {});
 });

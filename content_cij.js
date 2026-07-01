@@ -133,6 +133,13 @@ function _cijEnsureOverlay(player) {
   });
   _cijSubOverlay.addEventListener('mouseleave', () => {
     if (!_cijPausedByHover) return;
+    if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
+    _cijPausedByHover = false;
+    document.querySelector('video')?.play().catch(() => {});
+  });
+  document.addEventListener('mc-tooltip-closed', () => {
+    if (!_cijPausedByHover) return;
+    if (_cijSubOverlay?.matches(':hover')) return; // mouse is still on overlay
     _cijPausedByHover = false;
     document.querySelector('video')?.play().catch(() => {});
   });

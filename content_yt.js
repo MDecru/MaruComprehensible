@@ -369,6 +369,13 @@ function _ytEnsureOverlay(player) {
   });
   _ytSubOverlay.addEventListener('mouseleave', () => {
     if (!_ytPausedByHover) return;
+    if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
+    _ytPausedByHover = false;
+    document.querySelector('video')?.play().catch(() => {});
+  });
+  document.addEventListener('mc-tooltip-closed', () => {
+    if (!_ytPausedByHover) return;
+    if (_ytSubOverlay?.matches(':hover')) return; // mouse is still on overlay
     _ytPausedByHover = false;
     document.querySelector('video')?.play().catch(() => {});
   });

@@ -550,6 +550,7 @@ function _hoverHide() {
   _hoverTip.classList.remove('pinned');
   _hoverTip.style.pointerEvents = 'none';
   if (_hoverPinned) { _hoverPinned.classList.remove('jp-tok-sel'); _hoverPinned = null; }
+  document.dispatchEvent(new CustomEvent('mc-tooltip-closed'));
 }
 
 // ── Public API for sidebar ────────────────────────────────────────────────────
