@@ -486,10 +486,11 @@ function _hoverPosition(el) {
   const tw   = _hoverTip.offsetWidth  || 280;
   const th   = _hoverTip.offsetHeight || 120;
   let x = rect.left;
-  let y = rect.bottom + 8;
+  // Prefer above; fall back to below if not enough room
+  let y = rect.top - th - 8;
+  if (y < 8) y = rect.bottom + 8;
   if (x + tw > window.innerWidth  - 8) x = window.innerWidth  - tw - 8;
   if (x < 8) x = 8;
-  if (y + th > window.innerHeight - 8) y = rect.top - th - 8;
   _hoverTip.style.left = x + 'px';
   _hoverTip.style.top  = y + 'px';
 }
