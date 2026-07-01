@@ -53,11 +53,11 @@ function _ensureHoverUI() {
       .jht-kc.unknown .jht-kc-ch { color:#ED7989; }
       .jht-kc-lv { font-size:10px; font-weight:600; color:#72CE9D; opacity:.8; margin-top:1px; }
       .jht-kc.unknown .jht-kc-lv { color:#ED7989; }
-      .jht-footer { display:flex; align-items:center; gap:7px; padding:6px 12px 9px;
+      .jht-footer { display:flex; flex-direction:column; gap:6px; padding:6px 12px 9px;
         border-top:1px solid #363A3B; }
+      .jht-links { display:flex; gap:7px; justify-content:flex-end; }
       .jht-link { font-size:12px; font-weight:700; padding:4px 12px; border-radius:16px;
-        text-decoration:none; color:#fff; border:1px solid transparent; transition:filter .12s; margin-left:auto; }
-      .jht-link + .jht-link { margin-left:0; }
+        text-decoration:none; color:#fff; border:1px solid transparent; transition:filter .12s; }
       .jht-link:hover { filter:brightness(.85); }
       .jht-jisho { background:#66AAE8; border-color:#66AAE8; }
       .jht-mm    { background:#FDC281; border-color:#FDC281; }
@@ -432,11 +432,11 @@ function _hoverBuildTip(dataset, pinned, defResult) {
   const setKnownBtn = (pinned && !known && pos)
     ? `<button class="jht-set-known" data-basic="${_esc(basic)}" data-word="${_esc(word)}">+ Set as Known</button>`
     : '';
-  const footerHtml = `<div class="jht-footer">
-    ${setKnownBtn}
+  const linksHtml = `<div class="jht-links">
     <a class="jht-link jht-jisho" href="https://jisho.org/search/${encodeURIComponent(displayWord)}" target="_blank">Jisho ↗</a>
     <a class="jht-link jht-mm" href="https://marumori.io/dictionary/search?q=${encodeURIComponent(displayWord)}&t=vocabulary" target="_blank">MaruMori ↗</a>
   </div>`;
+  const footerHtml = `<div class="jht-footer">${setKnownBtn}${linksHtml}</div>`;
 
   return headHtml + readingHtml + defHtml + kanjiHtml + footerHtml;
 }
