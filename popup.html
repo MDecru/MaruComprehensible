@@ -155,7 +155,8 @@
 
   /* ── Misc ── */
   #connect-status { font-size:12px; color:var(--dim); min-height:16px; margin:4px 0 10px; }
-  #tok-status     { font-size:11px; color:var(--dim); margin-top:6px; }
+  #tok-status     { font-size:11px; color:var(--dim); margin-top:6px; cursor:pointer; }
+  #tok-status:hover { color:var(--muted); }
   #extra-status   { font-size:11px; color:var(--dim); margin-top:4px; }
   hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
 
@@ -187,7 +188,7 @@
   <button class="tab-btn active" data-tab="main">Main</button>
   <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn" data-tab="vocab">Settings</button>
-  <button class="tab-btn" data-tab="advanced">Advanced</button>
+  <button class="tab-btn" data-tab="advanced">Extra</button>
 </div>
 
 <!-- ── Main ── -->
@@ -290,10 +291,8 @@
     <button class="hist-view-all" id="hist-view-all-btn">View all</button>
   </div>
   <div id="hist-list"></div>
-  <div style="display:flex;gap:8px;margin-top:10px">
-    <button class="btn btn-blue" id="history-btn" style="flex:1;margin-bottom:0">&#8599; Open history</button>
-    <button class="btn btn-pink" id="clear-history-btn" style="flex:0 0 auto;width:auto;margin-bottom:0">&#10005; Clear</button>
-  </div>
+  <button class="btn btn-blue" id="history-btn" style="margin-top:10px">Open history →</button>
+  <button class="btn btn-pink" id="clear-history-btn">&#10005; Clear history</button>
 </div>
 
 <!-- ── Vocab / Settings ── -->
@@ -328,7 +327,7 @@
   <button class="btn btn-green" id="connect-btn">Connect &amp; fetch vocab</button>
 
   <div id="connect-status"></div>
-  <div style="display:flex;gap:8px">
+  <div style="display:flex;gap:8px;align-items:flex-start">
     <button class="btn btn-slate" id="refresh-btn" style="flex:1;margin-bottom:0">↻ Refresh</button>
     <button class="btn btn-pink" id="disconnect-btn" style="flex:1;margin-bottom:0">✕ Disconnect</button>
   </div>
@@ -340,7 +339,7 @@
 <div class="tab-panel" id="tab-advanced">
   <h2>Advanced</h2>
   <p class="sec-label">Extra known vocab</p>
-  <div style="display:flex;gap:8px;margin-bottom:4px">
+  <div style="display:flex;gap:8px;margin-bottom:4px;align-items:flex-start">
     <label class="btn btn-amber" style="flex:1;margin-bottom:0">
       Load JSON
       <input type="file" id="extra-file" accept=".json" style="display:none">
@@ -350,12 +349,12 @@
   <div id="extra-status"></div>
   <hr>
   <p class="sec-label">User-marked known words</p>
-  <div style="display:flex;gap:8px;margin-bottom:0">
+  <div style="display:flex;gap:8px;margin-bottom:0;align-items:flex-start">
     <button class="btn btn-slate" id="known-words-btn" style="flex:1;margin-bottom:0">&#10003; Manage known words</button>
     <span id="known-words-count" style="font-size:11px;color:var(--dim);display:flex;align-items:center;flex-shrink:0;min-width:28px;justify-content:flex-end"></span>
   </div>
   <hr>
-  <div style="display:flex;align-items:center;gap:10px">
+  <div style="display:flex;align-items:flex-start;gap:10px">
     <button class="btn btn-slate" id="changelog-btn" style="flex:1;margin-bottom:0">Changelog</button>
     <span id="version-label" style="font-size:11px;color:var(--dim);flex-shrink:0"></span>
   </div>

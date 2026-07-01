@@ -198,15 +198,14 @@ async function init() {
     doScore(tab, { silent: true });
   }
 
-  document.getElementById('preload-btn').addEventListener('click', async () => {
+  async function _doPreload() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
     const btn = document.getElementById('preload-btn');
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     setTokStatus('loading…', '#888');
     try {
       await preloadInTab(tab.id);
-      // Poll until ready
       let ready = false;
       for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 500));
@@ -219,7 +218,14 @@ async function init() {
     } catch (e) {
       setTokStatus(`error: ${e.message}`, '#f44336');
     }
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
+  }
+
+  document.getElementById('preload-btn').addEventListener('click', _doPreload);
+  document.getElementById('tok-status').addEventListener('click', () => {
+    const el = document.getElementById('tok-status');
+    if (el.textContent.includes('✓')) return;
+    _doPreload();
   });
 
   const SUPPORTED_HOSTS = ['cijapanese.com', 'nihongo-jikan.com', 'www.nihongo-jikan.com', 'www.youtube.com', 'mdnas.local', 'cij.punchyface.synology.me'];
