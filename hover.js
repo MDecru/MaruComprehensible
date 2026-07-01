@@ -334,7 +334,7 @@ let _furiganaStyleEl = null;
 function hoverApplyFurigana(container) {
   if (!_furiganaStyleEl) {
     _furiganaStyleEl = document.createElement('style');
-    _furiganaStyleEl.textContent = 'ruby{ruby-align:center}rt{pointer-events:none;user-select:none}';
+    _furiganaStyleEl.textContent = 'ruby{ruby-align:center}rt{pointer-events:none;user-select:none;opacity:var(--mc-rt-opacity,1)}';
     document.head.appendChild(_furiganaStyleEl);
   }
   for (const span of [...container.querySelectorAll('.jp-tok')]) {

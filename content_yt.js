@@ -291,6 +291,7 @@ let _ytAutoPause        = false;
 let _ytUnknownOnly      = false;
 let _ytOutlineThickness = 1;
 let _ytFurigana         = false;
+let _ytFuriganaOpacity  = 0.7;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -302,7 +303,7 @@ function _ytSaveSettings() {
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
     subPosition: _ytSubPosition, subDelay: _ytSubDelay, subStyle: _ytSubStyle, subMaxWidth: _ytSubMaxWidth, autoPause: _ytAutoPause, unknownOnly: _ytUnknownOnly,
-    outlineThickness: _ytOutlineThickness, furigana: _ytFurigana,
+    outlineThickness: _ytOutlineThickness, furigana: _ytFurigana, furiganaOpacity: _ytFuriganaOpacity,
   }}); } catch {}
 }
 
@@ -324,6 +325,7 @@ function _ytLoadSettings() {
       if (s.unknownOnly        !== undefined) _ytUnknownOnly      = s.unknownOnly;
       if (s.outlineThickness   !== undefined) _ytOutlineThickness = s.outlineThickness;
       if (s.furigana           !== undefined) _ytFurigana         = s.furigana;
+      if (s.furiganaOpacity    !== undefined) _ytFuriganaOpacity  = s.furiganaOpacity;
     });
   } catch {}
 }
@@ -465,6 +467,25 @@ function _ytToggleSettings(player) {
   function _pnlActiveStyle(on) {
     return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#a0a8b8'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
   }
+  if (!document.getElementById('mc-sw-style')) {
+    const _ss = document.createElement('style'); _ss.id = 'mc-sw-style';
+    _ss.textContent = `.mc-sw{display:inline-flex;position:relative;width:36px;height:20px;cursor:pointer}.mc-sw input{opacity:0;width:0;height:0;position:absolute}.mc-sw-track{position:absolute;inset:0;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid #3a3f4a;transition:background .2s,border-color .2s}.mc-sw-track::before{content:'';position:absolute;width:14px;height:14px;border-radius:50%;left:2px;top:2px;background:#6a7080;transition:transform .2s,background .2s}.mc-sw input:checked+.mc-sw-track{background:#66AAE8;border-color:#66AAE8}.mc-sw input:checked+.mc-sw-track::before{transform:translateX(16px);background:#fff}`;
+    document.head.appendChild(_ss);
+  }
+  function _mkSw(checked, onChange) {
+    const lbl = document.createElement('label'); lbl.className = 'mc-sw';
+    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked;
+    const trk = document.createElement('span'); trk.className = 'mc-sw-track';
+    inp.addEventListener('change', e => { e.stopPropagation(); onChange(inp.checked); });
+    lbl.append(inp, trk); return lbl;
+  }
+  function _swRow(text, checked, mb, onChange) {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:${mb}px`;
+    const sp = document.createElement('span'); sp.style.cssText = 'font-size:12px;color:#a0a8b8;font-weight:600'; sp.textContent = text;
+    const sw = _mkSw(checked, onChange);
+    row.append(sp, sw); _cur.appendChild(row); return sw;
+  }
 
   // ═══ Style tab ═══════════════════════════════════════════
   _cur = _secs[0];
@@ -566,19 +587,20 @@ function _ytToggleSettings(player) {
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
-  _pnlLabel('Furigana');
-  const fgRow = _pnlBtnRow(6, 0);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.fg = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytFurigana)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _ytFurigana = val;
-      fgRow.querySelectorAll('[data-fg]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.fg === 'true') === _ytFurigana)}`; });
-      _ytLastCueIdx = -2; _ytSaveSettings();
-    });
-    fgRow.appendChild(btn);
+  _swRow('Furigana', _ytFurigana, 4, v => {
+    _ytFurigana = v; _ytLastCueIdx = -2; _ytSaveSettings();
   });
+  const fgOpRow = document.createElement('div');
+  fgOpRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-left:4px';
+  const fgOpLbl = document.createElement('span'); fgOpLbl.style.cssText = 'font-size:11px;color:#6a7080;min-width:52px'; fgOpLbl.textContent = 'Opacity';
+  const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_ytFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
+  fgOpSl.addEventListener('click', e => e.stopPropagation());
+  fgOpSl.addEventListener('input', e => {
+    e.stopPropagation(); _ytFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
+    _ytSubOverlay?.style.setProperty('--mc-rt-opacity', _ytFuriganaOpacity); _ytSaveSettings();
+  });
+  fgOpRow.append(fgOpLbl, fgOpSl, fgOpVal); _cur.appendChild(fgOpRow);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
@@ -627,22 +649,13 @@ function _ytToggleSettings(player) {
   _cur = _secs[2];
 
   // ── Pause on hover ────────────────────────────────────────
-  _pnlLabel('Pause on hover');
-  const phRow = _pnlBtnRow(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.ph = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytPauseOnHover)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _ytPauseOnHover = val;
-      if (!val && _ytPausedByHover) { _ytPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
-      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ph === 'true') === _ytPauseOnHover)}`; });
-      _ytSaveSettings();
-    });
-    phRow.appendChild(btn);
+  _swRow('Pause on hover', _ytPauseOnHover, 4, v => {
+    _ytPauseOnHover = v;
+    if (!v && _ytPausedByHover) { _ytPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
+    _ytSaveSettings();
   });
   const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
+  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   _cur.appendChild(phHint);
 
@@ -667,40 +680,16 @@ function _ytToggleSettings(player) {
   _cur.appendChild(dlHint);
 
   // ── Auto-pause ────────────────────────────────────────────
-  _pnlLabel('Auto-pause at cue end');
-  const apRow = _pnlBtnRow(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.ap = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytAutoPause)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _ytAutoPause = val;
-      apRow.querySelectorAll('[data-ap]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.ap === 'true') === _ytAutoPause)}`; });
-      _ytSaveSettings();
-    });
-    apRow.appendChild(btn);
-  });
+  _swRow('Auto-pause at cue end', _ytAutoPause, 4, v => { _ytAutoPause = v; _ytSaveSettings(); });
   const apHint = document.createElement('div');
-  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
+  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _cur.appendChild(apHint);
 
   // ── Unknown only ──────────────────────────────────────────
-  _pnlLabel('Unknown words only');
-  const uoRow = _pnlBtnRow(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.uo = val; btn.textContent = label;
-    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytUnknownOnly)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _ytUnknownOnly = val;
-      uoRow.querySelectorAll('[data-uo]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.uo === 'true') === _ytUnknownOnly)}`; });
-      _ytRecolorOverlay(); _ytSaveSettings();
-    });
-    uoRow.appendChild(btn);
-  });
+  _swRow('Unknown words only', _ytUnknownOnly, 4, v => { _ytUnknownOnly = v; _ytRecolorOverlay(); _ytSaveSettings(); });
   const uoHint = document.createElement('div');
-  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px';
+  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
@@ -746,6 +735,7 @@ function _ytStartTimeSync() {
     _ytSubOverlay.appendChild(wrap);
     await hoverRetokenize(_ytSubOverlay);
     if (_ytFurigana) hoverApplyFurigana(_ytSubOverlay);
+    _ytSubOverlay.style.setProperty('--mc-rt-opacity', _ytFuriganaOpacity);
     _ytRecolorOverlay();
   };
 

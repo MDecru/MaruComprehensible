@@ -66,6 +66,7 @@ let _cijAutoPause        = false;
 let _cijUnknownOnly      = false;
 let _cijOutlineThickness = 1;
 let _cijFurigana         = false;
+let _cijFuriganaOpacity  = 0.7;
 
 const _CIJ_FONT_SIZES   = [20, 28, 36, 46];
 const _CIJ_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -87,6 +88,7 @@ if (chrome.runtime?.id) {
       if (s.unknownOnly        !== undefined) _cijUnknownOnly      = s.unknownOnly;
       if (s.outlineThickness   !== undefined) _cijOutlineThickness = s.outlineThickness;
       if (s.furigana           !== undefined) _cijFurigana         = s.furigana;
+      if (s.furiganaOpacity    !== undefined) _cijFuriganaOpacity  = s.furiganaOpacity;
     });
   } catch {}
 }
@@ -98,7 +100,7 @@ function _cijSaveSettings() {
     fontWeight: _cijFontWeight, colorblind: _cijColorblind,
     pauseOnHover: _cijPauseOnHover,
     subPosition: _cijSubPosition, subDelay: _cijSubDelay, subStyle: _cijSubStyle, subMaxWidth: _cijSubMaxWidth, autoPause: _cijAutoPause, unknownOnly: _cijUnknownOnly,
-    outlineThickness: _cijOutlineThickness, furigana: _cijFurigana,
+    outlineThickness: _cijOutlineThickness, furigana: _cijFurigana, furiganaOpacity: _cijFuriganaOpacity,
   }}); } catch {}
 }
 
@@ -239,6 +241,7 @@ function _cijStartTimeSync() {
     _cijSubOverlay.appendChild(wrap);
     await hoverRetokenize(_cijSubOverlay);
     if (_cijFurigana) hoverApplyFurigana(_cijSubOverlay);
+    _cijSubOverlay.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity);
     _cijRecolorOverlay();
   };
 
@@ -327,6 +330,25 @@ function _cijToggleSettings(_player) {
   }
   function _active(on) {
     return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#a0a8b8'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
+  }
+  if (!document.getElementById('mc-sw-style')) {
+    const _ss = document.createElement('style'); _ss.id = 'mc-sw-style';
+    _ss.textContent = `.mc-sw{display:inline-flex;position:relative;width:36px;height:20px;cursor:pointer}.mc-sw input{opacity:0;width:0;height:0;position:absolute}.mc-sw-track{position:absolute;inset:0;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid #3a3f4a;transition:background .2s,border-color .2s}.mc-sw-track::before{content:'';position:absolute;width:14px;height:14px;border-radius:50%;left:2px;top:2px;background:#6a7080;transition:transform .2s,background .2s}.mc-sw input:checked+.mc-sw-track{background:#66AAE8;border-color:#66AAE8}.mc-sw input:checked+.mc-sw-track::before{transform:translateX(16px);background:#fff}`;
+    document.head.appendChild(_ss);
+  }
+  function _mkSw(checked, onChange) {
+    const lbl = document.createElement('label'); lbl.className = 'mc-sw';
+    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked;
+    const trk = document.createElement('span'); trk.className = 'mc-sw-track';
+    inp.addEventListener('change', e => { e.stopPropagation(); onChange(inp.checked); });
+    lbl.append(inp, trk); return lbl;
+  }
+  function _swRow(text, checked, mb, onChange) {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:${mb}px`;
+    const sp = document.createElement('span'); sp.style.cssText = 'font-size:12px;color:#a0a8b8;font-weight:600'; sp.textContent = text;
+    const sw = _mkSw(checked, onChange);
+    row.append(sp, sw); _cur.appendChild(row); return sw;
   }
 
   // ═══ Style tab ═══════════════════════════════════════════
@@ -422,19 +444,20 @@ function _cijToggleSettings(_player) {
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
-  _lbl('Furigana');
-  const fgRow = _row(6, 0);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.fg = val; btn.textContent = label;
-    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijFurigana)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijFurigana = val;
-      fgRow.querySelectorAll('[data-fg]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.fg === 'true') === _cijFurigana)}`; });
-      _cijLastCueIdx = -2; _cijSaveSettings();
-    });
-    fgRow.appendChild(btn);
+  _swRow('Furigana', _cijFurigana, 4, v => {
+    _cijFurigana = v; _cijLastCueIdx = -2; _cijSaveSettings();
   });
+  const fgOpRow = document.createElement('div');
+  fgOpRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-left:4px';
+  const fgOpLbl = document.createElement('span'); fgOpLbl.style.cssText = 'font-size:11px;color:#6a7080;min-width:52px'; fgOpLbl.textContent = 'Opacity';
+  const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_cijFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
+  fgOpSl.addEventListener('click', e => e.stopPropagation());
+  fgOpSl.addEventListener('input', e => {
+    e.stopPropagation(); _cijFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
+    _cijSubOverlay?.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity); _cijSaveSettings();
+  });
+  fgOpRow.append(fgOpLbl, fgOpSl, fgOpVal); _cur.appendChild(fgOpRow);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
@@ -480,22 +503,13 @@ function _cijToggleSettings(_player) {
   // ═══ Playback tab ════════════════════════════════════════
   _cur = _secs[2];
 
-  _lbl('Pause on hover');
-  const phRow = _row(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.ph = val; btn.textContent = label;
-    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijPauseOnHover)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijPauseOnHover = val;
-      if (!val && _cijPausedByHover) { _cijPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
-      phRow.querySelectorAll('[data-ph]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.ph === 'true') === _cijPauseOnHover)}`; });
-      _cijSaveSettings();
-    });
-    phRow.appendChild(btn);
+  _swRow('Pause on hover', _cijPauseOnHover, 4, v => {
+    _cijPauseOnHover = v;
+    if (!v && _cijPausedByHover) { _cijPausedByHover = false; document.querySelector('video')?.play().catch(() => {}); }
+    _cijSaveSettings();
   });
   const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
+  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   _cur.appendChild(phHint);
 
@@ -517,39 +531,15 @@ function _cijToggleSettings(_player) {
   dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
   _cur.appendChild(dlHint);
 
-  _lbl('Auto-pause at cue end');
-  const apRow = _row(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.ap = val; btn.textContent = label;
-    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijAutoPause)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijAutoPause = val;
-      apRow.querySelectorAll('[data-ap]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.ap === 'true') === _cijAutoPause)}`; });
-      _cijSaveSettings();
-    });
-    apRow.appendChild(btn);
-  });
+  _swRow('Auto-pause at cue end', _cijAutoPause, 4, v => { _cijAutoPause = v; _cijSaveSettings(); });
   const apHint = document.createElement('div');
-  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
+  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _cur.appendChild(apHint);
 
-  _lbl('Unknown words only');
-  const uoRow = _row(6, 4);
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = document.createElement('button');
-    btn.dataset.uo = val; btn.textContent = label;
-    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijUnknownOnly)}`;
-    btn.addEventListener('click', e => {
-      e.stopPropagation(); _cijUnknownOnly = val;
-      uoRow.querySelectorAll('[data-uo]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.uo === 'true') === _cijUnknownOnly)}`; });
-      _cijRecolorOverlay(); _cijSaveSettings();
-    });
-    uoRow.appendChild(btn);
-  });
+  _swRow('Unknown words only', _cijUnknownOnly, 4, v => { _cijUnknownOnly = v; _cijRecolorOverlay(); _cijSaveSettings(); });
   const uoHint = document.createElement('div');
-  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px';
+  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 

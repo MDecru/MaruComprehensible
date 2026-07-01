@@ -29,6 +29,7 @@ let _autoPause        = false;
 let _unknownOnly      = false;
 let _outlineThickness = 1;
 let _furigana         = false;
+let _furiganaOpacity  = 0.7;
 
 const FONT_SIZES   = [20, 28, 36, 46];
 const FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -48,6 +49,7 @@ chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
   if (s.unknownOnly        !== undefined) _unknownOnly      = s.unknownOnly;
   if (s.outlineThickness   !== undefined) _outlineThickness = s.outlineThickness;
   if (s.furigana           !== undefined) _furigana         = s.furigana;
+  if (s.furiganaOpacity    !== undefined) _furiganaOpacity  = s.furiganaOpacity;
   subOverlay.style.bottom = _subPosition + '%';
 });
 
@@ -56,7 +58,7 @@ function _saveSettings() {
     fontSize: _fontSize, bgOpacity: _bgOpacity, fontWeight: _fontWeight,
     colorblind: _colorblind, pauseOnHover: _pauseOnHover,
     subPosition: _subPosition, subDelay: _subDelay, subStyle: _subStyle, subMaxWidth: _subMaxWidth, autoPause: _autoPause, unknownOnly: _unknownOnly,
-    outlineThickness: _outlineThickness, furigana: _furigana,
+    outlineThickness: _outlineThickness, furigana: _furigana, furiganaOpacity: _furiganaOpacity,
   }});
 }
 
@@ -145,6 +147,7 @@ function _startTimeSync() {
     subOverlay.appendChild(wrap);
     await hoverRetokenize(subOverlay);
     if (_furigana) hoverApplyFurigana(subOverlay);
+    subOverlay.style.setProperty('--mc-rt-opacity', _furiganaOpacity);
     _recolorOverlay();
   };
   video.addEventListener('timeupdate', handler);
@@ -375,6 +378,26 @@ function _buildSettingsPanel() {
   _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; _content.appendChild(s); });
   settingsPnl.appendChild(_content);
 
+  if (!document.getElementById('mc-sw-style')) {
+    const _ss = document.createElement('style'); _ss.id = 'mc-sw-style';
+    _ss.textContent = `.mc-sw{display:inline-flex;position:relative;width:36px;height:20px;cursor:pointer}.mc-sw input{opacity:0;width:0;height:0;position:absolute}.mc-sw-track{position:absolute;inset:0;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid #3a3f4a;transition:background .2s,border-color .2s}.mc-sw-track::before{content:'';position:absolute;width:14px;height:14px;border-radius:50%;left:2px;top:2px;background:#6a7080;transition:transform .2s,background .2s}.mc-sw input:checked+.mc-sw-track{background:#66AAE8;border-color:#66AAE8}.mc-sw input:checked+.mc-sw-track::before{transform:translateX(16px);background:#fff}`;
+    document.head.appendChild(_ss);
+  }
+  function _mkSw(checked, onChange) {
+    const lbl = document.createElement('label'); lbl.className = 'mc-sw';
+    const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = checked;
+    const trk = document.createElement('span'); trk.className = 'mc-sw-track';
+    inp.addEventListener('change', e => { e.stopPropagation(); onChange(inp.checked); });
+    lbl.append(inp, trk); return lbl;
+  }
+  function _swRow(text, checked, mb, onChange) {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:${mb}px`;
+    const sp = document.createElement('span'); sp.style.cssText = 'font-size:12px;color:#a0a8b8;font-weight:600'; sp.textContent = text;
+    const sw = _mkSw(checked, onChange);
+    row.append(sp, sw); _curPnl.appendChild(row); return sw;
+  }
+
   // ═══ Style tab ═══════════════════════════════════════════
   _curPnl = _secs[0];
 
@@ -447,14 +470,20 @@ function _buildSettingsPanel() {
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _otSection.appendChild(otRow); _curPnl.appendChild(_otSection);
 
   // Furigana
-  _pnlLabel('Furigana');
-  const fgRow = _pnlRow();
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = _pnlBtn(label, val === _furigana, btn => {
-      _furigana = val; _setRowActive(fgRow, btn); _lastCueIdx = -2; _saveSettings();
-    });
-    fgRow.appendChild(btn);
+  _swRow('Furigana', _furigana, 4, v => {
+    _furigana = v; _lastCueIdx = -2; _saveSettings();
   });
+  const fgOpRow = document.createElement('div');
+  fgOpRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-left:4px';
+  const fgOpLbl = document.createElement('span'); fgOpLbl.style.cssText = 'font-size:11px;color:#6a7080;min-width:52px'; fgOpLbl.textContent = 'Opacity';
+  const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_furiganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
+  fgOpSl.addEventListener('click', e => e.stopPropagation());
+  fgOpSl.addEventListener('input', e => {
+    e.stopPropagation(); _furiganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
+    subOverlay?.style.setProperty('--mc-rt-opacity', _furiganaOpacity); _saveSettings();
+  });
+  fgOpRow.append(fgOpLbl, fgOpSl, fgOpVal); _curPnl.appendChild(fgOpRow);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _curPnl = _secs[1];
@@ -491,15 +520,10 @@ function _buildSettingsPanel() {
   // ═══ Playback tab ════════════════════════════════════════
   _curPnl = _secs[2];
 
-  _pnlLabel('Pause on hover');
-  const phRow = _pnlRow();
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = _pnlBtn(label, val === _pauseOnHover, btn => {
-      _pauseOnHover = val; _setRowActive(phRow, btn);
-      if (!val && _pausedByHover) { _pausedByHover = false; video.play().catch(() => {}); }
-      _saveSettings();
-    });
-    phRow.appendChild(btn);
+  _swRow('Pause on hover', _pauseOnHover, 4, v => {
+    _pauseOnHover = v;
+    if (!v && _pausedByHover) { _pausedByHover = false; video.play().catch(() => {}); }
+    _saveSettings();
   });
   const phHint = document.createElement('div');
   phHint.className = 'pnl-hint'; phHint.style.marginBottom = '14px';
@@ -520,27 +544,13 @@ function _buildSettingsPanel() {
   dlHint2.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
   _curPnl.appendChild(dlHint2);
 
-  _pnlLabel('Auto-pause at cue end');
-  const apRow = _pnlRow();
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = _pnlBtn(label, val === _autoPause, btn => {
-      _autoPause = val; _setRowActive(apRow, btn); _saveSettings();
-    });
-    apRow.appendChild(btn);
-  });
+  _swRow('Auto-pause at cue end', _autoPause, 4, v => { _autoPause = v; _saveSettings(); });
   const apHint = document.createElement('div');
   apHint.className = 'pnl-hint'; apHint.style.marginBottom = '14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _curPnl.appendChild(apHint);
 
-  _pnlLabel('Unknown words only');
-  const uoRow = _pnlRow();
-  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
-    const btn = _pnlBtn(label, val === _unknownOnly, btn => {
-      _unknownOnly = val; _setRowActive(uoRow, btn); _recolorOverlay(); _saveSettings();
-    });
-    uoRow.appendChild(btn);
-  });
+  _swRow('Unknown words only', _unknownOnly, 4, v => { _unknownOnly = v; _recolorOverlay(); _saveSettings(); });
   const uoHint = document.createElement('div');
   uoHint.className = 'pnl-hint';
   uoHint.textContent = 'Hides known words, shows only unknowns';
