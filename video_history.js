@@ -89,26 +89,31 @@ function _renderWords() {
   }
 
   con.innerHTML = `<div class="word-list">${entries.map(([w, d]) => `
-    <div class="word-row">
+    <div class="word-row" data-word="${_esc(w)}">
       <span class="word-text">${_esc(w)}</span>
       <span class="word-count">${d.count}×</span>
       <span class="word-date">${d.lastSeen ? _fmtDate(d.lastSeen) : ''}</span>
     </div>`).join('')}</div>`;
+
+  con.querySelectorAll('.word-row[data-word]').forEach(row => {
+    row.addEventListener('mouseenter', () => _showTip(row.dataset.word, row));
+    row.addEventListener('mouseleave', _hideTip);
+  });
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 
-$('tab-videos-btn').addEventListener('click', () => {
-  $('tab-videos-btn').classList.add('active');
-  $('tab-words-btn').classList.remove('active');
-  $('section-videos').style.display = '';
-  $('section-words').style.display = 'none';
-});
 $('tab-words-btn').addEventListener('click', () => {
   $('tab-words-btn').classList.add('active');
   $('tab-videos-btn').classList.remove('active');
   $('section-words').style.display = '';
   $('section-videos').style.display = 'none';
+});
+$('tab-videos-btn').addEventListener('click', () => {
+  $('tab-videos-btn').classList.add('active');
+  $('tab-words-btn').classList.remove('active');
+  $('section-videos').style.display = '';
+  $('section-words').style.display = 'none';
 });
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
@@ -179,6 +184,75 @@ function _compColor(score) {
   const lt  = t < 0.5 ? t * 2 : (t - 0.5) * 2;
   const [r1,g1,b1] = stops[seg], [r2,g2,b2] = stops[seg+1];
   return `rgb(${Math.round(r1+(r2-r1)*lt)},${Math.round(g1+(g2-g1)*lt)},${Math.round(b1+(b2-b1)*lt)})`;
+}
+
+// ── Word hover tooltip ────────────────────────────────────────────────────────
+
+const _tip = document.getElementById('wh-tip');
+const _defCache = {};
+let _tipHideTimer = null;
+
+function _showTip(word, rowEl) {
+  clearTimeout(_tipHideTimer);
+  _tip.innerHTML = `<span style="font-size:20px;font-weight:700;color:#f2f4fa">${_esc(word)}</span><div style="color:#6a7480;font-size:11px;margin-top:4px">Loading…</div>`;
+  _positionTip(rowEl);
+  _tip.style.display = 'block';
+
+  if (_defCache[word] !== undefined) { _renderTip(word, _defCache[word]); return; }
+
+  chrome.runtime.sendMessage({ action: 'jishoLookup', word }, resp => {
+    const def = (resp?.ok && (resp.reading || resp.senses?.length))
+      ? { reading: resp.reading, senses: resp.senses } : null;
+    _defCache[word] = def;
+    if (_tip.style.display !== 'none') _renderTip(word, def);
+  });
+}
+
+function _renderTip(word, def) {
+  const reading = def?.reading && def.reading !== word ? def.reading : null;
+  const wordHtml = reading
+    ? `<ruby style="font-size:22px;font-weight:700;color:#f2f4fa">${_esc(word)}<rt>${_esc(reading)}</rt></ruby>`
+    : `<span style="font-size:22px;font-weight:700;color:#f2f4fa">${_esc(word)}</span>`;
+
+  let defsHtml = '';
+  if (def?.senses?.length) {
+    const items = def.senses.slice(0, 3).map(s => {
+      const pos = s.pos ? `<span style="font-size:10px;color:#9E8CF8;font-weight:700;margin-right:4px">${_esc(_shortPos(s.pos))}</span>` : '';
+      return `<li style="padding:3px 0;border-bottom:1px solid #272b34;list-style:none">${pos}${s.defs.slice(0, 2).map(_esc).join('; ')}</li>`;
+    }).join('');
+    defsHtml = `<ul style="margin-top:8px;padding:0">${items}</ul>`;
+  } else if (def === null) {
+    defsHtml = `<div style="color:#6a7480;font-size:11px;margin-top:6px">No definition found</div>`;
+  }
+  _tip.innerHTML = `<div>${wordHtml}</div>${defsHtml}`;
+}
+
+function _positionTip(rowEl) {
+  const rect = rowEl.getBoundingClientRect();
+  const maxW = 280;
+  let x = rect.left;
+  if (x + maxW > window.innerWidth - 8) x = window.innerWidth - maxW - 8;
+  _tip.style.left = `${Math.max(8, x)}px`;
+  _tip.style.top = `${rect.top}px`;
+  requestAnimationFrame(() => {
+    const th = _tip.offsetHeight;
+    _tip.style.top = `${Math.max(8, rect.top - th - 8)}px`;
+  });
+}
+
+function _hideTip() {
+  _tipHideTimer = setTimeout(() => { _tip.style.display = 'none'; }, 80);
+}
+
+function _shortPos(pos) {
+  if (!pos) return '';
+  if (/noun/i.test(pos)) return 'noun';
+  if (/verb/i.test(pos)) return 'verb';
+  if (/adjective/i.test(pos)) return 'adj.';
+  if (/adverb/i.test(pos)) return 'adv.';
+  if (/particle/i.test(pos)) return 'particle';
+  if (/expression/i.test(pos)) return 'expr.';
+  return pos.split(/[,;]/)[0].trim().slice(0, 12);
 }
 
 _load();

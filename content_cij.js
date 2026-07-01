@@ -664,7 +664,11 @@ async function scanPage() {
   const res = await scoreVTT(vtt);
   if (res?.score != null) {
     const cijVideoId = location.pathname.split('/').filter(Boolean).pop() || location.pathname;
-    const title = document.querySelector('h1')?.textContent?.trim() || document.title.trim();
+    const title =
+      document.querySelector('meta[property="og:title"]')?.content?.trim()
+      || document.querySelector('h1, h2, [class*="title"][class*="video"], [class*="video"][class*="title"]')?.textContent?.trim()
+      || document.title.replace(/\s*[\|\-–—].*$/, '').trim()
+      || `Video ${cijVideoId}`;
     saveVideoHistory(`cij_${cijVideoId}`, { title, url: location.href, site: 'cij', score: res });
   }
   const video = document.querySelector('video');
