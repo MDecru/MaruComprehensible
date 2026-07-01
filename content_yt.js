@@ -1008,9 +1008,11 @@ async function _ytInitBadges() {
         'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
-      const parent = img.parentElement || a;
-      if (!parent.style.position) parent.style.position = 'relative';
-      parent.appendChild(badge);
+      // Append to the <a> directly — YouTube's thumbnail container elements
+      // (yt-img-shadow etc.) break when position:relative is forced on them.
+      // The <a> already has position:relative in YouTube's own CSS.
+      if (!a.style.position) a.style.position = 'relative';
+      a.appendChild(badge);
     });
   }
 
