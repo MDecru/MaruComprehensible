@@ -149,11 +149,23 @@ function _cijEnsureOverlay(player) {
     v?.play().catch(() => {});
   };
 
-  _cijSubOverlay.addEventListener('mouseleave', () => {
+  _cijSubOverlay.addEventListener('mouseleave', (e) => {
     if (!_cijPausedByHover) return;
     if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes
+    // If the mouse went directly to the hover tooltip, stay paused — the tooltip
+    // sits outside the overlay bounds so mouseleave fires even though the user is
+    // still reading. The mouseout-from-tooltip handler below will resume instead.
+    if (e.relatedTarget?.closest?.('#jp-hover-tip')) return;
     _cijHoverResume();
   });
+  // When the mouse leaves the (non-pinned) hover tooltip and isn't returning to
+  // the overlay, resume playback. This pairs with the relatedTarget check above.
+  document.addEventListener('mouseout', (e) => {
+    if (!_cijPausedByHover || _hoverPinned) return;
+    if (!e.target.closest('#jp-hover-tip')) return;
+    if (e.relatedTarget?.closest?.('#mc-cij-overlay') || e.relatedTarget?.closest?.('#jp-hover-tip')) return;
+    _cijHoverResume();
+  }, { passive: true });
   document.addEventListener('mc-tooltip-closed', () => {
     if (!_cijPausedByHover) return;
     if (_cijSubOverlay?.matches(':hover')) return; // mouse is still on overlay
