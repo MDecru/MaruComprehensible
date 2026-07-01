@@ -587,12 +587,10 @@ function _ytToggleSettings(player) {
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
-  _swRow('Furigana', _ytFurigana, 4, v => {
-    _ytFurigana = v; _ytLastCueIdx = -2; _ytSaveSettings();
-  });
-  const fgOpRow = document.createElement('div');
-  fgOpRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-left:4px';
-  const fgOpLbl = document.createElement('span'); fgOpLbl.style.cssText = 'font-size:11px;color:#6a7080;min-width:52px'; fgOpLbl.textContent = 'Opacity';
+  _pnlLabel('Furigana');
+  const fgRow = document.createElement('div');
+  fgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  fgRow.appendChild(_mkSw(_ytFurigana, v => { _ytFurigana = v; _ytLastCueIdx = -2; _ytSaveSettings(); }));
   const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_ytFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
   const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
   fgOpSl.addEventListener('click', e => e.stopPropagation());
@@ -600,7 +598,7 @@ function _ytToggleSettings(player) {
     e.stopPropagation(); _ytFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
     _ytSubOverlay?.style.setProperty('--mc-rt-opacity', _ytFuriganaOpacity); _ytSaveSettings();
   });
-  fgOpRow.append(fgOpLbl, fgOpSl, fgOpVal); _cur.appendChild(fgOpRow);
+  fgRow.append(fgOpSl, fgOpVal); _cur.appendChild(fgRow);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];

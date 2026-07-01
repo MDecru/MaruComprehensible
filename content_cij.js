@@ -444,12 +444,10 @@ function _cijToggleSettings(_player) {
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
-  _swRow('Furigana', _cijFurigana, 4, v => {
-    _cijFurigana = v; _cijLastCueIdx = -2; _cijSaveSettings();
-  });
-  const fgOpRow = document.createElement('div');
-  fgOpRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-left:4px';
-  const fgOpLbl = document.createElement('span'); fgOpLbl.style.cssText = 'font-size:11px;color:#6a7080;min-width:52px'; fgOpLbl.textContent = 'Opacity';
+  _lbl('Furigana');
+  const fgRow = document.createElement('div');
+  fgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  fgRow.appendChild(_mkSw(_cijFurigana, v => { _cijFurigana = v; _cijLastCueIdx = -2; _cijSaveSettings(); }));
   const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_cijFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
   const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
   fgOpSl.addEventListener('click', e => e.stopPropagation());
@@ -457,7 +455,7 @@ function _cijToggleSettings(_player) {
     e.stopPropagation(); _cijFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
     _cijSubOverlay?.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity); _cijSaveSettings();
   });
-  fgOpRow.append(fgOpLbl, fgOpSl, fgOpVal); _cur.appendChild(fgOpRow);
+  fgRow.append(fgOpSl, fgOpVal); _cur.appendChild(fgRow);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
