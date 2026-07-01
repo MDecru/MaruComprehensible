@@ -158,6 +158,20 @@ async function hoverEnable(findContainer) {
   return { ok: true };
 }
 
+// Activate hover event listeners immediately, without waiting for the tokenizer.
+// Used by extension pages (e.g. video_history.html) that pre-create .jp-tok spans
+// themselves so cards are interactive right away.
+function hoverActivate() {
+  if (_hoverEnabled) return;
+  _ensureHoverUI();
+  document.addEventListener('mouseover',  _hoverOver,  { passive: true, capture: true });
+  document.addEventListener('mouseout',   _hoverOut,   { passive: true, capture: true });
+  document.addEventListener('click',      _hoverClick, true);
+  document.addEventListener('keydown',    _hoverKey,   true);
+  _hoverEnabled = true;
+  getVocab().then(v => { _hoverVocab = v; }).catch(() => {});
+}
+
 function hoverDisable() {
   if (!_hoverEnabled) return;
   _hoverEnabled = false;

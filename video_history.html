@@ -113,8 +113,9 @@ input[type="search"]::placeholder { color: #4a5068; }
       Sort:
       <button class="sort-btn active" id="sort-count-btn">Most seen</button>
       <button class="sort-btn" id="sort-alpha-btn">A → Z</button>
+      <button class="sort-btn" id="show-known-btn" style="margin-left:auto">Show known</button>
     </div>
-    <div id="word-list-container"></div>
+    <div id="word-list-container" data-mc-full-hover></div>
   </div>
 
   <!-- Videos -->
@@ -123,6 +124,7 @@ input[type="search"]::placeholder { color: #4a5068; }
       <input type="search" id="video-search" placeholder="Filter videos…" autocomplete="off">
       <button class="btn btn-danger" id="clear-videos-btn">✕ Clear</button>
     </div>
+    <div class="sort-row" id="video-filter-row" style="display:none"></div>
     <div id="video-list-container"></div>
   </div>
 

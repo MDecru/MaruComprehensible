@@ -2,24 +2,28 @@
 
 let _videos = {};
 let _words  = {};
+let _knownWords  = new Set();
 let _videoFilter = '';
 let _wordFilter  = '';
 let _wordSort    = 'count';
+let _siteFilter  = null;
+let _showKnown   = false;
 let _hoverReady  = false;
 
 const $ = id => document.getElementById(id);
 
 async function _load() {
-  const data = await chrome.storage.local.get(['mc_video_history', 'mc_word_history']);
+  const data = await chrome.storage.local.get(['mc_video_history', 'mc_word_history', 'mc_user_known']);
   _videos = data.mc_video_history || {};
   _words  = data.mc_word_history  || {};
+  _knownWords = new Set(data.mc_user_known || []);
   _renderStats();
   _renderVideos();
   await _renderWords();
-  // Activate hover.js for the word list — loads tokenizer + vocab once
+  // Activate hover listeners immediately — pre-created .jp-tok spans are already there
   if (!_hoverReady) {
-    const result = await hoverEnable(() => $('word-list-container'));
-    if (result?.ok) _hoverReady = true;
+    hoverActivate();
+    _hoverReady = true;
   }
 }
 
@@ -32,10 +36,34 @@ function _renderStats() {
   ].filter(Boolean).join(' · ');
 }
 
+const _SITE_LABELS = { yt: 'YouTube', cij: 'CIJ', njk: 'NJK', player: 'Local' };
+const _SITE_ORDER  = ['yt', 'cij', 'njk', 'player'];
+
 function _renderVideos() {
   const q = _videoFilter.trim().toLowerCase();
   let entries = Object.entries(_videos).sort((a, b) => (b[1].lastWatched || 0) - (a[1].lastWatched || 0));
+
+  // Update site filter row (only when multiple sites exist)
+  const presentSites = _SITE_ORDER.filter(s => entries.some(([, v]) => (v.site || 'yt') === s));
+  const filterRow = $('video-filter-row');
+  if (presentSites.length > 1) {
+    filterRow.style.display = '';
+    filterRow.innerHTML = 'Site: ' + ['all', ...presentSites].map(s =>
+      `<button class="sort-btn${(s === 'all' && !_siteFilter) || _siteFilter === s ? ' active' : ''}" data-site="${s}">${s === 'all' ? 'All' : _SITE_LABELS[s]}</button>`
+    ).join('');
+    filterRow.querySelectorAll('[data-site]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _siteFilter = btn.dataset.site === 'all' ? null : btn.dataset.site;
+        _renderVideos();
+      });
+    });
+  } else {
+    filterRow.style.display = 'none';
+    _siteFilter = null;
+  }
+
   if (q) entries = entries.filter(([, v]) => (v.title || '').toLowerCase().includes(q));
+  if (_siteFilter) entries = entries.filter(([, v]) => (v.site || 'yt') === _siteFilter);
 
   $('clear-videos-btn').disabled = !Object.keys(_videos).length;
   const con = $('video-list-container');
@@ -45,7 +73,10 @@ function _renderVideos() {
     return;
   }
   if (!entries.length) {
-    con.innerHTML = `<div class="no-match">No videos match "<strong>${_esc(q)}</strong>"</div>`;
+    const msg = _siteFilter
+      ? `No ${_SITE_LABELS[_siteFilter]} videos${q ? ` matching "<strong>${_esc(q)}</strong>"` : ''}`
+      : `No videos match "<strong>${_esc(q)}</strong>"`;
+    con.innerHTML = `<div class="no-match">${msg}</div>`;
     return;
   }
 
@@ -74,16 +105,25 @@ function _renderVideos() {
   });
 }
 
-async function _renderWords() {
+function _exportableWords() {
+  let entries = Object.entries(_words).sort((a, b) => b[1].count - a[1].count);
+  if (!_showKnown) entries = entries.filter(([w]) => !_knownWords.has(w));
+  return entries;
+}
+
+function _renderWords() {
   const q = _wordFilter.trim().toLowerCase();
   let entries = Object.entries(_words);
   if (_wordSort === 'count') entries.sort((a, b) => b[1].count - a[1].count);
   else entries.sort((a, b) => a[0].localeCompare(b[0], 'ja'));
   if (q) entries = entries.filter(([w]) => w.includes(q) || w.toLowerCase().includes(q));
+  if (!_showKnown) entries = entries.filter(([w]) => !_knownWords.has(w));
 
-  $('clear-words-btn').disabled  = !Object.keys(_words).length;
-  $('export-words-btn').disabled = !Object.keys(_words).length;
-  $('copy-words-btn').disabled   = !Object.keys(_words).length;
+  const hasWords = !!Object.keys(_words).length;
+  const hasExportable = !!_exportableWords().length;
+  $('clear-words-btn').disabled  = !hasWords;
+  $('export-words-btn').disabled = !hasExportable;
+  $('copy-words-btn').disabled   = !hasExportable;
   const con = $('word-list-container');
 
   if (!Object.keys(_words).length) {
@@ -91,19 +131,22 @@ async function _renderWords() {
     return;
   }
   if (!entries.length) {
-    con.innerHTML = `<div class="no-match">No words match "<strong>${_esc(q)}</strong>"</div>`;
+    const msg = q
+      ? `No words match "<strong>${_esc(q)}</strong>"`
+      : `All words are marked as known — click <strong>Show known</strong> to see them`;
+    con.innerHTML = `<div class="no-match">${msg}</div>`;
     return;
   }
 
-  con.innerHTML = `<div class="word-list">${entries.map(([w, d]) => `
-    <div class="word-row">
-      <span class="word-text">${_esc(w)}</span>
+  con.innerHTML = `<div class="word-list">${entries.map(([w, d]) => {
+    const known = _knownWords.has(w);
+    const color = known ? '#66AAE8' : '#ED7989';
+    return `<div class="word-row">
+      <span class="word-text"><span class="jp-tok" data-word="${_esc(w)}" data-basic="${_esc(w)}" data-pos="名詞" data-reading="" style="color:${color};cursor:pointer">${_esc(w)}</span></span>
       <span class="word-count">${d.count}×</span>
       <span class="word-date">${d.lastSeen ? _fmtDate(d.lastSeen) : ''}</span>
-    </div>`).join('')}</div>`;
-
-  // Re-tokenize so hover.js wraps words in .jp-tok spans with readings
-  if (_hoverReady) await hoverRetokenize(con);
+    </div>`;
+  }).join('')}</div>`;
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
@@ -160,7 +203,7 @@ $('clear-words-btn').addEventListener('click', async () => {
 });
 
 $('copy-words-btn').addEventListener('click', async () => {
-  const entries = Object.entries(_words).sort((a, b) => b[1].count - a[1].count);
+  const entries = _exportableWords();
   if (!entries.length) return;
   const text = entries.map(([w]) => w).join(', ');
   await navigator.clipboard.writeText(text);
@@ -171,7 +214,7 @@ $('copy-words-btn').addEventListener('click', async () => {
 });
 
 $('export-words-btn').addEventListener('click', () => {
-  const entries = Object.entries(_words).sort((a, b) => b[1].count - a[1].count);
+  const entries = _exportableWords();
   if (!entries.length) return;
   const csv = 'word,count,last_seen\n' + entries.map(([w, d]) =>
     `"${w.replace(/"/g,'""')}",${d.count},${d.lastSeen ? new Date(d.lastSeen).toISOString().split('T')[0] : ''}`
@@ -181,6 +224,17 @@ $('export-words-btn').addEventListener('click', () => {
   a.download = 'unknown_words.csv';
   a.click();
   URL.revokeObjectURL(a.href);
+});
+
+$('show-known-btn').addEventListener('click', () => {
+  _showKnown = !_showKnown;
+  $('show-known-btn').classList.toggle('active', _showKnown);
+  _renderWords();
+});
+
+document.addEventListener('mc-word-marked-known', e => {
+  _knownWords.add(e.detail.word);
+  if (!_showKnown) _renderWords();
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
