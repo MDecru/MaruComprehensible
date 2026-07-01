@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MaruComprehensible — Changelog</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #1a1c20;
+  color: #d0d4e0;
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 44px 28px 64px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+h1 { font-size: 22px; font-weight: 800; color: #f2f4fa; margin-bottom: 3px; }
+.subtitle { font-size: 13px; color: #6a7480; margin-bottom: 44px; }
+.release { margin-bottom: 38px; }
+.release-header {
+  display: flex; align-items: baseline; gap: 14px;
+  margin-bottom: 14px; padding-bottom: 10px;
+  border-bottom: 1px solid #272b34;
+}
+.version { font-size: 18px; font-weight: 800; color: #66AAE8; }
+.date { font-size: 12px; color: #6a7480; }
+.tag {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 5px;
+  letter-spacing: .4px; text-transform: uppercase;
+}
+.tag-latest { background: rgba(114,206,157,.18); color: #72CE9D; }
+ul { list-style: none; padding: 0; }
+li {
+  padding: 6px 0 6px 20px;
+  position: relative;
+  color: #b8c0d0;
+  border-bottom: 1px solid #22252c;
+  font-size: 13px;
+}
+li::before {
+  content: '·';
+  position: absolute; left: 5px;
+  color: #66AAE8; font-weight: 700;
+}
+li:last-child { border-bottom: none; }
+.ct {
+  display: inline-block;
+  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  letter-spacing: .3px; text-transform: uppercase; margin-right: 5px;
+  vertical-align: middle; position: relative; top: -1px;
+}
+.fix  { background: rgba(237,121,137,.15); color: #ED7989; }
+.feat { background: rgba(102,170,232,.15); color: #66AAE8; }
+.ui   { background: rgba(126,105,240,.15); color: #9E8CF8; }
+</style>
+</head>
+<body>
+
+<h1>MaruComprehensible</h1>
+<p class="subtitle">Version history</p>
+
+<div class="release">
+  <div class="release-header">
+    <span class="version">v1.1</span>
+    <span class="date">2026-07-01</span>
+    <span class="tag tag-latest">Latest</span>
+  </div>
+  <ul>
+    <li><span class="ct feat">Feature</span> Outline thickness slider — adjusts shadow spread when subtitle style is Outline (range 1–5)</li>
+    <li><span class="ct feat">Feature</span> Background opacity slider moved under the Style row and is now only shown when style is Box; outline thickness appears for Outline</li>
+    <li><span class="ct fix">Fix</span> "Enable hover on transcript" and "Enable video subtitle tool" popup sliders are now fully independent — toggling one no longer affects the other</li>
+    <li><span class="ct fix">Fix</span> Control bar no longer collapses to a vertical strip when re-enabling the subtitle tool via the popup</li>
+    <li><span class="ct fix">Fix</span> Enabling transcript hover on YouTube no longer launches the full subtitle pipeline</li>
+    <li><span class="ct ui">UI</span> Style / Layout / Playback settings nav uses underline tabs that clearly read as tabs, not settings buttons</li>
+    <li><span class="ct ui">UI</span> Tab bar is sticky — it stays visible as settings content scrolls</li>
+    <li><span class="ct ui">UI</span> Settings panel has a softer look: slightly darker background, reduced border contrast</li>
+    <li><span class="ct ui">UI</span> All grey text in settings panels (labels, hints, inactive tabs, unselected buttons) is lightened for better readability on dark backgrounds</li>
+  </ul>
+</div>
+
+<div class="release">
+  <div class="release-header">
+    <span class="version">v1.0</span>
+    <span class="date">2026-06-29</span>
+  </div>
+  <ul>
+    <li><span class="ct feat">Feature</span> Initial release — Japanese subtitle coloring, hover definitions, and word sidebar on CIJ, NJK, YouTube, and local player</li>
+    <li><span class="ct feat">Feature</span> MaruMori API integration for known vocab and kanji lists</li>
+    <li><span class="ct feat">Feature</span> Comprehension score rings for unique words, frequency words, and kanji</li>
+    <li><span class="ct feat">Feature</span> Per-site subtitle settings: font size, font weight, box/outline style, background opacity, vertical position, delay, max width, colorblind mode</li>
+    <li><span class="ct feat">Feature</span> Auto-pause on cue end and unknown-only display mode</li>
+    <li><span class="ct feat">Feature</span> Local video player with .vtt and .srt subtitle support</li>
+    <li><span class="ct feat">Feature</span> Word sidebar with JLPT level indicators</li>
+  </ul>
+</div>
+
+</body>
+</html>

@@ -25,8 +25,9 @@ let _subPosition = 12;
 let _subDelay    = 0;
 let _subStyle    = 'box';
 let _subMaxWidth = 90;
-let _autoPause   = false;
-let _unknownOnly = false;
+let _autoPause        = false;
+let _unknownOnly      = false;
+let _outlineThickness = 1;
 
 const FONT_SIZES   = [20, 28, 36, 46];
 const FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -43,7 +44,8 @@ chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
   if (s.subStyle     !== undefined) _subStyle      = s.subStyle;
   if (s.subMaxWidth  !== undefined) _subMaxWidth   = s.subMaxWidth;
   if (s.autoPause    !== undefined) _autoPause     = s.autoPause;
-  if (s.unknownOnly  !== undefined) _unknownOnly   = s.unknownOnly;
+  if (s.unknownOnly        !== undefined) _unknownOnly      = s.unknownOnly;
+  if (s.outlineThickness   !== undefined) _outlineThickness = s.outlineThickness;
   subOverlay.style.bottom = _subPosition + '%';
 });
 
@@ -52,6 +54,7 @@ function _saveSettings() {
     fontSize: _fontSize, bgOpacity: _bgOpacity, fontWeight: _fontWeight,
     colorblind: _colorblind, pauseOnHover: _pauseOnHover,
     subPosition: _subPosition, subDelay: _subDelay, subStyle: _subStyle, subMaxWidth: _subMaxWidth, autoPause: _autoPause, unknownOnly: _unknownOnly,
+    outlineThickness: _outlineThickness,
   }});
 }
 
@@ -125,8 +128,9 @@ function _startTimeSync() {
     }
 
     const wrap = document.createElement('span');
+    const _pT = _outlineThickness;
     const _wrapBg = _subStyle === 'outline'
-      ? 'background:transparent;text-shadow:-1px -1px 2px #000,1px -1px 2px #000,-1px 1px 2px #000,1px 1px 2px #000'
+      ? `background:transparent;text-shadow:-${_pT}px -${_pT}px ${_pT*2}px #000,${_pT}px -${_pT}px ${_pT*2}px #000,-${_pT}px ${_pT}px ${_pT*2}px #000,${_pT}px ${_pT}px ${_pT*2}px #000`
       : `background:rgba(0,0,0,${_bgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -337,11 +341,11 @@ function _buildSettingsPanel() {
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _tBase = 'border-radius:5px;padding:4px 0;flex:1;cursor:pointer;font-size:11px;font-weight:600;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;transition:all .15s';
-  const _tabOn  = `background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;${_tBase}`;
-  const _tabOff = `background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;${_tBase}`;
+  const _tBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabOn  = `color:#66AAE8;border-bottom:2px solid #66AAE8;${_tBase}`;
+  const _tabOff = `color:#555;border-bottom:2px solid transparent;${_tBase}`;
   const tabBar = document.createElement('div');
-  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:12px';
+  tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid #404550;flex-shrink:0';
   const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
     const btn = document.createElement('button');
     btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
@@ -353,7 +357,10 @@ function _buildSettingsPanel() {
     tabBar.appendChild(btn); return btn;
   });
   settingsPnl.appendChild(tabBar);
-  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; settingsPnl.appendChild(s); });
+  const _content = document.createElement('div');
+  _content.style.cssText = 'overflow-y:auto;flex:1;min-height:0;padding-bottom:14px';
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; _content.appendChild(s); });
+  settingsPnl.appendChild(_content);
 
   // ═══ Style tab ═══════════════════════════════════════════
   _curPnl = _secs[0];
@@ -380,22 +387,6 @@ function _buildSettingsPanel() {
     fwRow.appendChild(btn);
   });
 
-  _pnlLabel('Background opacity');
-  const bgRow = document.createElement('div');
-  bgRow.className = 'pnl-slider-row';
-  const slider = document.createElement('input');
-  slider.type = 'range'; slider.min = '0'; slider.max = '100';
-  slider.value = Math.round(_bgOpacity * 100);
-  slider.addEventListener('input', e => {
-    e.stopPropagation(); _bgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`;
-    const w = subOverlay.querySelector('span');
-    if (w && _subStyle !== 'outline') w.style.background = `rgba(0,0,0,${_bgOpacity})`;
-    _saveSettings();
-  });
-  const bgVal = document.createElement('span');
-  bgVal.className = 'pnl-val'; bgVal.textContent = `${slider.value}%`;
-  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _curPnl.appendChild(bgRow);
-
   _pnlLabel('Color mode');
   const cmRow = _pnlRow();
   [{ label: 'Blue / Red', cb: false }, { label: 'Blue / Orange', cb: true }].forEach(({ label, cb }) => {
@@ -411,13 +402,36 @@ function _buildSettingsPanel() {
   _curPnl.appendChild(cmHint);
 
   _pnlLabel('Style');
+  let _bgSection, _otSection;
   const stRow = _pnlRow();
+  stRow.style.marginBottom = '0';
   [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
     const btn = _pnlBtn(label, val === _subStyle, btn => {
-      _subStyle = val; _setRowActive(stRow, btn); _lastCueIdx = -2; _saveSettings();
+      _subStyle = val; _setRowActive(stRow, btn);
+      _bgSection.style.display = val === 'box' ? 'block' : 'none';
+      _otSection.style.display = val === 'outline' ? 'block' : 'none';
+      _lastCueIdx = -2; _saveSettings();
     });
     stRow.appendChild(btn);
   });
+
+  _bgSection = document.createElement('div');
+  _bgSection.style.display = _subStyle === 'box' ? 'block' : 'none';
+  const bgLblEl = document.createElement('div'); bgLblEl.className = 'pnl-label'; bgLblEl.style.marginTop = '10px'; bgLblEl.textContent = 'Background opacity'; _bgSection.appendChild(bgLblEl);
+  const bgRow = document.createElement('div'); bgRow.className = 'pnl-slider-row'; bgRow.style.marginBottom = '0';
+  const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = Math.round(_bgOpacity * 100);
+  const bgVal = document.createElement('span'); bgVal.className = 'pnl-val'; bgVal.textContent = `${slider.value}%`;
+  slider.addEventListener('input', e => { e.stopPropagation(); _bgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`; const w = subOverlay.querySelector('span'); if (w) w.style.background = `rgba(0,0,0,${_bgOpacity})`; _saveSettings(); });
+  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _bgSection.appendChild(bgRow); _curPnl.appendChild(_bgSection);
+
+  _otSection = document.createElement('div');
+  _otSection.style.display = _subStyle === 'outline' ? 'block' : 'none';
+  const otLblEl = document.createElement('div'); otLblEl.className = 'pnl-label'; otLblEl.style.marginTop = '10px'; otLblEl.textContent = 'Outline thickness'; _otSection.appendChild(otLblEl);
+  const otRow = document.createElement('div'); otRow.className = 'pnl-slider-row'; otRow.style.marginBottom = '0';
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _outlineThickness;
+  const otVal = document.createElement('span'); otVal.className = 'pnl-val'; otVal.textContent = `${_outlineThickness}px`;
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _outlineThickness = +otSlider.value; otVal.textContent = `${_outlineThickness}px`; const w = subOverlay.querySelector('span'); if (w && _subStyle === 'outline') { const t = _outlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _lastCueIdx = -2; _saveSettings(); });
+  otRow.appendChild(otSlider); otRow.appendChild(otVal); _otSection.appendChild(otRow); _curPnl.appendChild(_otSection);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _curPnl = _secs[1];

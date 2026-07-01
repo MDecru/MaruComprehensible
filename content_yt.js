@@ -267,6 +267,8 @@ function parseVTTCues(vttText) {
   return cues;
 }
 
+let _transcriptHoverActive = false;
+
 let _ytControlBar  = null;   // [%|字幕|⚙] unified bar element
 let _ytSubOverlay  = null;   // subtitle div (absolute inside player)
 let _ytSubBtn      = null;   // 字幕 button inside bar
@@ -285,8 +287,9 @@ let _ytSubPosition   = 12;
 let _ytSubDelay      = 0;
 let _ytSubStyle      = 'box';
 let _ytSubMaxWidth   = 90;
-let _ytAutoPause     = false;
-let _ytUnknownOnly   = false;
+let _ytAutoPause        = false;
+let _ytUnknownOnly      = false;
+let _ytOutlineThickness = 1;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -298,6 +301,7 @@ function _ytSaveSettings() {
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
     subPosition: _ytSubPosition, subDelay: _ytSubDelay, subStyle: _ytSubStyle, subMaxWidth: _ytSubMaxWidth, autoPause: _ytAutoPause, unknownOnly: _ytUnknownOnly,
+    outlineThickness: _ytOutlineThickness,
   }}); } catch {}
 }
 
@@ -316,7 +320,8 @@ function _ytLoadSettings() {
       if (s.subStyle     !== undefined) _ytSubStyle      = s.subStyle;
       if (s.subMaxWidth  !== undefined) _ytSubMaxWidth   = s.subMaxWidth;
       if (s.autoPause    !== undefined) _ytAutoPause     = s.autoPause;
-      if (s.unknownOnly  !== undefined) _ytUnknownOnly   = s.unknownOnly;
+      if (s.unknownOnly        !== undefined) _ytUnknownOnly      = s.unknownOnly;
+      if (s.outlineThickness   !== undefined) _ytOutlineThickness = s.outlineThickness;
     });
   } catch {}
 }
@@ -402,20 +407,22 @@ function _ytToggleSettings(player) {
   pnl.id = 'mc-yt-settings';
   pnl.style.cssText = [
     'position:absolute', 'top:44px', 'left:12px', 'z-index:9998',
-    'background:rgba(15,15,15,.96)', 'border:1px solid #3a3f4a',
-    'border-radius:10px', 'padding:14px 16px',
+    'background:rgba(22,24,28,.97)', 'border:1px solid #404550',
+    'border-radius:10px', 'padding:14px 16px 0',
     'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
     'white-space:nowrap', 'min-width:240px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
+    'display:flex', 'flex-direction:column',
+    'max-height:min(520px,calc(90vh - 60px))', 'overflow:hidden',
   ].join(';');
 
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _tabOn  = 'background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;transition:all .15s';
-  const _tabOff = 'background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;transition:all .15s';
+  const _tabOn  = 'background:none;color:#66AAE8;border:none;border-bottom:2px solid #66AAE8;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabOff = 'background:none;color:#808898;border:none;border-bottom:2px solid transparent;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
   const tabBar = document.createElement('div');
-  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:16px';
+  tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid #404550;flex-shrink:0';
   const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
     const btn = document.createElement('button');
     btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
@@ -427,12 +434,15 @@ function _ytToggleSettings(player) {
     tabBar.appendChild(btn); return btn;
   });
   pnl.appendChild(tabBar);
-  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; pnl.appendChild(s); });
+  const _content = document.createElement('div');
+  _content.style.cssText = 'overflow-y:auto;flex:1;min-height:0;padding-bottom:14px';
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; _content.appendChild(s); });
+  pnl.appendChild(_content);
 
   let _cur = _secs[0];
   function _pnlLabel(text) {
     const el = document.createElement('div');
-    el.style.cssText = 'font-size:11px;color:#888;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
+    el.style.cssText = 'font-size:11px;color:#aab0bc;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
     el.textContent = text; _cur.appendChild(el);
   }
   function _pnlBtnRow(gap, mb) {
@@ -441,7 +451,7 @@ function _ytToggleSettings(player) {
     _cur.appendChild(row); return row;
   }
   function _pnlActiveStyle(on) {
-    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#888'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
+    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#a0a8b8'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
   }
 
   // ═══ Style tab ═══════════════════════════════════════════
@@ -479,28 +489,6 @@ function _ytToggleSettings(player) {
     fwRow.appendChild(btn);
   });
 
-  // ── BG opacity ────────────────────────────────────────────
-  _pnlLabel('Background opacity');
-  const bgRow = document.createElement('div');
-  bgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
-  const slider = document.createElement('input');
-  slider.type = 'range'; slider.min = '0'; slider.max = '100';
-  slider.value = Math.round(_ytBgOpacity * 100);
-  slider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
-  slider.addEventListener('click', e => e.stopPropagation());
-  slider.addEventListener('input', e => {
-    e.stopPropagation();
-    _ytBgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`;
-    const w = _ytSubOverlay?.querySelector('span');
-    if (w && _ytSubStyle !== 'outline') w.style.background = `rgba(0,0,0,${_ytBgOpacity})`;
-    _ytSaveSettings();
-  });
-  const bgVal = document.createElement('span');
-  bgVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
-  bgVal.textContent = `${slider.value}%`;
-  bgRow.appendChild(slider); bgRow.appendChild(bgVal);
-  _cur.appendChild(bgRow);
-
   // ── Color mode ────────────────────────────────────────────
   _pnlLabel('Color mode');
   const cmRow = _pnlBtnRow(6, 6);
@@ -519,12 +507,13 @@ function _ytToggleSettings(player) {
     cmRow.appendChild(btn);
   });
   const cmHint = document.createElement('div');
-  cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px;margin-bottom:14px';
+  cmHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:5px;margin-bottom:14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
   _cur.appendChild(cmHint);
 
   // ── Style ─────────────────────────────────────────────────
   _pnlLabel('Style');
+  let _ytBgSection, _ytOtSection;
   const stRow = _pnlBtnRow(6, 0);
   [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
@@ -533,10 +522,36 @@ function _ytToggleSettings(player) {
     btn.addEventListener('click', e => {
       e.stopPropagation(); _ytSubStyle = val;
       stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(b.dataset.st === _ytSubStyle)}`; });
+      _ytBgSection.style.display = val === 'box' ? 'block' : 'none';
+      _ytOtSection.style.display = val === 'outline' ? 'block' : 'none';
       _ytLastCueIdx = -2; _ytSaveSettings();
     });
     stRow.appendChild(btn);
   });
+
+  const _sLbl = 'font-size:11px;color:#aab0bc;margin:10px 0 6px;letter-spacing:.4px;text-transform:uppercase';
+  const _sRow = 'display:flex;align-items:center;gap:10px';
+  const _sVal = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+
+  _ytBgSection = document.createElement('div');
+  _ytBgSection.style.display = _ytSubStyle === 'box' ? 'block' : 'none';
+  const bgLblEl = document.createElement('div'); bgLblEl.style.cssText = _sLbl; bgLblEl.textContent = 'Background opacity'; _ytBgSection.appendChild(bgLblEl);
+  const bgRow = document.createElement('div'); bgRow.style.cssText = _sRow;
+  const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = Math.round(_ytBgOpacity * 100); slider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const bgVal = document.createElement('span'); bgVal.style.cssText = _sVal; bgVal.textContent = `${slider.value}%`;
+  slider.addEventListener('click', e => e.stopPropagation());
+  slider.addEventListener('input', e => { e.stopPropagation(); _ytBgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`; const w = _ytSubOverlay?.querySelector('span'); if (w) w.style.background = `rgba(0,0,0,${_ytBgOpacity})`; _ytSaveSettings(); });
+  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _ytBgSection.appendChild(bgRow); _cur.appendChild(_ytBgSection);
+
+  _ytOtSection = document.createElement('div');
+  _ytOtSection.style.display = _ytSubStyle === 'outline' ? 'block' : 'none';
+  const otLblEl = document.createElement('div'); otLblEl.style.cssText = _sLbl; otLblEl.textContent = 'Outline thickness'; _ytOtSection.appendChild(otLblEl);
+  const otRow = document.createElement('div'); otRow.style.cssText = _sRow;
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _ytOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const otVal = document.createElement('span'); otVal.style.cssText = _sVal; otVal.textContent = `${_ytOutlineThickness}px`;
+  otSlider.addEventListener('click', e => e.stopPropagation());
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _ytOutlineThickness = +otSlider.value; otVal.textContent = `${_ytOutlineThickness}px`; const w = _ytSubOverlay?.querySelector('span'); if (w && _ytSubStyle === 'outline') { const t = _ytOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _ytLastCueIdx = -2; _ytSaveSettings(); });
+  otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
@@ -600,7 +615,7 @@ function _ytToggleSettings(player) {
     phRow.appendChild(btn);
   });
   const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   _cur.appendChild(phHint);
 
@@ -620,7 +635,7 @@ function _ytToggleSettings(player) {
   dlPlus.addEventListener('click',  e => { e.stopPropagation(); _ytSubDelay = Math.min(5000,  _ytSubDelay + 100); dlVal.textContent = _dlFmt(_ytSubDelay); _ytLastCueIdx = -2; _ytSaveSettings(); });
   dlRow.appendChild(dlMinus); dlRow.appendChild(dlVal); dlRow.appendChild(dlPlus); _cur.appendChild(dlRow);
   const dlHint = document.createElement('div');
-  dlHint.style.cssText = 'font-size:11px;color:#555;margin-top:-10px;margin-bottom:14px';
+  dlHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-10px;margin-bottom:14px';
   dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
   _cur.appendChild(dlHint);
 
@@ -639,7 +654,7 @@ function _ytToggleSettings(player) {
     apRow.appendChild(btn);
   });
   const apHint = document.createElement('div');
-  apHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _cur.appendChild(apHint);
 
@@ -658,7 +673,7 @@ function _ytToggleSettings(player) {
     uoRow.appendChild(btn);
   });
   const uoHint = document.createElement('div');
-  uoHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
+  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
@@ -689,8 +704,9 @@ function _ytStartTimeSync() {
     }
 
     const wrap = document.createElement('span');
+    const _ytT = _ytOutlineThickness;
     const _wrapBg = _ytSubStyle === 'outline'
-      ? 'background:transparent;text-shadow:-1px -1px 2px #000,1px -1px 2px #000,-1px 1px 2px #000,1px 1px 2px #000'
+      ? `background:transparent;text-shadow:-${_ytT}px -${_ytT}px ${_ytT*2}px #000,${_ytT}px -${_ytT}px ${_ytT*2}px #000,-${_ytT}px ${_ytT}px ${_ytT*2}px #000,${_ytT}px ${_ytT}px ${_ytT*2}px #000`
       : `background:rgba(0,0,0,${_ytBgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -771,8 +787,10 @@ function _ytCreateControlBar(player, score) {
       _ytSubCleanup?.(); _ytSubCleanup = null;
       if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
       _ytSetSubActive(false);
+      if (!_transcriptHoverActive) hoverDisable();
     } else {
       _ytEnsureOverlay(player);
+      if (!_hoverEnabled) await hoverEnable(() => _ytSubOverlay);
       _ytSubCleanup?.(); _ytSubCleanup = _ytStartTimeSync();
       _ytSetSubActive(true);
     }
@@ -824,15 +842,22 @@ async function ytEnableHover() {
 // Message handler for popup
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.action === 'enableHover') {
-    ytEnableHover().then(reply); return true;
+    _transcriptHoverActive = true;
+    // Only initialise hover.js infrastructure; do not start the subtitle
+    // time-sync — that is the 字幕 button's job.
+    if (_hoverEnabled) { reply({ ok: true }); return; }
+    hoverEnable(() => _ytSubOverlay || document.querySelector('video'))
+      .then(reply); return true;
   }
   if (msg.action === 'disableHover') {
-    hoverDisable();
-    _ytDestroyAll();
+    _transcriptHoverActive = false;
+    // Only tear down hover if the subtitle overlay is not running;
+    // never destroy the control bar or settings panel.
+    if (!_ytSubCleanup) hoverDisable();
     reply({ ok: true }); return;
   }
   if (msg.action === 'hoverStatus') {
-    reply({ enabled: _hoverEnabled }); return;
+    reply({ enabled: _transcriptHoverActive }); return;
   }
   if (msg.action === 'preload') {
     getTokenizer().then(() => reply({ ok: true })).catch(() => reply({ ok: false }));
@@ -865,11 +890,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (_ytControlBar) _ytControlBar.style.display = 'none';
     _ytCues = null; _ytLastCueIdx = -2;
     _ytSetSubActive(false);
+    // Only fully disable hover if transcript hover is also off.
+    if (!_transcriptHoverActive) hoverDisable();
     chrome.storage.local.set({ videoToolEnabled: false });
     reply({ ok: true }); return;
   }
   if (msg.action === 'enableVideoTool') {
-    if (_ytControlBar) { _ytControlBar.style.display = ''; }
+    if (_ytControlBar) { _ytControlBar.style.display = 'inline-flex'; }
     else { const p = _ytGetPlayer(); if (p) _ytCreateControlBar(p, null); }
     chrome.storage.local.set({ videoToolEnabled: true });
     _lastVideoId = null; scoreVideo();

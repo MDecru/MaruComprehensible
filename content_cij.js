@@ -52,6 +52,8 @@ let _cijSubCleanup  = null;
 let _cijPauseOnHover  = false;
 let _cijPausedByHover = false;
 
+let _transcriptHoverActive = false;
+
 let _cijFontSize   = 20;
 let _cijBgOpacity  = 0.78;
 let _cijFontWeight = 400;
@@ -60,8 +62,9 @@ let _cijSubPosition   = 12;
 let _cijSubDelay      = 0;
 let _cijSubStyle      = 'box';
 let _cijSubMaxWidth   = 90;
-let _cijAutoPause     = false;
-let _cijUnknownOnly   = false;
+let _cijAutoPause        = false;
+let _cijUnknownOnly      = false;
+let _cijOutlineThickness = 1;
 
 const _CIJ_FONT_SIZES   = [20, 28, 36, 46];
 const _CIJ_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -80,7 +83,8 @@ if (chrome.runtime?.id) {
       if (s.subStyle     !== undefined) _cijSubStyle      = s.subStyle;
       if (s.subMaxWidth  !== undefined) _cijSubMaxWidth   = s.subMaxWidth;
       if (s.autoPause    !== undefined) _cijAutoPause     = s.autoPause;
-      if (s.unknownOnly  !== undefined) _cijUnknownOnly   = s.unknownOnly;
+      if (s.unknownOnly        !== undefined) _cijUnknownOnly      = s.unknownOnly;
+      if (s.outlineThickness   !== undefined) _cijOutlineThickness = s.outlineThickness;
     });
   } catch {}
 }
@@ -92,6 +96,7 @@ function _cijSaveSettings() {
     fontWeight: _cijFontWeight, colorblind: _cijColorblind,
     pauseOnHover: _cijPauseOnHover,
     subPosition: _cijSubPosition, subDelay: _cijSubDelay, subStyle: _cijSubStyle, subMaxWidth: _cijSubMaxWidth, autoPause: _cijAutoPause, unknownOnly: _cijUnknownOnly,
+    outlineThickness: _cijOutlineThickness,
   }}); } catch {}
 }
 
@@ -194,8 +199,9 @@ function _cijStartTimeSync() {
     }
 
     const wrap = document.createElement('span');
+    const _cijT = _cijOutlineThickness;
     const _wrapBg = _cijSubStyle === 'outline'
-      ? 'background:transparent;text-shadow:-1px -1px 2px #000,1px -1px 2px #000,-1px 1px 2px #000,1px 1px 2px #000'
+      ? `background:transparent;text-shadow:-${_cijT}px -${_cijT}px ${_cijT*2}px #000,${_cijT}px -${_cijT}px ${_cijT*2}px #000,-${_cijT}px ${_cijT}px ${_cijT*2}px #000,${_cijT}px ${_cijT}px ${_cijT*2}px #000`
       : `background:rgba(0,0,0,${_cijBgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -234,17 +240,19 @@ function _cijToggleSettings(_player) {
   // container zoom) cannot affect our panel's appearance.
   pnl.style.cssText = [
     'position:fixed', 'z-index:2147483647',
-    'background:rgba(15,15,15,.96)', 'border:1px solid #3a3f4a',
-    'border-radius:10px', 'padding:14px 16px',
+    'background:rgba(22,24,28,.97)', 'border:1px solid #404550',
+    'border-radius:10px', 'padding:14px 16px 0',
     'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
     'white-space:nowrap', 'min-width:240px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
     'line-height:normal', 'box-sizing:border-box',
+    'display:flex', 'flex-direction:column',
+    'max-height:min(520px,calc(90vh - 60px))', 'overflow:hidden',
   ].join(';');
 
   // Header row with close button
   const hdr = document.createElement('div');
-  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px';
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0';
   const hdrTitle = document.createElement('span');
   hdrTitle.style.cssText = 'font-size:12px;font-weight:700;color:#d0d4e0;letter-spacing:.3px;text-transform:uppercase';
   hdrTitle.textContent = 'Subtitle settings';
@@ -257,11 +265,11 @@ function _cijToggleSettings(_player) {
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _B = 'border-radius:6px;padding:5px 0;flex:1;cursor:pointer;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;transition:all .15s';
-  const _tabOn  = `background:rgba(102,170,232,.18);color:#66AAE8;border:1px solid #66AAE8;${_B}`;
-  const _tabOff = `background:rgba(255,255,255,.04);color:#666;border:1px solid transparent;${_B}`;
+  const _tabBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabOn  = `color:#66AAE8;border-bottom:2px solid #66AAE8;${_tabBase}`;
+  const _tabOff = `color:#808898;border-bottom:2px solid transparent;${_tabBase}`;
   const tabBar = document.createElement('div');
-  tabBar.style.cssText = 'display:flex;gap:4px;margin-bottom:16px';
+  tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid #404550;flex-shrink:0';
   const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
     const btn = document.createElement('button');
     btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
@@ -273,13 +281,16 @@ function _cijToggleSettings(_player) {
     tabBar.appendChild(btn); return btn;
   });
   pnl.appendChild(tabBar);
-  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; pnl.appendChild(s); });
+  const _content = document.createElement('div');
+  _content.style.cssText = 'overflow-y:auto;flex:1;min-height:0;padding-bottom:14px';
+  _secs.forEach((s, i) => { s.style.display = i === 0 ? 'block' : 'none'; _content.appendChild(s); });
+  pnl.appendChild(_content);
 
   let _cur = _secs[0];
   const _btnBase = 'flex:1;border-radius:6px;cursor:pointer;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s';
   function _lbl(text) {
     const el = document.createElement('div');
-    el.style.cssText = 'font-size:11px;color:#888;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
+    el.style.cssText = 'font-size:11px;color:#aab0bc;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
     el.textContent = text; _cur.appendChild(el);
   }
   function _row(gap, mb) {
@@ -288,7 +299,7 @@ function _cijToggleSettings(_player) {
     _cur.appendChild(row); return row;
   }
   function _active(on) {
-    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#888'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
+    return [`background:${on ? 'rgba(102,170,232,.2)' : 'rgba(255,255,255,.06)'}`, `color:${on ? '#66AAE8' : '#a0a8b8'}`, `border:1px solid ${on ? '#66AAE8' : '#3a3f4a'}`].join(';');
   }
 
   // ═══ Style tab ═══════════════════════════════════════════
@@ -324,26 +335,6 @@ function _cijToggleSettings(_player) {
     fwRow.appendChild(btn);
   });
 
-  _lbl('Background opacity');
-  const bgRow = document.createElement('div');
-  bgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
-  const slider = document.createElement('input');
-  slider.type = 'range'; slider.min = '0'; slider.max = '100';
-  slider.value = Math.round(_cijBgOpacity * 100);
-  slider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
-  slider.addEventListener('click', e => e.stopPropagation());
-  slider.addEventListener('input', e => {
-    e.stopPropagation(); _cijBgOpacity = slider.value / 100;
-    bgVal.textContent = `${slider.value}%`;
-    const w = _cijSubOverlay?.querySelector('span');
-    if (w && _cijSubStyle !== 'outline') w.style.background = `rgba(0,0,0,${_cijBgOpacity})`;
-    _cijSaveSettings();
-  });
-  const bgVal = document.createElement('span');
-  bgVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
-  bgVal.textContent = `${slider.value}%`;
-  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _cur.appendChild(bgRow);
-
   _lbl('Color mode');
   const cmRow = _row(6, 6);
   [{ label: 'Blue / Red', cb: false }, { label: 'Blue / Orange', cb: true }].forEach(({ label, cb }) => {
@@ -358,11 +349,12 @@ function _cijToggleSettings(_player) {
     cmRow.appendChild(btn);
   });
   const cmHint = document.createElement('div');
-  cmHint.style.cssText = 'font-size:11px;color:#555;margin-top:5px;margin-bottom:14px';
+  cmHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:5px;margin-bottom:14px';
   cmHint.textContent = 'Blue = known · Red/Orange = unknown';
   _cur.appendChild(cmHint);
 
   _lbl('Style');
+  let _cijBgSection, _cijOtSection;
   const stRow = _row(6, 0);
   [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
@@ -371,10 +363,36 @@ function _cijToggleSettings(_player) {
     btn.addEventListener('click', e => {
       e.stopPropagation(); _cijSubStyle = val;
       stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(b.dataset.st === _cijSubStyle)}`; });
+      _cijBgSection.style.display = val === 'box' ? 'block' : 'none';
+      _cijOtSection.style.display = val === 'outline' ? 'block' : 'none';
       _cijLastCueIdx = -2; _cijSaveSettings();
     });
     stRow.appendChild(btn);
   });
+
+  const _sLbl = 'font-size:11px;color:#aab0bc;margin:10px 0 6px;letter-spacing:.4px;text-transform:uppercase';
+  const _sRow = 'display:flex;align-items:center;gap:10px';
+  const _sVal = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
+
+  _cijBgSection = document.createElement('div');
+  _cijBgSection.style.display = _cijSubStyle === 'box' ? 'block' : 'none';
+  const bgLblEl = document.createElement('div'); bgLblEl.style.cssText = _sLbl; bgLblEl.textContent = 'Background opacity'; _cijBgSection.appendChild(bgLblEl);
+  const bgRow = document.createElement('div'); bgRow.style.cssText = _sRow;
+  const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = Math.round(_cijBgOpacity * 100); slider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const bgVal = document.createElement('span'); bgVal.style.cssText = _sVal; bgVal.textContent = `${slider.value}%`;
+  slider.addEventListener('click', e => e.stopPropagation());
+  slider.addEventListener('input', e => { e.stopPropagation(); _cijBgOpacity = slider.value / 100; bgVal.textContent = `${slider.value}%`; const w = _cijSubOverlay?.querySelector('span'); if (w) w.style.background = `rgba(0,0,0,${_cijBgOpacity})`; _cijSaveSettings(); });
+  bgRow.appendChild(slider); bgRow.appendChild(bgVal); _cijBgSection.appendChild(bgRow); _cur.appendChild(_cijBgSection);
+
+  _cijOtSection = document.createElement('div');
+  _cijOtSection.style.display = _cijSubStyle === 'outline' ? 'block' : 'none';
+  const otLblEl = document.createElement('div'); otLblEl.style.cssText = _sLbl; otLblEl.textContent = 'Outline thickness'; _cijOtSection.appendChild(otLblEl);
+  const otRow = document.createElement('div'); otRow.style.cssText = _sRow;
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _cijOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const otVal = document.createElement('span'); otVal.style.cssText = _sVal; otVal.textContent = `${_cijOutlineThickness}px`;
+  otSlider.addEventListener('click', e => e.stopPropagation());
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _cijOutlineThickness = +otSlider.value; otVal.textContent = `${_cijOutlineThickness}px`; const w = _cijSubOverlay?.querySelector('span'); if (w && _cijSubStyle === 'outline') { const t = _cijOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _cijLastCueIdx = -2; _cijSaveSettings(); });
+  otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
@@ -435,7 +453,7 @@ function _cijToggleSettings(_player) {
     phRow.appendChild(btn);
   });
   const phHint = document.createElement('div');
-  phHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  phHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
   phHint.textContent = 'Pauses playback while hovering a subtitle';
   _cur.appendChild(phHint);
 
@@ -453,7 +471,7 @@ function _cijToggleSettings(_player) {
   dlPlus.addEventListener('click',  e => { e.stopPropagation(); _cijSubDelay = Math.min(5000,  _cijSubDelay + 100); dlVal.textContent = _dlFmt(_cijSubDelay); _cijLastCueIdx = -2; _cijSaveSettings(); });
   dlRow.appendChild(dlMinus); dlRow.appendChild(dlVal); dlRow.appendChild(dlPlus);
   const dlHint = document.createElement('div');
-  dlHint.style.cssText = 'font-size:11px;color:#555;margin-top:-10px;margin-bottom:14px';
+  dlHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-10px;margin-bottom:14px';
   dlHint.textContent = 'Steps of 0.1s — shift subtitles earlier (−) or later (+)';
   _cur.appendChild(dlHint);
 
@@ -471,7 +489,7 @@ function _cijToggleSettings(_player) {
     apRow.appendChild(btn);
   });
   const apHint = document.createElement('div');
-  apHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px;margin-bottom:14px';
+  apHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px;margin-bottom:14px';
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _cur.appendChild(apHint);
 
@@ -489,7 +507,7 @@ function _cijToggleSettings(_player) {
     uoRow.appendChild(btn);
   });
   const uoHint = document.createElement('div');
-  uoHint.style.cssText = 'font-size:11px;color:#555;margin-top:3px';
+  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:3px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
@@ -546,8 +564,10 @@ function _cijCreateControlBar(player, score) {
       _cijSubCleanup?.(); _cijSubCleanup = null;
       if (_cijSubOverlay) _cijSubOverlay.innerHTML = '';
       _cijSetSubActive(false);
+      if (!_transcriptHoverActive) hoverDisable();
     } else {
       _cijEnsureOverlay(player);
+      if (!_hoverEnabled) await hoverEnable(() => _cijSubOverlay);
       _cijSubCleanup?.(); _cijSubCleanup = _cijStartTimeSync();
       _cijSetSubActive(true);
     }
@@ -624,17 +644,18 @@ async function scanPage() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.action === 'enableHover') {
+    _transcriptHoverActive = true;
     hoverEnable(cijFindTranscriptElement).then(reply); return true;
   }
   if (msg.action === 'disableHover') {
-    hoverDisable();
-    _cijSubCleanup?.(); _cijSubCleanup = null;
-    if (_cijSubOverlay) _cijSubOverlay.innerHTML = '';
-    _cijSetSubActive(false);
+    _transcriptHoverActive = false;
+    // Only fully tear down hover if subtitle overlay is not running;
+    // otherwise the overlay still needs hover.js for tokenization + tooltips.
+    if (!_cijSubCleanup) hoverDisable();
     reply({ ok: true }); return;
   }
   if (msg.action === 'hoverStatus') {
-    reply({ enabled: _hoverEnabled }); return;
+    reply({ enabled: _transcriptHoverActive }); return;
   }
   if (msg.action === 'openSidebar') {
     cijFetchVTT().then(vtt => {
@@ -663,11 +684,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (_cijControlBar) _cijControlBar.style.display = 'none';
     _cijCues = null; _cijLastCueIdx = -2;
     _cijSetSubActive(false);
+    // Only fully disable hover if transcript hover is also off.
+    if (!_transcriptHoverActive) hoverDisable();
     chrome.storage.local.set({ videoToolEnabled: false });
     reply({ ok: true }); return;
   }
   if (msg.action === 'enableVideoTool') {
-    if (_cijControlBar) { _cijControlBar.style.display = ''; }
+    if (_cijControlBar) { _cijControlBar.style.display = 'inline-flex'; }
     else { const p = _cijGetPlayer(); if (p) _cijCreateControlBar(p, null); }
     chrome.storage.local.set({ videoToolEnabled: true });
     _cijVttCache = null; scanPage();
@@ -695,7 +718,7 @@ scanPage();
 
 // Re-tokenize transcript panel when it fills in dynamically
 new MutationObserver(() => {
-  if (typeof _hoverEnabled !== 'undefined' && _hoverEnabled) {
+  if (_transcriptHoverActive) {
     const container = cijFindTranscriptElement();
     if (container) hoverRetokenize(container);
   }

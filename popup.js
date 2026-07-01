@@ -394,6 +394,11 @@ async function init() {
     window.close();
   });
 
+  document.getElementById('changelog-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('changelog.html') });
+    window.close();
+  });
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {
