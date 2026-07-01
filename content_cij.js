@@ -65,6 +65,7 @@ let _cijSubMaxWidth   = 90;
 let _cijAutoPause        = false;
 let _cijUnknownOnly      = false;
 let _cijOutlineThickness = 1;
+let _cijFurigana         = false;
 
 const _CIJ_FONT_SIZES   = [20, 28, 36, 46];
 const _CIJ_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -85,6 +86,7 @@ if (chrome.runtime?.id) {
       if (s.autoPause    !== undefined) _cijAutoPause     = s.autoPause;
       if (s.unknownOnly        !== undefined) _cijUnknownOnly      = s.unknownOnly;
       if (s.outlineThickness   !== undefined) _cijOutlineThickness = s.outlineThickness;
+      if (s.furigana           !== undefined) _cijFurigana         = s.furigana;
     });
   } catch {}
 }
@@ -96,7 +98,7 @@ function _cijSaveSettings() {
     fontWeight: _cijFontWeight, colorblind: _cijColorblind,
     pauseOnHover: _cijPauseOnHover,
     subPosition: _cijSubPosition, subDelay: _cijSubDelay, subStyle: _cijSubStyle, subMaxWidth: _cijSubMaxWidth, autoPause: _cijAutoPause, unknownOnly: _cijUnknownOnly,
-    outlineThickness: _cijOutlineThickness,
+    outlineThickness: _cijOutlineThickness, furigana: _cijFurigana,
   }}); } catch {}
 }
 
@@ -146,6 +148,8 @@ function _cijSetSubActive(active) {
 
 function _cijRecolorOverlay() {
   if (!_hoverVocab) return;
+  const wrap = _cijSubOverlay?.querySelector(':scope > span');
+  if (wrap) wrap.style.color = _cijUnknownOnly ? 'transparent' : '#fff';
   for (const span of (_cijSubOverlay?.querySelectorAll('.jp-tok') || [])) {
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
     span.style.color = known ? '#66AAE8' : (_cijColorblind ? '#FDC281' : '#ED7989');
@@ -206,12 +210,14 @@ function _cijStartTimeSync() {
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
-      `font-size:${_cijFontSize}px`, `font-weight:${_cijFontWeight}`, 'line-height:1.6',
+      `font-size:${_cijFontSize}px`, `font-weight:${_cijFontWeight}`,
+      `line-height:${_cijFurigana ? '2.4' : '1.6'}`,
       `max-width:${_cijSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cijCues[idx].text;
     _cijSubOverlay.appendChild(wrap);
     await hoverRetokenize(_cijSubOverlay);
+    if (_cijFurigana) hoverApplyFurigana(_cijSubOverlay);
     _cijRecolorOverlay();
   };
 
@@ -393,6 +399,21 @@ function _cijToggleSettings(_player) {
   otSlider.addEventListener('click', e => e.stopPropagation());
   otSlider.addEventListener('input', e => { e.stopPropagation(); _cijOutlineThickness = +otSlider.value; otVal.textContent = `${_cijOutlineThickness}px`; const w = _cijSubOverlay?.querySelector('span'); if (w && _cijSubStyle === 'outline') { const t = _cijOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _cijLastCueIdx = -2; _cijSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
+
+  // ── Furigana ──────────────────────────────────────────────
+  _lbl('Furigana');
+  const fgRow = _row(6, 0);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.fg = val; btn.textContent = label;
+    btn.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active(val === _cijFurigana)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _cijFurigana = val;
+      fgRow.querySelectorAll('[data-fg]').forEach(b => { b.style.cssText = `padding:7px 4px;font-size:12px;font-weight:600;${_btnBase};${_active((b.dataset.fg === 'true') === _cijFurigana)}`; });
+      _cijLastCueIdx = -2; _cijSaveSettings();
+    });
+    fgRow.appendChild(btn);
+  });
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];

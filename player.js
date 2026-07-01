@@ -28,6 +28,7 @@ let _subMaxWidth = 90;
 let _autoPause        = false;
 let _unknownOnly      = false;
 let _outlineThickness = 1;
+let _furigana         = false;
 
 const FONT_SIZES   = [20, 28, 36, 46];
 const FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -46,6 +47,7 @@ chrome.storage.local.get('yt_sub_settings', ({ yt_sub_settings: s }) => {
   if (s.autoPause    !== undefined) _autoPause     = s.autoPause;
   if (s.unknownOnly        !== undefined) _unknownOnly      = s.unknownOnly;
   if (s.outlineThickness   !== undefined) _outlineThickness = s.outlineThickness;
+  if (s.furigana           !== undefined) _furigana         = s.furigana;
   subOverlay.style.bottom = _subPosition + '%';
 });
 
@@ -54,7 +56,7 @@ function _saveSettings() {
     fontSize: _fontSize, bgOpacity: _bgOpacity, fontWeight: _fontWeight,
     colorblind: _colorblind, pauseOnHover: _pauseOnHover,
     subPosition: _subPosition, subDelay: _subDelay, subStyle: _subStyle, subMaxWidth: _subMaxWidth, autoPause: _autoPause, unknownOnly: _unknownOnly,
-    outlineThickness: _outlineThickness,
+    outlineThickness: _outlineThickness, furigana: _furigana,
   }});
 }
 
@@ -135,12 +137,14 @@ function _startTimeSync() {
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
-      `font-size:${_fontSize}px`, `font-weight:${_fontWeight}`, 'line-height:1.6',
+      `font-size:${_fontSize}px`, `font-weight:${_fontWeight}`,
+      `line-height:${_furigana ? '2.4' : '1.6'}`,
       `max-width:${_subMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cues[idx].text;
     subOverlay.appendChild(wrap);
     await hoverRetokenize(subOverlay);
+    if (_furigana) hoverApplyFurigana(subOverlay);
     _recolorOverlay();
   };
   video.addEventListener('timeupdate', handler);
@@ -149,6 +153,8 @@ function _startTimeSync() {
 
 function _recolorOverlay() {
   if (!_hoverVocab) return;
+  const wrap = subOverlay.querySelector(':scope > span');
+  if (wrap) wrap.style.color = _unknownOnly ? 'transparent' : '#fff';
   for (const span of subOverlay.querySelectorAll('.jp-tok')) {
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
     span.style.color = known ? '#66AAE8' : (_colorblind ? '#FDC281' : '#ED7989');
@@ -432,6 +438,16 @@ function _buildSettingsPanel() {
   const otVal = document.createElement('span'); otVal.className = 'pnl-val'; otVal.textContent = `${_outlineThickness}px`;
   otSlider.addEventListener('input', e => { e.stopPropagation(); _outlineThickness = +otSlider.value; otVal.textContent = `${_outlineThickness}px`; const w = subOverlay.querySelector('span'); if (w && _subStyle === 'outline') { const t = _outlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _lastCueIdx = -2; _saveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _otSection.appendChild(otRow); _curPnl.appendChild(_otSection);
+
+  // Furigana
+  _pnlLabel('Furigana');
+  const fgRow = _pnlRow();
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = _pnlBtn(label, val === _furigana, btn => {
+      _furigana = val; _setRowActive(fgRow, btn); _lastCueIdx = -2; _saveSettings();
+    });
+    fgRow.appendChild(btn);
+  });
 
   // ═══ Layout tab ══════════════════════════════════════════
   _curPnl = _secs[1];

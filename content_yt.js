@@ -290,6 +290,7 @@ let _ytSubMaxWidth   = 90;
 let _ytAutoPause        = false;
 let _ytUnknownOnly      = false;
 let _ytOutlineThickness = 1;
+let _ytFurigana         = false;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -301,7 +302,7 @@ function _ytSaveSettings() {
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
     subPosition: _ytSubPosition, subDelay: _ytSubDelay, subStyle: _ytSubStyle, subMaxWidth: _ytSubMaxWidth, autoPause: _ytAutoPause, unknownOnly: _ytUnknownOnly,
-    outlineThickness: _ytOutlineThickness,
+    outlineThickness: _ytOutlineThickness, furigana: _ytFurigana,
   }}); } catch {}
 }
 
@@ -322,6 +323,7 @@ function _ytLoadSettings() {
       if (s.autoPause    !== undefined) _ytAutoPause     = s.autoPause;
       if (s.unknownOnly        !== undefined) _ytUnknownOnly      = s.unknownOnly;
       if (s.outlineThickness   !== undefined) _ytOutlineThickness = s.outlineThickness;
+      if (s.furigana           !== undefined) _ytFurigana         = s.furigana;
     });
   } catch {}
 }
@@ -341,6 +343,8 @@ function _ytSetSubActive(active) {
 // Re-color existing .jp-tok spans in overlay (after colorblind mode change).
 function _ytRecolorOverlay() {
   if (!_hoverVocab) return;
+  const wrap = _ytSubOverlay?.querySelector(':scope > span');
+  if (wrap) wrap.style.color = _ytUnknownOnly ? 'transparent' : '#fff';
   for (const span of (_ytSubOverlay?.querySelectorAll('.jp-tok') || [])) {
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
     span.style.color = known ? '#66AAE8' : (_ytColorblind ? '#FDC281' : '#ED7989');
@@ -553,6 +557,21 @@ function _ytToggleSettings(player) {
   otSlider.addEventListener('input', e => { e.stopPropagation(); _ytOutlineThickness = +otSlider.value; otVal.textContent = `${_ytOutlineThickness}px`; const w = _ytSubOverlay?.querySelector('span'); if (w && _ytSubStyle === 'outline') { const t = _ytOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _ytLastCueIdx = -2; _ytSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
 
+  // ── Furigana ──────────────────────────────────────────────
+  _pnlLabel('Furigana');
+  const fgRow = _pnlBtnRow(6, 0);
+  [{ label: 'Off', val: false }, { label: 'On', val: true }].forEach(({ label, val }) => {
+    const btn = document.createElement('button');
+    btn.dataset.fg = val; btn.textContent = label;
+    btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytFurigana)}`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); _ytFurigana = val;
+      fgRow.querySelectorAll('[data-fg]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle((b.dataset.fg === 'true') === _ytFurigana)}`; });
+      _ytLastCueIdx = -2; _ytSaveSettings();
+    });
+    fgRow.appendChild(btn);
+  });
+
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
 
@@ -711,12 +730,14 @@ function _ytStartTimeSync() {
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
       'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
-      `font-size:${_ytFontSize}px`, `font-weight:${_ytFontWeight}`, 'line-height:1.6',
+      `font-size:${_ytFontSize}px`, `font-weight:${_ytFontWeight}`,
+      `line-height:${_ytFurigana ? '2.4' : '1.6'}`,
       `max-width:${_ytSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _ytCues[idx].text;
     _ytSubOverlay.appendChild(wrap);
     await hoverRetokenize(_ytSubOverlay);
+    if (_ytFurigana) hoverApplyFurigana(_ytSubOverlay);
     _ytRecolorOverlay();
   };
 

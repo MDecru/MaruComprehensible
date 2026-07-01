@@ -322,6 +322,31 @@ async function _fetchDef(word) {
 
 // ── Tooltip content ──────────────────────────────────────────────────────────
 
+// ── Furigana ──────────────────────────────────────────────────────────────────
+
+let _furiganaStyleEl = null;
+function hoverApplyFurigana(container) {
+  if (!_furiganaStyleEl) {
+    _furiganaStyleEl = document.createElement('style');
+    _furiganaStyleEl.textContent = 'ruby{ruby-align:center}rt{pointer-events:none;user-select:none}';
+    document.head.appendChild(_furiganaStyleEl);
+  }
+  for (const span of [...container.querySelectorAll('.jp-tok')]) {
+    const reading = span.dataset.reading;
+    if (!reading) continue;
+    const text = span.dataset.basic || span.dataset.word || '';
+    if (!hasKanji(text)) continue;
+    const hira = _katToHira(reading);
+    if (hira === text) continue;
+    const ruby = document.createElement('ruby');
+    span.before(ruby);
+    ruby.appendChild(span);
+    const rt = document.createElement('rt');
+    rt.textContent = hira;
+    ruby.appendChild(rt);
+  }
+}
+
 function _wireHoverTipButtons() {
   _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
   _hoverTip.querySelector('.jht-set-known')?.addEventListener('click', async e => {
