@@ -62,9 +62,28 @@ li:last-child { border-bottom: none; }
 
 <div class="release">
   <div class="release-header">
-    <span class="version">v1.1</span>
+    <span class="version">v1.2</span>
     <span class="date">2026-07-01</span>
     <span class="tag tag-latest">Latest</span>
+  </div>
+  <ul>
+    <li><span class="ct feat">Feature</span> <b>Furigana on subtitles</b> — optional reading aid above kanji words; toggle + opacity slider in the Style tab of every subtitle settings panel</li>
+    <li><span class="ct feat">Feature</span> <b>Set as Known</b> — mark any word as known directly from its hover tooltip (works on subtitles, transcripts, and sidebar); stored separately from MaruMori vocab</li>
+    <li><span class="ct feat">Feature</span> <b>Known words manager</b> — searchable list of user-marked words in the Advanced tab; individual delete or clear all</li>
+    <li><span class="ct feat">Feature</span> Full word card (reading, definitions, Set as Known) now appears automatically on hover over subtitle words — no click required</li>
+    <li><span class="ct fix">Fix</span> "Unknown words only" now also hides connector/particle words (was showing them as white text between coloured unknowns)</li>
+    <li><span class="ct fix">Fix</span> Hover tooltip now opens above the word by default; falls back to below only when there is not enough space</li>
+    <li><span class="ct fix">Fix</span> "Set as Known" button no longer pushes Jisho / MaruMori links off the edge of the tooltip</li>
+    <li><span class="ct fix">Fix</span> Video stays paused when moving mouse from subtitle to the word tooltip while pause-on-hover is on</li>
+    <li><span class="ct ui">UI</span> Binary settings (Furigana, Pause on hover, Auto-pause, Unknown words only) converted from Off/On buttons to toggle switches matching the main popup style</li>
+    <li><span class="ct ui">UI</span> Settings panel has a fixed width — no more resizing when switching between Style, Layout, and Playback tabs</li>
+  </ul>
+</div>
+
+<div class="release">
+  <div class="release-header">
+    <span class="version">v1.1</span>
+    <span class="date">2026-07-01</span>
   </div>
   <ul>
     <li><span class="ct feat">Feature</span> Outline thickness slider — adjusts shadow spread when subtitle style is Outline (range 1–5)</li>
