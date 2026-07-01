@@ -131,15 +131,15 @@ function _cijEnsureOverlay(player) {
     const v = document.querySelector('video');
     if (v && !v.paused) { v.pause(); _cijPausedByHover = true; }
   });
-  // Re-pause after word click — site player may call video.play() in its own click handler
-  // before stopImmediatePropagation in hover.js silences it; setTimeout fires after all sync handlers
-  _cijSubOverlay.addEventListener('click', e => {
-    if (!_cijPauseOnHover || !e.target.closest('.jp-tok')) return;
+  // Re-pause after word click — the CIJ site's click handler may call video.play() before
+  // hover.js fires; setTimeout(0) runs after all sync handlers in the same click stack
+  document.addEventListener('mc-word-pinned', () => {
+    if (!_cijPauseOnHover || !_cijPausedByHover) return;
     setTimeout(() => {
       const v = document.querySelector('video');
-      if (v && _cijPausedByHover && v.paused === false) { v.pause(); }
+      if (v && _cijPausedByHover && !v.paused) v.pause();
     }, 0);
-  }, true);
+  });
   _cijSubOverlay.addEventListener('mouseleave', () => {
     if (!_cijPausedByHover) return;
     if (_hoverPinned) return; // tooltip is open — defer resume until tooltip closes

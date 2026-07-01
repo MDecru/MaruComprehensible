@@ -511,7 +511,7 @@ function _hoverOut(e) {
 function _hoverClick(e) {
   const tok = e.target.closest('.jp-tok');
   if (tok) {
-    e.stopImmediatePropagation(); // prevent other document-level capture listeners (e.g. site player) from firing
+    e.stopPropagation();
     if (_hoverPinned === tok) { _hoverHide(); return; }
     if (_hoverPinned) _hoverPinned.classList.remove('jp-tok-sel');
 
@@ -525,6 +525,9 @@ function _hoverClick(e) {
     _hoverPinned = tok;
     tok.classList.add('jp-tok-sel');
     _wireHoverTipButtons();
+    // Notify content scripts that a word was pinned — lets them re-pause if the
+    // site player called video.play() in its own click handler before ours ran
+    document.dispatchEvent(new CustomEvent('mc-word-pinned'));
 
     // Fetch definition then re-render in place
     const lookupWord = tok.dataset.basic || tok.dataset.word;
