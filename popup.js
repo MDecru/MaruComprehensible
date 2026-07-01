@@ -421,6 +421,54 @@ async function init() {
     window.close();
   });
 
+  // ── Recent watch history (main tab) ──────────────────────────────────────
+  function _compColorPop(score) {
+    const stops = [[237,121,137],[253,194,129],[114,206,157]];
+    const t = Math.max(0, Math.min(100, score)) / 100;
+    const seg = t < 0.5 ? 0 : 1;
+    const lt  = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+    const [r1,g1,b1] = stops[seg], [r2,g2,b2] = stops[seg+1];
+    return `rgb(${Math.round(r1+(r2-r1)*lt)},${Math.round(g1+(g2-g1)*lt)},${Math.round(b1+(b2-b1)*lt)})`;
+  }
+
+  const histListEl = document.getElementById('hist-list');
+  chrome.storage.local.get(['mc_history_enabled', 'mc_video_history'], ({ mc_history_enabled = true, mc_video_history = {} }) => {
+    const entries = Object.entries(mc_video_history)
+      .sort((a, b) => (b[1].lastWatched || 0) - (a[1].lastWatched || 0))
+      .slice(0, 5);
+
+    if (!mc_history_enabled || !entries.length) {
+      histListEl.innerHTML = '<div id="hist-empty">No history yet</div>';
+      return;
+    }
+
+    histListEl.innerHTML = entries.map(([, v]) => {
+      const score = v.lastScore?.score;
+      const scoreHtml = score != null
+        ? `<span class="hist-score" style="color:${_compColorPop(score)}">${score}%</span>` : '';
+      const siteClass = `hs-${v.site || 'yt'}`;
+      const siteLabel = v.site === 'cij' ? 'CIJ' : v.site === 'player' ? 'Local' : 'YT';
+      const url = v.url || '';
+      return `<div class="hist-row" data-url="${url.replace(/"/g,'&quot;')}">
+        <span class="hist-site ${siteClass}">${siteLabel}</span>
+        <span class="hist-title">${(v.title || '').replace(/</g,'&lt;')}</span>
+        ${scoreHtml}
+      </div>`;
+    }).join('');
+
+    histListEl.querySelectorAll('.hist-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const url = row.dataset.url;
+        if (url && !url.startsWith('blob:')) { chrome.tabs.create({ url }); window.close(); }
+      });
+    });
+  });
+
+  document.getElementById('hist-view-all-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('video_history.html') });
+    window.close();
+  });
+
   // Known words count + management page
   const knownCountEl = document.getElementById('known-words-count');
   const _refreshKnownCount = () => {
