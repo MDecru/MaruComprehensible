@@ -64,7 +64,7 @@ async function scanPage() {
   if (!player) return null;
 
   const _njkKey = `njk_${location.pathname}`;
-  const _njkTitle = document.querySelector('h1, h2, meta[property="og:title"]')?.content?.trim()
+  const _njkTitle = document.querySelector('meta[property="og:title"]')?.content?.trim()
     || document.querySelector('h1, h2')?.textContent?.trim()
     || document.title.replace(/\s*[\|\-–—].*$/, '').trim();
 
@@ -179,6 +179,10 @@ if (_njkHasPlayer) {
   _observer.observe(document.body, { childList: true, subtree: true });
 
   getTokenizer().catch(() => {});
+
+  chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
+    if (mc_hover_enabled) hoverEnable(njkFindTranscriptElement).catch(() => {});
+  });
 }
 
 // ── Watched badges on NJK listing pages ──────────────────────────────────────
@@ -227,9 +231,8 @@ if (_njkHasPlayer) {
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
 
-      const parent = img.parentElement || a;
-      if (!parent.style.position) parent.style.position = 'relative';
-      parent.appendChild(badge);
+      if (!a.style.position) a.style.position = 'relative';
+      a.appendChild(badge);
     });
   }
 

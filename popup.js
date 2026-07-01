@@ -307,12 +307,11 @@ async function init() {
 
   // Hover toggle
   const hoverToggle = document.getElementById('hover-toggle');
-  if (tab) {
-    chrome.tabs.sendMessage(tab.id, { action: 'hoverStatus' })
-      .then(r => { hoverToggle.checked = !!r?.enabled; })
-      .catch(() => {});
-  }
+  chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
+    hoverToggle.checked = !!mc_hover_enabled;
+  });
   hoverToggle.addEventListener('change', async () => {
+    chrome.storage.local.set({ mc_hover_enabled: hoverToggle.checked });
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!activeTab) return;
     if (!hoverToggle.checked) {
@@ -324,10 +323,12 @@ async function init() {
         if (!r?.ok) {
           setStatus(r?.error || 'Hover failed', '#f44336');
           hoverToggle.checked = false;
+          chrome.storage.local.set({ mc_hover_enabled: false });
         }
       } catch (e) {
         setStatus(`Hover error: ${e.message}`, '#f44336');
         hoverToggle.checked = false;
+        chrome.storage.local.set({ mc_hover_enabled: false });
       }
       hoverToggle.disabled = false;
     }
@@ -335,11 +336,9 @@ async function init() {
 
   // Video subtitle tool toggle
   const videoSubToggle = document.getElementById('video-sub-toggle');
-  if (tab) {
-    chrome.tabs.sendMessage(tab.id, { action: 'videoToolStatus' })
-      .then(r => { videoSubToggle.checked = r?.enabled !== false; })
-      .catch(() => { videoSubToggle.checked = true; });
-  }
+  chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+    videoSubToggle.checked = videoToolEnabled !== false;
+  });
   videoSubToggle.addEventListener('change', async () => {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!activeTab) return;

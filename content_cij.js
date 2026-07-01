@@ -787,6 +787,10 @@ new MutationObserver(() => {
 
 getTokenizer().catch(() => {});
 
+chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
+  if (mc_hover_enabled) hoverEnable(cijFindTranscriptElement).catch(() => {});
+});
+
 // Style the wrapper when it enters/exits fullscreen, and keep hover/sidebar visible.
 // The native video fullscreen button is suppressed (controlslist=nofullscreen);
 // fullscreen is only triggered by our own button which requests on the wrapper.
