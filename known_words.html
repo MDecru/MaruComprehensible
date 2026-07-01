@@ -25,37 +25,12 @@
   }
   input[type="search"]:focus { border-color: #66AAE8; }
   input[type="search"]::placeholder { color: #4a5068; }
-  .btn-clear-all {
-    padding: 9px 16px; border-radius: 10px; border: 1px solid #ED7989;
-    background: none; color: #ED7989; font-size: 13px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; transition: background .15s;
-    font-family: inherit;
-  }
-  .btn-clear-all:hover { background: rgba(237,121,137,.1); }
-  .btn-clear-all:disabled { opacity: .35; cursor: default; }
-  .mm-link {
-    padding: 9px 14px; border-radius: 10px; border: 1px solid #FDC281;
-    background: none; color: #FDC281; font-size: 13px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; transition: background .15s;
-    text-decoration: none; display: inline-flex; align-items: center;
-  }
-  .mm-link:hover { background: rgba(253,194,129,.08); }
-  .btn-export {
-    padding: 9px 16px; border-radius: 10px; border: 1px solid #66AAE8;
-    background: none; color: #66AAE8; font-size: 13px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; transition: background .15s;
-    font-family: inherit; text-decoration: none; display: inline-flex; align-items: center;
-  }
-  .btn-export:hover { background: rgba(102,170,232,.1); }
-  .btn-export:disabled { opacity: .35; cursor: default; }
-  .mm-link {
-    display: block; margin-top: 24px; padding: 12px 16px;
-    background: #2D3031; border: 1px solid #363A3B; border-radius: 10px;
-    color: #FDC281; font-size: 13px; font-weight: 600; text-decoration: none;
-    transition: border-color .15s, background .15s;
-  }
-  .mm-link:hover { border-color: #FDC281; background: rgba(253,194,129,.06); }
-  .mm-link span { display: block; font-size: 11px; color: #66748a; font-weight: 400; margin-top: 2px; }
+  .btn { padding: 9px 14px; border-radius: 10px; border: 1px solid transparent; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; transition: filter .15s; color: #fff; text-decoration: none; display: inline-flex; align-items: center; }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn:not(:disabled):hover { filter: brightness(.88); }
+  .btn-clear-all { background: #ED7989; border-color: #ED7989; }
+  .btn-export    { background: #66AAE8; border-color: #66AAE8; }
+  .mm-link       { background: #FDC281; border-color: #FDC281; }
 
   .empty {
     text-align: center; color: #4a5068; font-size: 14px;
@@ -94,9 +69,9 @@
   </div>
   <div class="toolbar">
     <input type="search" id="search" placeholder="Filter words…" autocomplete="off">
-    <button class="btn-export" id="export-btn" disabled>↓ Export CSV</button>
-    <a class="mm-link" href="https://marumori.io/tools/imports" target="_blank">Import to MM ↗</a>
-    <button class="btn-clear-all" id="clear-all-btn">✕</button>
+    <button class="btn btn-export" id="export-btn" disabled>↓ Export CSV</button>
+    <a class="btn mm-link" href="https://marumori.io/tools/imports" target="_blank">Import to MM ↗</a>
+    <button class="btn btn-clear-all" id="clear-all-btn">✕</button>
   </div>
   <div id="list-container"></div>
 </div>
