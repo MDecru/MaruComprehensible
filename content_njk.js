@@ -63,6 +63,15 @@ async function scanPage() {
   const player = document.querySelector('iframe[src*="youtube"], video, [class*="player"]');
   if (!player) return null;
 
+  const _njkKey = `njk_${location.pathname}`;
+  const _njkTitle = document.querySelector('h1, h2, meta[property="og:title"]')?.content?.trim()
+    || document.querySelector('h1, h2')?.textContent?.trim()
+    || document.title.replace(/\s*[\|\-–—].*$/, '').trim();
+
+  function _njkSave(res) {
+    if (res?.score != null) saveVideoHistory(_njkKey, { title: _njkTitle, url: location.href, site: 'njk', score: res });
+  }
+
   // 1. Try page transcript (NJK embeds full transcript in DOM)
   const transcriptText = extractPageTranscript();
   if (transcriptText) {
@@ -70,6 +79,7 @@ async function scanPage() {
     if (res?.score !== null) {
       const container = player.parentElement || document.body;
       showBadge(container, res.score);
+      _njkSave(res);
       return res;
     }
   }
@@ -80,7 +90,7 @@ async function scanPage() {
     const match = src.match(/(?:youtube(?:-nocookie)?\.com\/embed\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
     if (!match) continue;
     const res = await tryYouTubeId(match[1], iframe.parentElement || iframe);
-    if (res !== null) return res;
+    if (res !== null) { _njkSave(res); return res; }
   }
 
   // 3. Fallback: native <video> + <track>
@@ -88,7 +98,7 @@ async function scanPage() {
     for (const track of video.querySelectorAll('track')) {
       if (!track.src) continue;
       const res = await fetchAndScoreUrl(track.src);
-      if (res !== null) { showBadge(video.parentElement || video, res.score); return res; }
+      if (res !== null) { showBadge(video.parentElement || video, res.score); _njkSave(res); return res; }
     }
   }
 
@@ -162,6 +172,57 @@ let _observer = new MutationObserver(() => {
 _observer.observe(document.body, { childList: true, subtree: true });
 
 getTokenizer().catch(() => {});
+
+// ── Watched badges on NJK listing pages ──────────────────────────────────────
+(async () => {
+  // Skip actual video pages — the score badge is shown inline by scanPage()
+  const player = document.querySelector('iframe[src*="youtube"], video, [class*="player"]');
+  if (player) return;
+
+  const { mc_history_enabled = true, mc_badges_enabled = true, mc_video_history = {} } =
+    await chrome.storage.local.get(['mc_history_enabled', 'mc_badges_enabled', 'mc_video_history']);
+  if (!mc_history_enabled || !mc_badges_enabled || !Object.keys(mc_video_history).length) return;
+
+  function _njkColor(score) {
+    if (score == null) return '#72CE9D';
+    const stops = [[237,121,137],[253,194,129],[114,206,157]];
+    const t = Math.max(0, Math.min(100, score)) / 100;
+    const seg = t < 0.5 ? 0 : 1;
+    const lt  = t < 0.5 ? t * 2 : (t - 0.5) * 2;
+    const [r1,g1,b1] = stops[seg], [r2,g2,b2] = stops[seg+1];
+    return `rgb(${Math.round(r1+(r2-r1)*lt)},${Math.round(g1+(g2-g1)*lt)},${Math.round(b1+(b2-b1)*lt)})`;
+  }
+
+  function _njkInject() {
+    document.querySelectorAll('a').forEach(a => {
+      if (!a.href.includes('nihongo-jikan.com')) return;
+      const path = new URL(a.href).pathname;
+      if (!path || path === '/') return;
+      if (a.querySelector('.mc-watched-badge')) return;
+      const entry = mc_video_history[`njk_${path}`];
+      if (!entry) return;
+
+      const score = entry.lastScore?.score;
+      const badge = document.createElement('div');
+      badge.className = 'mc-watched-badge';
+      badge.style.cssText = [
+        'position:absolute', 'bottom:8px', 'left:8px', 'z-index:10',
+        'background:rgba(0,0,0,.85)', `color:${_njkColor(score)}`,
+        'font:700 13px/1 -apple-system,sans-serif',
+        'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
+      ].join(';');
+      badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
+
+      const img = a.querySelector('img');
+      const parent = img?.parentElement || a;
+      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      parent.appendChild(badge);
+    });
+  }
+
+  _njkInject();
+  new MutationObserver(_njkInject).observe(document.body, { childList: true, subtree: true });
+})();
 
 // nihongo-jikan.com likely wraps content in a framework root element rather
 // than relying on body layout, so body.marginRight has no visible effect.

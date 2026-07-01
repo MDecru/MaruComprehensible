@@ -421,6 +421,15 @@ async function init() {
     window.close();
   });
 
+  // ── Watched badges toggle ─────────────────────────────────────────────────
+  const badgesToggle = document.getElementById('badges-toggle');
+  chrome.storage.local.get('mc_badges_enabled', ({ mc_badges_enabled }) => {
+    badgesToggle.checked = mc_badges_enabled !== false;
+  });
+  badgesToggle.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_badges_enabled: badgesToggle.checked });
+  });
+
   // ── Recent watch history (main tab) ──────────────────────────────────────
   function _compColorPop(score) {
     const stops = [[237,121,137],[253,194,129],[114,206,157]];

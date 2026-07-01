@@ -984,9 +984,9 @@ new MutationObserver(() => {
 
 // ── Watched badge injection on YouTube listing/home pages ─────────────────────
 async function _ytInitBadges() {
-  const { mc_history_enabled = true, mc_video_history = {} } =
-    await chrome.storage.local.get(['mc_history_enabled', 'mc_video_history']);
-  if (!mc_history_enabled || !Object.keys(mc_video_history).length) return;
+  const { mc_history_enabled = true, mc_badges_enabled = true, mc_video_history = {} } =
+    await chrome.storage.local.get(['mc_history_enabled', 'mc_badges_enabled', 'mc_video_history']);
+  if (!mc_history_enabled || !mc_badges_enabled || !Object.keys(mc_video_history).length) return;
 
   function _inject() {
     document.querySelectorAll('a[href*="watch?v="]').forEach(a => {

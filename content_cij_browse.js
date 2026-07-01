@@ -2,9 +2,9 @@
 (async () => {
   if (/\/video\/\d/.test(location.pathname)) return;
 
-  const { mc_history_enabled = true, mc_video_history = {} } =
-    await chrome.storage.local.get(['mc_history_enabled', 'mc_video_history']);
-  if (!mc_history_enabled || !Object.keys(mc_video_history).length) return;
+  const { mc_history_enabled = true, mc_badges_enabled = true, mc_video_history = {} } =
+    await chrome.storage.local.get(['mc_history_enabled', 'mc_badges_enabled', 'mc_video_history']);
+  if (!mc_history_enabled || !mc_badges_enabled || !Object.keys(mc_video_history).length) return;
 
   function _color(score) {
     if (score == null) return '#72CE9D';
