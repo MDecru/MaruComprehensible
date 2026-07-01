@@ -922,6 +922,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.mm_vocab?.newValue?.length) { _lastVideoId = null; setTimeout(scoreVideo, 500); }
 });
 
+document.addEventListener('mc-word-marked-known', () => {
+  _ytRecolorOverlay();
+});
+
 // Initial page load
 setTimeout(scoreVideo, 2000);
 

@@ -713,6 +713,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
+document.addEventListener('mc-word-marked-known', () => {
+  _cijRecolorOverlay();
+});
+
 // Auto-score on load
 scanPage();
 

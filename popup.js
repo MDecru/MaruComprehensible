@@ -399,6 +399,19 @@ async function init() {
     window.close();
   });
 
+  // Known words count + management page
+  const knownCountEl = document.getElementById('known-words-count');
+  const _refreshKnownCount = () => {
+    chrome.storage.local.get('mc_user_known', ({ mc_user_known = [] }) => {
+      knownCountEl.textContent = mc_user_known.length ? `${mc_user_known.length}` : '';
+    });
+  };
+  _refreshKnownCount();
+  document.getElementById('known-words-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('known_words.html') });
+    window.close();
+  });
+
   const v = chrome.runtime.getManifest().version;
   const vEl = document.getElementById('version-label');
   if (vEl) vEl.textContent = `v${v}`;

@@ -177,10 +177,11 @@ function _chromeGet(keys) {
 }
 
 function getVocab() {
-  return _chromeGet(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji']).then(d => {
+  return _chromeGet(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji', 'mc_user_known']).then(d => {
     const set = new Set(d.mm_vocab || []);
     for (const v of (d.mm_extra_vocab || [])) set.add(v);
     for (const k of (d.mm_extra_kanji || [])) set.add(k);
+    for (const w of (d.mc_user_known  || [])) set.add(w);
     return set;
   });
 }

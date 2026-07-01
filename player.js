@@ -602,3 +602,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     return true;
   }
 });
+
+document.addEventListener('mc-word-marked-known', () => { _recolorOverlay(); });

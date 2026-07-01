@@ -4,13 +4,15 @@
 const HOVER_JLPT_COLORS = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0' };
 const HOVER_JLPT_LABELS = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5' };
 
-let _hoverEnabled  = false;
-let _hoverJlptMap  = null;
-let _hoverVocab    = null;
-let _hoverTip      = null;
-let _hoverPinned   = null;
-let _hoverStyle    = null;
-let _hoverIsLight  = false;
+let _hoverEnabled    = false;
+let _hoverJlptMap    = null;
+let _hoverVocab      = null;
+let _hoverTip        = null;
+let _hoverPinned     = null;
+let _hoverStyle      = null;
+let _hoverIsLight    = false;
+let _lastTipDataset  = null;
+let _lastTipDef      = undefined;
 
 // ── Init / teardown ──────────────────────────────────────────────────────────
 
@@ -51,13 +53,18 @@ function _ensureHoverUI() {
       .jht-kc.unknown .jht-kc-ch { color:#ED7989; }
       .jht-kc-lv { font-size:10px; font-weight:600; color:#72CE9D; opacity:.8; margin-top:1px; }
       .jht-kc.unknown .jht-kc-lv { color:#ED7989; }
-      .jht-footer { display:flex; justify-content:flex-end; gap:7px; padding:6px 12px 9px;
+      .jht-footer { display:flex; align-items:center; gap:7px; padding:6px 12px 9px;
         border-top:1px solid #363A3B; }
       .jht-link { font-size:12px; font-weight:700; padding:4px 12px; border-radius:16px;
-        text-decoration:none; color:#fff; border:1px solid transparent; transition:filter .12s; }
+        text-decoration:none; color:#fff; border:1px solid transparent; transition:filter .12s; margin-left:auto; }
+      .jht-link + .jht-link { margin-left:0; }
       .jht-link:hover { filter:brightness(.85); }
       .jht-jisho { background:#66AAE8; border-color:#66AAE8; }
       .jht-mm    { background:#FDC281; border-color:#FDC281; }
+      .jht-set-known { background:none; border:1px solid rgba(237,121,137,.4); color:#ED7989;
+        font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; cursor:pointer;
+        transition:background .12s; font-family:-apple-system,'Helvetica Neue',sans-serif; flex-shrink:0; }
+      .jht-set-known:hover { background:rgba(237,121,137,.12); }
       .jht-defs { padding:5px 12px 6px; border-bottom:1px solid #363A3B; }
       .jht-gloss { color:#dde2ee; font-size:13px; list-style:decimal; margin:0; padding-left:15px; }
       .jht-gloss li { margin-bottom:4px; line-height:1.4; }
@@ -83,6 +90,7 @@ function _ensureHoverUI() {
       #jp-hover-tip.jht-light .jht-kc-lv { color:#1e7a4e; }
       #jp-hover-tip.jht-light .jht-kc.unknown .jht-kc-lv { color:#b82d3e; }
       #jp-hover-tip.jht-light .jht-footer { border-top-color:#e0e4f0; }
+      #jp-hover-tip.jht-light .jht-set-known { color:#b82d3e; border-color:rgba(237,121,137,.5); }
       #jp-hover-tip.jht-light .jht-defs { border-bottom-color:#e0e4f0; }
       #jp-hover-tip.jht-light .jht-gloss { color:#3a3f47; }
       #jp-hover-tip.jht-light .jht-pos { color:#66748a; background:rgba(0,0,0,.06); }
@@ -314,6 +322,35 @@ async function _fetchDef(word) {
 
 // ── Tooltip content ──────────────────────────────────────────────────────────
 
+function _wireHoverTipButtons() {
+  _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+  _hoverTip.querySelector('.jht-set-known')?.addEventListener('click', async e => {
+    e.stopPropagation();
+    const basic = e.currentTarget.dataset.basic || e.currentTarget.dataset.word;
+    if (!basic) return;
+    const { mc_user_known = [] } = await chrome.storage.local.get('mc_user_known');
+    if (!mc_user_known.includes(basic)) {
+      mc_user_known.push(basic);
+      await chrome.storage.local.set({ mc_user_known });
+    }
+    _hoverVocab?.add(basic);
+    // Re-render tooltip showing word as now known
+    if (_lastTipDataset) {
+      _hoverTip.innerHTML = _hoverBuildTip(_lastTipDataset, true, _lastTipDef ?? null);
+      _wireHoverTipButtons();
+    }
+    // Re-color transcript spans immediately
+    for (const span of document.querySelectorAll('.jp-tok')) {
+      if (span.dataset.basic === basic || span.dataset.word === basic) {
+        span.style.color = '#66AAE8';
+        span.style.display = '';
+      }
+    }
+    // Let content scripts re-color subtitle overlays with their own settings
+    document.dispatchEvent(new CustomEvent('mc-word-marked-known', { detail: { word: basic } }));
+  });
+}
+
 function _hoverBuildTip(dataset, pinned, defResult) {
   const word  = dataset.word  || '';
   const basic = dataset.basic || word;
@@ -367,7 +404,11 @@ function _hoverBuildTip(dataset, pinned, defResult) {
       }).join('')}</div>` : '';
 
   const displayWord = basic !== word ? basic : word;
+  const setKnownBtn = (pinned && !known && pos)
+    ? `<button class="jht-set-known" data-basic="${_esc(basic)}" data-word="${_esc(word)}">+ Set as Known</button>`
+    : '';
   const footerHtml = `<div class="jht-footer">
+    ${setKnownBtn}
     <a class="jht-link jht-jisho" href="https://jisho.org/search/${encodeURIComponent(displayWord)}" target="_blank">Jisho ↗</a>
     <a class="jht-link jht-mm" href="https://marumori.io/dictionary/search?q=${encodeURIComponent(displayWord)}&t=vocabulary" target="_blank">MaruMori ↗</a>
   </div>`;
@@ -450,6 +491,7 @@ function _hoverClick(e) {
     if (_hoverPinned) _hoverPinned.classList.remove('jp-tok-sel');
 
     // Show immediately with loading placeholder for definitions
+    _lastTipDataset = tok.dataset; _lastTipDef = undefined;
     _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, undefined);
     _hoverTip.style.display = 'block';
     _hoverTip.classList.add('pinned');
@@ -457,15 +499,16 @@ function _hoverClick(e) {
     _hoverPosition(tok);
     _hoverPinned = tok;
     tok.classList.add('jp-tok-sel');
-    _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+    _wireHoverTipButtons();
 
     // Fetch definition then re-render in place
     const lookupWord = tok.dataset.basic || tok.dataset.word;
     _fetchDef(lookupWord).then(def => {
       if (_hoverPinned !== tok) return; // user moved on
+      _lastTipDef = def;
       _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, def);
       _hoverPosition(tok);
-      _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+      _wireHoverTipButtons();
     });
     return;
   }
@@ -504,6 +547,7 @@ async function hoverShowWord(wordData, anchorEl) {
     reading: wordData.reading || '',
   };
 
+  _lastTipDataset = dataset; _lastTipDef = undefined;
   _hoverTip.innerHTML = _hoverBuildTip(dataset, true, undefined);
   _hoverTip.style.display = 'block';
   _hoverTip.classList.add('pinned');
@@ -514,7 +558,7 @@ async function hoverShowWord(wordData, anchorEl) {
   _hoverPinned = anchorEl;
 
   _sbPosition(anchorEl);
-  _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+  _wireHoverTipButtons();
 
   // When hover mode is off its document listeners aren't registered, so add
   // click-outside and Escape handling ourselves.
@@ -522,9 +566,10 @@ async function hoverShowWord(wordData, anchorEl) {
 
   _fetchDef(dataset.basic).then(def => {
     if (!_hoverTip || _hoverTip.style.display === 'none') return;
+    _lastTipDef = def;
     _hoverTip.innerHTML = _hoverBuildTip(dataset, true, def);
     _sbPosition(anchorEl);
-    _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+    _wireHoverTipButtons();
   });
 }
 
