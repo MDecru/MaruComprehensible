@@ -64,7 +64,7 @@ async function scanPage() {
   if (!player) return null;
 
   const _njkKey = `njk_${location.pathname}`;
-  const _njkTitle = document.querySelector('meta[property="og:title"]')?.content?.trim()
+  const _njkTitle = document.querySelector('h1, h2, meta[property="og:title"]')?.content?.trim()
     || document.querySelector('h1, h2')?.textContent?.trim()
     || document.title.replace(/\s*[\|\-–—].*$/, '').trim();
 
@@ -227,8 +227,9 @@ if (_njkHasPlayer) {
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
 
-      if (!a.style.position) a.style.position = 'relative';
-      a.appendChild(badge);
+      const parent = img.parentElement || a;
+      if (!parent.style.position) parent.style.position = 'relative';
+      parent.appendChild(badge);
     });
   }
 

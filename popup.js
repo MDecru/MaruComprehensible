@@ -414,7 +414,6 @@ async function init() {
     if (!vn && !wn) { alert('History is already empty.'); return; }
     if (!confirm(`Clear ${vn} video${vn !== 1 ? 's' : ''} and ${wn} word${wn !== 1 ? 's' : ''} from history?`)) return;
     await chrome.storage.local.set({ mc_video_history: {}, mc_word_history: {} });
-    histListEl.innerHTML = '<div id="hist-empty">No history yet</div>';
   });
 
   document.getElementById('changelog-btn').addEventListener('click', () => {

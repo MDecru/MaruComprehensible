@@ -303,7 +303,6 @@ async function scoreVTT(vttText) {
 }
 
 function compColor(pct) {
-  if (pct == null || !isFinite(pct)) return 'rgb(114,206,157)';
   const stops = [[237,121,137],[253,194,129],[114,206,157]];
   const t = Math.max(0, Math.min(100, pct)) / 100;
   const seg = t < 0.5 ? 0 : 1;
