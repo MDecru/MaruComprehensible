@@ -206,11 +206,13 @@ if (_njkHasPlayer) {
       // Only badge thumbnail links (those that contain an img) — skip title/text links
       const img = a.querySelector('img');
       if (!img) return;
+      // Skip links inside site header / nav (logo, channel banner, etc.)
+      if (a.closest('header, nav, [role="banner"], [role="navigation"]')) return;
       if (!a.href.includes('nihongo-jikan.com')) return;
       if (a.querySelector('.mc-watched-badge')) return;
       let path;
       try { path = new URL(a.href).pathname; } catch { return; }
-      if (!path || path === '/') return;
+      if (!path || path === '/' || path === '/videos') return;
       const entry = mc_video_history[`njk_${path}`];
       if (!entry) return;
 
