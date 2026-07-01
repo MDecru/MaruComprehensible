@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MaruComprehension",
   "version": "1.4",
-  "description": "MaruMori comprehension % for Japanese videos. Colored subtitles, hover definitions, and word sidebar on CIJ, NJK, and YouTube.",
+  "description": "Unofficial fan app that integrates your MaruMori learned vocabulary and kanji to highlight subtitles and transcripts on Comprehensible Japanese, Nihongo-Jikan, and YouTube.",
   "icons": {
     "16":  "icons/icon16.png",
     "48":  "icons/icon48.png",
