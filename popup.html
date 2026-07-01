@@ -295,7 +295,10 @@
   </div>
   <div id="extra-status"></div>
   <hr>
-  <button class="btn btn-slate" id="changelog-btn">&#128203; Changelog</button>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="btn btn-slate" id="changelog-btn" style="flex:1;margin-bottom:0">&#128203; Changelog</button>
+    <span id="version-label" style="font-size:11px;color:var(--dim);flex-shrink:0"></span>
+  </div>
 </div>
 
 <script src="popup.js"></script>

@@ -399,6 +399,10 @@ async function init() {
     window.close();
   });
 
+  const v = chrome.runtime.getManifest().version;
+  const vEl = document.getElementById('version-label');
+  if (vEl) vEl.textContent = `v${v}`;
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {
