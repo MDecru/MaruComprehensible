@@ -136,7 +136,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     return true;
   }
   if (msg.action === 'tokStatus') {
-    reply({ ready: _tokenizer !== null }); return;
+    reply({ ready: _tokenizer !== null, loading: _tokenizerPromise !== null && _tokenizer === null }); return;
   }
   if (msg.action === 'openSidebar') {
     const text = extractPageTranscript();

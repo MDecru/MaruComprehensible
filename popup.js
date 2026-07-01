@@ -192,8 +192,21 @@ async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab) {
     chrome.tabs.sendMessage(tab.id, { action: 'tokStatus' })
-      .then(r => setTokStatus(r?.ready ? '✓ Ready' : 'not loaded', r?.ready ? '#72CE9D' : '#444'))
-      .catch(() => setTokStatus('not loaded', '#444'));
+      .then(r => {
+        if (r?.ready) { setTokStatus('✓ Ready', '#72CE9D'); return; }
+        if (r?.loading) {
+          setTokStatus('loading…', '#888');
+          // Poll until the in-progress load finishes
+          const poll = setInterval(() => {
+            chrome.tabs.sendMessage(tab.id, { action: 'tokStatus' })
+              .then(s => { if (s?.ready) { setTokStatus('✓ Ready', '#72CE9D'); clearInterval(poll); } })
+              .catch(() => clearInterval(poll));
+          }, 800);
+        } else {
+          setTokStatus('not loaded — click to load', '#666');
+        }
+      })
+      .catch(() => setTokStatus('not loaded — click to load', '#666'));
 
     doScore(tab, { silent: true });
   }
