@@ -1,8 +1,8 @@
-# MaruComprehensible
+# MaruComprehension
 
 A Chrome extension that shows your [MaruMori](https://marumori.io) comprehension percentage on Japanese videos, with colored word highlighting and on-hover definitions.
 
-> **Disclaimer:** MaruComprehensible is an independent, unofficial study aid. It is not affiliated with or endorsed by MaruMori.io. It simply reads your own vocab data from MaruMori's public API to help you measure comprehension.
+> **Disclaimer:** MaruComprehension is an independent, unofficial study aid. It is not affiliated with or endorsed by MaruMori.io. It simply reads your own vocab data from MaruMori's public API to help you measure comprehension.
 
 Works on:
 - **YouTube** — comprehension % badge, colored subtitle overlay with timestamp sync
@@ -23,11 +23,11 @@ Works on:
 
 ### Chrome Web Store *(coming soon)*
 
-Search for **MaruComprehensible** in the Chrome Web Store.
+Search for **MaruComprehension** in the Chrome Web Store.
 
 ### Load unpacked (developer mode)
 
-1. Download the latest `MaruComprehensible.zip` from the [releases folder](releases/)
+1. Download the latest `MaruComprehension.zip` from the [releases folder](releases/)
 2. Unzip it anywhere on your computer
 3. Open Chrome and go to `chrome://extensions`
 4. Enable **Developer mode** (toggle top-right)
@@ -42,7 +42,7 @@ Search for **MaruComprehensible** in the Chrome Web Store.
 
 ## Setup
 
-1. Click the MaruComprehensible icon in the Chrome toolbar
+1. Click the MaruComprehension icon in the Chrome toolbar
 2. Go to the **Settings** tab and paste your [MaruMori API token](https://marumori.io/account)
 3. Click **Connect & fetch vocab** — your known words are downloaded and cached locally
 4. Navigate to a Japanese video — comprehension scores appear automatically
@@ -77,4 +77,4 @@ Search for **MaruComprehensible** in the Chrome Web Store.
 
 ## Privacy
 
-MaruComprehensible stores your API token and vocab list locally on your device. No data is sent to any server other than MaruMori (for vocab sync) and Jisho (for word lookups). See the full [Privacy Policy](https://mdecru.github.io/MaruComprehensible/privacy.html).
+MaruComprehension stores your API token and vocab list locally on your device. No data is sent to any server other than MaruMori (for vocab sync) and Jisho (for word lookups). See the full [Privacy Policy](https://mdecru.github.io/MaruComprehension/privacy.html).

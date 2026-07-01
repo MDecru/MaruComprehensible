@@ -1,4 +1,4 @@
-// MaruComprehensible — Local video player page
+// MaruComprehension — Local video player page
 
 const video      = document.getElementById('video');
 const dropzone   = document.getElementById('dropzone');
@@ -169,7 +169,7 @@ async function loadVideo(file) {
   video.load();
   dropzone.classList.add('hidden');
   playerWrap.classList.add('visible');
-  document.title = file.name.replace(/\.[^.]+$/, '') + ' — MaruComprehensible';
+  document.title = file.name.replace(/\.[^.]+$/, '') + ' — MaruComprehension';
 
   // Stop subtitles for the old video
   _subCleanup?.(); _subCleanup = null;
@@ -198,7 +198,7 @@ async function loadSubtitle(file) {
     if (!chrome.runtime?.id) {
       scoreEl.textContent = '–';
       scoreEl.title = 'Extension was reloaded — please close and reopen this player tab';
-      console.warn('[MaruComprehensible] Extension context invalidated. Close this tab and reopen the local player from the extension popup.');
+      console.warn('[MaruComprehension] Extension context invalidated. Close this tab and reopen the local player from the extension popup.');
       loading.classList.remove('visible');
       return;
     }
@@ -206,7 +206,7 @@ async function loadSubtitle(file) {
     if (!vocab.size) {
       scoreEl.textContent = '–';
       scoreEl.title = 'No MaruMori vocab loaded — open the extension popup and connect your account';
-      console.warn('[MaruComprehensible] Vocab is empty. Open the extension popup and connect your MaruMori account, then reload this page.');
+      console.warn('[MaruComprehension] Vocab is empty. Open the extension popup and connect your MaruMori account, then reload this page.');
       loading.classList.remove('visible');
       return;
     }
@@ -215,7 +215,7 @@ async function loadSubtitle(file) {
     if (!parsedText.trim()) {
       scoreEl.textContent = '–';
       scoreEl.title = 'No Japanese text found in this subtitle file';
-      console.warn('[MaruComprehensible] parseVTT returned empty string — subtitle may be in an unsupported format or have no Japanese text.');
+      console.warn('[MaruComprehension] parseVTT returned empty string — subtitle may be in an unsupported format or have no Japanese text.');
       loading.classList.remove('visible');
       return;
     }
@@ -229,7 +229,7 @@ async function loadSubtitle(file) {
       scoreEl.title = '';
     }
   } catch (e) {
-    console.error('[MaruComprehensible] Scoring error:', e);
+    console.error('[MaruComprehension] Scoring error:', e);
     scoreEl.textContent = '?';
     scoreEl.title = e.message;
   }
