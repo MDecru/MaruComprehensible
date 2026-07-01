@@ -424,7 +424,7 @@ function _ytToggleSettings(player) {
     'background:rgba(22,24,28,.97)', 'border:1px solid #404550',
     'border-radius:10px', 'padding:14px 16px 0',
     'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
-    'white-space:nowrap', 'width:460px',
+    'white-space:nowrap', 'width:300px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
     'display:flex', 'flex-direction:column',
     'max-height:min(520px,calc(90vh - 60px))', 'overflow:hidden',
