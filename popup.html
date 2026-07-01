@@ -271,7 +271,11 @@
   </div>
   <hr style="margin-top:0">
   <h2>MaruMori vocab</h2>
-  <input type="text" id="token" placeholder="Paste your API token…" autocomplete="off" spellcheck="false">
+  <p style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.5">
+    Paste your <strong style="color:var(--muted)">MaruMori API key</strong> from
+    <span style="color:var(--muted)">marumori.io → Settings → API</span>
+  </p>
+  <input type="text" id="token" placeholder="MaruMori API key…" autocomplete="off" spellcheck="false">
   <button class="btn btn-green" id="connect-btn">Connect &amp; fetch vocab</button>
 
   <div id="connect-status"></div>
