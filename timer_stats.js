@@ -161,22 +161,30 @@ async function editDayTime(dayKey, currentSec) {
   if (input === null) return;
   const minutes = parseFloat(input);
   if (isNaN(minutes) || minutes < 0) { alert('Enter a number 0 or greater.'); return; }
-  const { mc_timer_days = {} } = await chrome.storage.local.get('mc_timer_days');
+  const { mc_timer_days = {}, mc_timer_source_days = {} } = await chrome.storage.local.get(['mc_timer_days', 'mc_timer_source_days']);
   const newSec = Math.round(minutes * 60);
-  if (newSec <= 0) delete mc_timer_days[dayKey];
-  else mc_timer_days[dayKey] = newSec;
-  await chrome.storage.local.set({ mc_timer_days });
+  if (newSec <= 0) {
+    delete mc_timer_days[dayKey];
+    // Also clear this day from all per-source tracking
+    for (const src of Object.keys(mc_timer_source_days)) {
+      if (mc_timer_source_days[src][dayKey] != null) delete mc_timer_source_days[src][dayKey];
+    }
+  } else {
+    mc_timer_days[dayKey] = newSec;
+  }
+  await chrome.storage.local.set({ mc_timer_days, mc_timer_source_days });
 }
 
 async function clearSiteTotal(site, label) {
   if (!confirm(`Clear all tracked time for ${label}? This also removes that time from your daily totals and can't be undone.`)) return;
-  const { mc_timer_site_totals = {}, mc_timer_days = {} } =
-    await chrome.storage.local.get(['mc_timer_site_totals', 'mc_timer_days']);
+  const { mc_timer_site_totals = {}, mc_timer_days = {}, mc_timer_source_days = {} } =
+    await chrome.storage.local.get(['mc_timer_site_totals', 'mc_timer_days', 'mc_timer_source_days']);
   // Also remove the same amount from the daily totals (recent days first) —
   // otherwise the gap between daily totals and per-source totals instantly
   // reappears as an "Unknown source" row for the exact amount just deleted.
   let remaining = mc_timer_site_totals[site] || 0;
   delete mc_timer_site_totals[site];
+  delete mc_timer_source_days[site];
   for (const day of Object.keys(mc_timer_days).sort().reverse()) {
     if (remaining <= 0) break;
     const take = Math.min(mc_timer_days[day], remaining);
@@ -184,7 +192,7 @@ async function clearSiteTotal(site, label) {
     if (mc_timer_days[day] <= 0) delete mc_timer_days[day];
     remaining -= take;
   }
-  await chrome.storage.local.set({ mc_timer_site_totals, mc_timer_days });
+  await chrome.storage.local.set({ mc_timer_site_totals, mc_timer_days, mc_timer_source_days });
 }
 
 // "Unknown" isn't a real stored bucket — it's the gap between the daily
