@@ -87,4 +87,4 @@ Works on:
 
 ## Privacy
 
-All data stored locally on your device. Network requests only to MaruMori (vocab sync) and Jisho (word lookups). See the full [Privacy Policy](https://mdecru.github.io/MaruComprehension/privacy.html).
+All data stored locally on your device. Network requests only to MaruMori (vocab sync) and Jisho (word lookups). See the full [Privacy Policy](https://mdecru.github.io/MaruComprehensible/privacy.html).
