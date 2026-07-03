@@ -146,7 +146,7 @@ function _startTimeSync() {
     const wrap = document.createElement('span');
     const _pT = _outlineThickness;
     const _wrapBg = _subStyle === 'outline'
-      ? `background:transparent;text-shadow:-${_pT}px -${_pT}px ${_pT*2}px #000,${_pT}px -${_pT}px ${_pT*2}px #000,-${_pT}px ${_pT}px ${_pT*2}px #000,${_pT}px ${_pT}px ${_pT*2}px #000`
+      ? `background:transparent;-webkit-text-stroke: ${_pT}px #000; paint-order: stroke fill`
       : `background:rgba(0,0,0,${_bgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -156,11 +156,13 @@ function _startTimeSync() {
       `max-width:${_subMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cues[idx].text;
+    wrap.style.visibility = 'hidden';
     subOverlay.appendChild(wrap);
     await hoverRetokenize(subOverlay);
     if (_furigana) hoverApplyFurigana(subOverlay);
     subOverlay.style.setProperty('--mc-rt-opacity', _furiganaOpacity);
     _recolorOverlay();
+    wrap.style.visibility = '';
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (subOverlay?.querySelectorAll('.jp-tok') || []))
@@ -175,11 +177,91 @@ function _startTimeSync() {
 function _recolorOverlay() {
   if (!_hoverVocab) return;
   const wrap = subOverlay.querySelector(':scope > span');
-  if (wrap) wrap.style.color = _unknownOnly ? 'transparent' : '#fff';
+  const apprentice = (typeof _hoverApprentice !== 'undefined') ? _hoverApprentice : new Set();
+  const showAppr = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+
+  if (wrap) {
+    wrap.style.color = _unknownOnly ? 'transparent' : '#fff';
+    if (_unknownOnly) {
+      wrap.style.background = 'transparent';
+      wrap.style.webkitTextStroke = '';
+    } else {
+      const _t = _outlineThickness;
+      wrap.style.background = _subStyle === 'outline' ? 'transparent'
+        : `rgba(0,0,0,${_bgOpacity})`;
+      wrap.style.webkitTextStroke = _subStyle === 'outline'
+        ? `${_t}px #000`
+        : '';
+      wrap.style.paintOrder = _subStyle === 'outline' ? 'stroke fill' : '';
+    }
+  }
+
+  const spanBg = _subStyle === 'outline' ? '' : `rgba(0,0,0,${_bgOpacity})`;
+  const _t = _outlineThickness;
+  const spanShadow = _subStyle === 'outline' ? `${_t}px #000` : '';
+  const _pFuriNeedSpace = _unknownOnly && _furigana;
+
   for (const span of subOverlay.querySelectorAll('.jp-tok')) {
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
-    span.style.color = known ? '#66AAE8' : (_colorblind ? '#FDC281' : '#ED7989');
-    span.style.display = (_unknownOnly && known) ? 'none' : '';
+    const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
+    const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
+
+    if (known) {
+      span.style.color = '#66AAE8';
+      span.style.display = _unknownOnly ? 'none' : '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+      if (ruby) {
+        ruby.style.background = '';
+        ruby.style.webkitTextStroke = '';
+        ruby.style.padding = '';
+        ruby.style.display = _unknownOnly ? 'none' : '';
+      }
+    } else {
+      const color = isAppr
+        ? (_colorblind ? '#9E8CF8' : '#72CE9D')
+        : (_colorblind ? '#FDC281' : '#ED7989');
+      span.style.color = color;
+      span.style.display = '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+
+      if (_pFuriNeedSpace && ruby) {
+        ruby.style.display = '';
+        ruby.style.background = spanBg;
+        ruby.style.webkitTextStroke = spanShadow;
+        ruby.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        ruby.style.padding = '3px 4px 1px';
+        ruby.style.lineHeight = '2.4';
+        for (const rt of ruby.querySelectorAll(':scope > rt')) {
+          rt.style.webkitTextStroke = spanShadow;
+          rt.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        }
+      } else {
+        span.style.background = _unknownOnly ? spanBg : '';
+        span.style.webkitTextStroke = _unknownOnly ? spanShadow : '';
+        span.style.paintOrder = (_unknownOnly && spanShadow) ? 'stroke fill' : '';
+        if (ruby) {
+          ruby.style.background = '';
+          ruby.style.webkitTextStroke = '';
+          ruby.style.padding = '';
+          ruby.style.display = '';
+        }
+      }
+    }
+  }
+  // Catch any <rt> furigana text that escaped hiding
+  if (_unknownOnly) {
+    for (const rt of (subOverlay?.querySelectorAll('rt') || [])) {
+      const siblingSpan = rt.parentElement?.querySelector(':scope > .jp-tok');
+      if (siblingSpan && siblingSpan.style.display === 'none') {
+        rt.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -484,9 +566,9 @@ function _buildSettingsPanel() {
   _otSection.style.display = _subStyle === 'outline' ? 'block' : 'none';
   const otLblEl = document.createElement('div'); otLblEl.className = 'pnl-label'; otLblEl.style.marginTop = '10px'; otLblEl.textContent = 'Outline thickness'; _otSection.appendChild(otLblEl);
   const otRow = document.createElement('div'); otRow.className = 'pnl-slider-row'; otRow.style.marginBottom = '0';
-  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _outlineThickness;
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '8'; otSlider.step = '0.5'; otSlider.value = _outlineThickness;
   const otVal = document.createElement('span'); otVal.className = 'pnl-val'; otVal.textContent = `${_outlineThickness}px`;
-  otSlider.addEventListener('input', e => { e.stopPropagation(); _outlineThickness = +otSlider.value; otVal.textContent = `${_outlineThickness}px`; const w = subOverlay.querySelector('span'); if (w && _subStyle === 'outline') { const t = _outlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _lastCueIdx = -2; _saveSettings(); });
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _outlineThickness = +otSlider.value; otVal.textContent = `${_outlineThickness}px`; const w = subOverlay.querySelector('span'); if (w ) { const t = _outlineThickness; w.style.webkitTextStroke = `${t}px #000`; w.style.paintOrder = 'stroke fill'; } _lastCueIdx = -2; _saveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _otSection.appendChild(otRow); _curPnl.appendChild(_otSection);
 
   // Furigana
@@ -573,6 +655,17 @@ function _buildSettingsPanel() {
   uoHint.className = 'pnl-hint';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _curPnl.appendChild(uoHint);
+
+  // ── Apprentice highlighting ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+  _swRow('Apprentice highlighting', _apInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
+    _recolorOverlay();
+  });
+  const apprHint = document.createElement('div');
+  apprHint.className = 'pnl-hint';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _curPnl.appendChild(apprHint);
 }
 
 // ── Fullscreen ────────────────────────────────────────────────────────────────

@@ -377,11 +377,100 @@ function _ytSetSubActive(active) {
 function _ytRecolorOverlay() {
   if (!_hoverVocab) return;
   const wrap = _ytSubOverlay?.querySelector(':scope > span');
-  if (wrap) wrap.style.color = _ytUnknownOnly ? 'transparent' : '#fff';
+  const apprentice = (typeof _hoverApprentice !== 'undefined') ? _hoverApprentice : new Set();
+  const showAppr = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+
+  // In unknown-only mode, move background/shadow from wrapper to visible spans
+  // so the bar doesn't extend over hidden words or leave ghost shadows.
+  if (wrap) {
+    wrap.style.color = _ytUnknownOnly ? 'transparent' : '#fff';
+    if (_ytUnknownOnly) {
+      wrap.style.background = 'transparent';
+      wrap.style.webkitTextStroke = '';
+    } else {
+      const _t = _ytOutlineThickness;
+      wrap.style.background = _ytSubStyle === 'outline' ? 'transparent'
+        : `rgba(0,0,0,${_ytBgOpacity})`;
+      wrap.style.webkitTextStroke = _ytSubStyle === 'outline'
+        ? `${_t}px #000`
+        : '';
+      wrap.style.paintOrder = _ytSubStyle === 'outline' ? 'stroke fill' : '';
+    }
+  }
+
+  const spanBg = _ytSubStyle === 'outline' ? '' : `rgba(0,0,0,${_ytBgOpacity})`;
+  const _t = _ytOutlineThickness;
+  const spanShadow = _ytSubStyle === 'outline' ? `${_t}px #000` : '';
+  const furiNeedSpace = _ytUnknownOnly && _ytFurigana;
+
   for (const span of (_ytSubOverlay?.querySelectorAll('.jp-tok') || [])) {
+    const word = span.dataset.basic || span.dataset.word;
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
-    span.style.color = known ? '#66AAE8' : (_ytColorblind ? '#FDC281' : '#ED7989');
-    span.style.display = (_ytUnknownOnly && known) ? 'none' : '';
+    const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
+    const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
+
+    if (known) {
+      span.style.color = '#66AAE8';
+      span.style.display = _ytUnknownOnly ? 'none' : '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+      if (ruby) {
+        ruby.style.background = '';
+        ruby.style.webkitTextStroke = '';
+        ruby.style.padding = '';
+        ruby.style.display = _ytUnknownOnly ? 'none' : '';
+        // Explicitly hide <rt> — display:none on <ruby> should cascade
+        // but explicit is safer across browser quirks.
+        for (const rt of ruby.querySelectorAll('rt')) {
+          rt.style.display = _ytUnknownOnly ? 'none' : '';
+        }
+      }
+    } else {
+      const color = isAppr
+        ? (_ytColorblind ? '#9E8CF8' : '#72CE9D')
+        : (_ytColorblind ? '#FDC281' : '#ED7989');
+      span.style.color = color;
+      span.style.display = '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+
+      if (furiNeedSpace && ruby) {
+        ruby.style.display = '';
+        ruby.style.background = spanBg;
+        ruby.style.webkitTextStroke = spanShadow;
+        ruby.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        ruby.style.padding = '3px 4px 1px';
+        ruby.style.lineHeight = '2.4';
+        for (const rt of ruby.querySelectorAll(':scope > rt')) {
+          rt.style.webkitTextStroke = spanShadow;
+          rt.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        }
+      } else {
+        span.style.background = _ytUnknownOnly ? spanBg : '';
+        span.style.webkitTextStroke = _ytUnknownOnly ? spanShadow : '';
+        span.style.paintOrder = (_ytUnknownOnly && spanShadow) ? 'stroke fill' : '';
+        if (ruby) {
+          ruby.style.background = '';
+          ruby.style.webkitTextStroke = '';
+          ruby.style.paintOrder = '';
+          ruby.style.display = '';
+        }
+      }
+    }
+  }
+  // Catch any <rt> furigana text that escaped hiding (e.g. inside orphaned <ruby>)
+  if (_ytUnknownOnly) {
+    for (const rt of (_ytSubOverlay?.querySelectorAll('rt') || [])) {
+      // Hide <rt> whose sibling .jp-tok is display:none
+      const siblingSpan = rt.parentElement?.querySelector(':scope > .jp-tok');
+      if (siblingSpan && siblingSpan.style.display === 'none') {
+        rt.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -621,10 +710,10 @@ function _ytToggleSettings(player) {
   _ytOtSection.style.display = _ytSubStyle === 'outline' ? 'block' : 'none';
   const otLblEl = document.createElement('div'); otLblEl.style.cssText = _sLbl; otLblEl.textContent = 'Outline thickness'; _ytOtSection.appendChild(otLblEl);
   const otRow = document.createElement('div'); otRow.style.cssText = _sRow;
-  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _ytOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '8'; otSlider.step = '0.5'; otSlider.value = _ytOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
   const otVal = document.createElement('span'); otVal.style.cssText = _sVal; otVal.textContent = `${_ytOutlineThickness}px`;
   otSlider.addEventListener('click', e => e.stopPropagation());
-  otSlider.addEventListener('input', e => { e.stopPropagation(); _ytOutlineThickness = +otSlider.value; otVal.textContent = `${_ytOutlineThickness}px`; const w = _ytSubOverlay?.querySelector('span'); if (w && _ytSubStyle === 'outline') { const t = _ytOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _ytLastCueIdx = -2; _ytSaveSettings(); });
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _ytOutlineThickness = +otSlider.value; otVal.textContent = `${_ytOutlineThickness}px`; const w = _ytSubOverlay?.querySelector('span'); if (w && _ytSubStyle === 'outline') { const t = _ytOutlineThickness; w.style.webkitTextStroke = `${t}px #000`; w.style.paintOrder = 'stroke fill'; } _ytLastCueIdx = -2; _ytSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
@@ -732,6 +821,17 @@ function _ytToggleSettings(player) {
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
+  // ── Apprentice highlighting ────────────────────────────────
+  const _apprInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+  _swRow('Apprentice highlighting', _apprInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
+    _ytRecolorOverlay();
+  });
+  const apprHint = document.createElement('div');
+  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _cur.appendChild(apprHint);
+
   player.appendChild(pnl);
   _ytSettingsPnl = pnl;
 }
@@ -761,7 +861,7 @@ function _ytStartTimeSync() {
     const wrap = document.createElement('span');
     const _ytT = _ytOutlineThickness;
     const _wrapBg = _ytSubStyle === 'outline'
-      ? `background:transparent;text-shadow:-${_ytT}px -${_ytT}px ${_ytT*2}px #000,${_ytT}px -${_ytT}px ${_ytT*2}px #000,-${_ytT}px ${_ytT}px ${_ytT*2}px #000,${_ytT}px ${_ytT}px ${_ytT*2}px #000`
+      ? `background:transparent;-webkit-text-stroke: ${_ytT}px #000; paint-order: stroke fill`
       : `background:rgba(0,0,0,${_ytBgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -771,11 +871,13 @@ function _ytStartTimeSync() {
       `max-width:${_ytSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _ytCues[idx].text;
+    wrap.style.visibility = 'hidden';
     _ytSubOverlay.appendChild(wrap);
     await hoverRetokenize(_ytSubOverlay);
     if (_ytFurigana) hoverApplyFurigana(_ytSubOverlay);
     _ytSubOverlay.style.setProperty('--mc-rt-opacity', _ytFuriganaOpacity);
     _ytRecolorOverlay();
+    wrap.style.visibility = '';
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (_ytSubOverlay?.querySelectorAll('.jp-tok') || []))

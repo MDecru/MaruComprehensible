@@ -176,20 +176,71 @@ function _chromeGet(keys) {
   });
 }
 
+// Extract the item string from old (string) or new ({item, level, status}) format.
+function _vocabItem(v) { return typeof v === 'string' ? v : (v?.item || ''); }
+
+function _vocabIsApprentice(v) {
+  // Only new-API object-format items can be apprentice.
+  if (typeof v !== 'object' || !v || !v.item) return false;
+  // status: 0 = learning, 1 = suspended, 2 = known.
+  // Only learning (0) items can be apprentice.
+  if (v.status !== 0) return false;
+  // SRS levels 1–4 = apprentice. Levels 5+ are graduated.
+  const lv = parseInt(v.level);
+  return lv >= 1 && lv <= 4;
+}
+
 function getVocab() {
-  return _chromeGet(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji', 'mc_user_known']).then(d => {
-    const set = new Set(d.mm_vocab || []);
-    for (const v of (d.mm_extra_vocab || [])) set.add(v);
-    for (const k of (d.mm_extra_kanji || [])) set.add(k);
-    for (const w of (d.mc_user_known  || [])) set.add(w);
+  return _chromeGet(['mm_vocab', 'mm_extra_vocab', 'mm_extra_kanji', 'mc_user_known', 'mc_show_apprentice']).then(d => {
+    const showAppr = d.mc_show_apprentice || false;
+    const set = new Set();
+    for (const v of (d.mm_vocab || [])) {
+      // Exclude apprentice words only when apprentice highlighting is on;
+      // otherwise treat them as known.
+      if (!showAppr || !_vocabIsApprentice(v)) set.add(_vocabItem(v));
+    }
+    for (const v of (d.mm_extra_vocab || [])) set.add(_vocabItem(v));
+    for (const k of (d.mm_extra_kanji || [])) set.add(_vocabItem(k));
+    for (const w of (d.mc_user_known  || [])) set.add(_vocabItem(w));
     return set;
+  });
+}
+
+// Returns Set of words in the SRS pipeline (status ≠ 2/known, level 1–4).
+function getApprenticeVocab() {
+  return _chromeGet(['mm_vocab', 'mm_kanji']).then(d => {
+    const set = new Set();
+    for (const arr of [d.mm_vocab || [], d.mm_kanji || []]) {
+      for (const v of arr) {
+        // Uses same logic as _vocabIsApprentice
+        if (_vocabIsApprentice(v)) set.add(v.item);
+      }
+    }
+    return set;
+  });
+}
+
+// Returns Map of word → {level, status} for hover tooltip display.
+function getWordStatusMap() {
+  return _chromeGet(['mm_vocab', 'mm_kanji']).then(d => {
+    const map = new Map();
+    for (const arr of [d.mm_vocab || [], d.mm_kanji || []]) {
+      for (const v of arr) {
+        if (typeof v === 'object' && v.item) {
+          const cur = map.get(v.item);
+          if (!cur || v.status === 2 || v.status === 'known') map.set(v.item, { level: v.level, status: v.status });
+        }
+      }
+    }
+    return map;
   });
 }
 
 function getKanji() {
   return _chromeGet(['mm_kanji', 'mm_extra_kanji']).then(d => {
-    const set = new Set(d.mm_kanji || []);
-    for (const k of (d.mm_extra_kanji || [])) set.add(k);
+    const set = new Set();
+    for (const k of (d.mm_kanji || [])) set.add(_vocabItem(k));
+    for (const k of (d.mm_extra_kanji || [])) set.add(_vocabItem(k));
     return set;
   });
 }
@@ -273,6 +324,7 @@ async function trackUnknownWords(words) {
     for (const w of words) _pendingWords[w] = (_pendingWords[w] || 0) + 1;
     if (_wordFlushTimer) return;
     _wordFlushTimer = setTimeout(async () => {
+      if (!chrome.runtime?.id) { _wordFlushTimer = null; return; }
       _wordFlushTimer = null;
       const batch = _pendingWords; _pendingWords = {};
       if (!Object.keys(batch).length) return;

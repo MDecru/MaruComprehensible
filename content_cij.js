@@ -41,35 +41,35 @@ function cijFindTranscriptElement() {
 
 // ── Overlay & control bar (same as YouTube) ───────────────────────────────────
 
-let _cijControlBar  = null;
-let _cijSubOverlay  = null;
-let _cijSubBtn      = null;
-let _cijSettingsBtn = null;
-let _cijSettingsPnl = null;
-let _cijCues        = null;
-let _cijLastCueIdx  = -2;
-let _cijSubCleanup  = null;
-let _cijPauseOnHover  = false;
-let _cijPausedByHover = false;
+var _cijControlBar  = null;
+var _cijSubOverlay  = null;
+var _cijSubBtn      = null;
+var _cijSettingsBtn = null;
+var _cijSettingsPnl = null;
+var _cijCues        = null;
+var _cijLastCueIdx  = -2;
+var _cijSubCleanup  = null;
+var _cijPauseOnHover  = false;
+var _cijPausedByHover = false;
 
-let _transcriptHoverActive = false;
+var _transcriptHoverActive = false;
 
-let _cijFontSize   = 20;
-let _cijBgOpacity  = 0.78;
-let _cijFontWeight = 400;
-let _cijColorblind = false;
-let _cijSubPosition   = 12;
-let _cijSubDelay      = 0;
-let _cijSubStyle      = 'box';
-let _cijSubMaxWidth   = 90;
-let _cijAutoPause        = false;
-let _cijUnknownOnly      = false;
-let _cijOutlineThickness = 1;
-let _cijFurigana         = false;
-let _cijFuriganaOpacity  = 0.7;
+var _cijFontSize   = 20;
+var _cijBgOpacity  = 0.78;
+var _cijFontWeight = 400;
+var _cijColorblind = false;
+var _cijSubPosition   = 12;
+var _cijSubDelay      = 0;
+var _cijSubStyle      = 'box';
+var _cijSubMaxWidth   = 90;
+var _cijAutoPause        = false;
+var _cijUnknownOnly      = false;
+var _cijOutlineThickness = 1;
+var _cijFurigana         = false;
+var _cijFuriganaOpacity  = 0.7;
 
-const _CIJ_FONT_SIZES   = [20, 28, 36, 46];
-const _CIJ_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
+var _CIJ_FONT_SIZES   = [20, 28, 36, 46];
+var _CIJ_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
 
 if (chrome.runtime?.id) {
   try {
@@ -184,11 +184,92 @@ function _cijSetSubActive(active) {
 function _cijRecolorOverlay() {
   if (!_hoverVocab) return;
   const wrap = _cijSubOverlay?.querySelector(':scope > span');
-  if (wrap) wrap.style.color = _cijUnknownOnly ? 'transparent' : '#fff';
+  const apprentice = (typeof _hoverApprentice !== 'undefined') ? _hoverApprentice : new Set();
+  const showAppr = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+
+  if (wrap) {
+    wrap.style.color = _cijUnknownOnly ? 'transparent' : '#fff';
+    if (_cijUnknownOnly) {
+      wrap.style.background = 'transparent';
+      wrap.style.webkitTextStroke = '';
+    } else {
+      const _t = _cijOutlineThickness;
+      wrap.style.background = _cijSubStyle === 'outline' ? 'transparent'
+        : `rgba(0,0,0,${_cijBgOpacity})`;
+      wrap.style.webkitTextStroke = _cijSubStyle === 'outline'
+        ? `${_t}px #000`
+        : '';
+      wrap.style.paintOrder = _cijSubStyle === 'outline' ? 'stroke fill' : '';
+    }
+  }
+
+  const spanBg = _cijSubStyle === 'outline' ? '' : `rgba(0,0,0,${_cijBgOpacity})`;
+  const _t = _cijOutlineThickness;
+  const spanShadow = _cijSubStyle === 'outline' ? `${_t}px #000` : '';
+  const _cijFuriNeedSpace = _cijUnknownOnly && _cijFurigana;
+
   for (const span of (_cijSubOverlay?.querySelectorAll('.jp-tok') || [])) {
+    const word = span.dataset.basic || span.dataset.word;
     const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
-    span.style.color = known ? '#66AAE8' : (_cijColorblind ? '#FDC281' : '#ED7989');
-    span.style.display = (_cijUnknownOnly && known) ? 'none' : '';
+    const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
+    const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
+
+    if (known) {
+      span.style.color = '#66AAE8';
+      span.style.display = _cijUnknownOnly ? 'none' : '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+      if (ruby) {
+        ruby.style.background = '';
+        ruby.style.webkitTextStroke = '';
+        ruby.style.padding = '';
+        ruby.style.display = _cijUnknownOnly ? 'none' : '';
+      }
+    } else {
+      const color = isAppr
+        ? (_cijColorblind ? '#9E8CF8' : '#72CE9D')
+        : (_cijColorblind ? '#FDC281' : '#ED7989');
+      span.style.color = color;
+      span.style.display = '';
+      span.style.background = '';
+      span.style.webkitTextStroke = '';
+      span.style.padding = '';
+      span.style.lineHeight = '';
+
+      if (_cijFuriNeedSpace && ruby) {
+        ruby.style.display = '';
+        ruby.style.background = spanBg;
+        ruby.style.webkitTextStroke = spanShadow;
+        ruby.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        ruby.style.padding = '3px 4px 1px';
+        ruby.style.lineHeight = '2.4';
+        for (const rt of ruby.querySelectorAll(':scope > rt')) {
+          rt.style.webkitTextStroke = spanShadow;
+          rt.style.paintOrder = spanShadow ? 'stroke fill' : '';
+        }
+      } else {
+        span.style.background = _cijUnknownOnly ? spanBg : '';
+        span.style.webkitTextStroke = _cijUnknownOnly ? spanShadow : '';
+        span.style.paintOrder = (_cijUnknownOnly && spanShadow) ? 'stroke fill' : '';
+        if (ruby) {
+          ruby.style.background = '';
+          ruby.style.webkitTextStroke = '';
+          ruby.style.padding = '';
+          ruby.style.display = '';
+        }
+      }
+    }
+  }
+  // Catch any <rt> furigana text that escaped hiding
+  if (_cijUnknownOnly) {
+    for (const rt of (_cijSubOverlay?.querySelectorAll('rt') || [])) {
+      const siblingSpan = rt.parentElement?.querySelector(':scope > .jp-tok');
+      if (siblingSpan && siblingSpan.style.display === 'none') {
+        rt.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -240,7 +321,7 @@ function _cijStartTimeSync() {
     const wrap = document.createElement('span');
     const _cijT = _cijOutlineThickness;
     const _wrapBg = _cijSubStyle === 'outline'
-      ? `background:transparent;text-shadow:-${_cijT}px -${_cijT}px ${_cijT*2}px #000,${_cijT}px -${_cijT}px ${_cijT*2}px #000,-${_cijT}px ${_cijT}px ${_cijT*2}px #000,${_cijT}px ${_cijT}px ${_cijT*2}px #000`
+      ? `background:transparent;-webkit-text-stroke: ${_cijT}px #000; paint-order: stroke fill`
       : `background:rgba(0,0,0,${_cijBgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
@@ -250,11 +331,13 @@ function _cijStartTimeSync() {
       `max-width:${_cijSubMaxWidth}%`,
     ].join(';');
     wrap.textContent = _cijCues[idx].text;
+    wrap.style.visibility = 'hidden';
     _cijSubOverlay.appendChild(wrap);
     await hoverRetokenize(_cijSubOverlay);
     if (_cijFurigana) hoverApplyFurigana(_cijSubOverlay);
     _cijSubOverlay.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity);
     _cijRecolorOverlay();
+    wrap.style.visibility = '';
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (_cijSubOverlay?.querySelectorAll('.jp-tok') || []))
@@ -455,10 +538,10 @@ function _cijToggleSettings(_player) {
   _cijOtSection.style.display = _cijSubStyle === 'outline' ? 'block' : 'none';
   const otLblEl = document.createElement('div'); otLblEl.style.cssText = _sLbl; otLblEl.textContent = 'Outline thickness'; _cijOtSection.appendChild(otLblEl);
   const otRow = document.createElement('div'); otRow.style.cssText = _sRow;
-  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '5'; otSlider.step = '1'; otSlider.value = _cijOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const otSlider = document.createElement('input'); otSlider.type = 'range'; otSlider.min = '1'; otSlider.max = '8'; otSlider.step = '0.5'; otSlider.value = _cijOutlineThickness; otSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
   const otVal = document.createElement('span'); otVal.style.cssText = _sVal; otVal.textContent = `${_cijOutlineThickness}px`;
   otSlider.addEventListener('click', e => e.stopPropagation());
-  otSlider.addEventListener('input', e => { e.stopPropagation(); _cijOutlineThickness = +otSlider.value; otVal.textContent = `${_cijOutlineThickness}px`; const w = _cijSubOverlay?.querySelector('span'); if (w && _cijSubStyle === 'outline') { const t = _cijOutlineThickness; w.style.textShadow = `-${t}px -${t}px ${t*2}px #000,${t}px -${t}px ${t*2}px #000,-${t}px ${t}px ${t*2}px #000,${t}px ${t}px ${t*2}px #000`; } _cijLastCueIdx = -2; _cijSaveSettings(); });
+  otSlider.addEventListener('input', e => { e.stopPropagation(); _cijOutlineThickness = +otSlider.value; otVal.textContent = `${_cijOutlineThickness}px`; const w = _cijSubOverlay?.querySelector('span'); if (w ) { const t = _cijOutlineThickness; w.style.webkitTextStroke = `${t}px #000`; w.style.paintOrder = 'stroke fill'; } _cijLastCueIdx = -2; _cijSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
 
   // ── Furigana ──────────────────────────────────────────────
@@ -558,6 +641,17 @@ function _cijToggleSettings(_player) {
   uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
+
+  // ── Apprentice highlighting ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
+  _swRow('Apprentice highlighting', _apInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
+    _cijRecolorOverlay();
+  });
+  const apprHint = document.createElement('div');
+  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _cur.appendChild(apprHint);
 
   document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
@@ -807,7 +901,7 @@ scanPage().then(res => {
 });
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
-let _cijAutoHoverPending = false;
+var _cijAutoHoverPending = false;
 new MutationObserver(() => {
   if (_transcriptHoverActive) {
     const container = cijFindTranscriptElement();
@@ -861,5 +955,5 @@ document.addEventListener('fullscreenchange', () => {
 // Covers both cijapanese.com and the local mdnas/synology replica (content_local.js
 // reuses the same <video> element) — tagged separately so the two show up as
 // distinct sources in the immersion breakdown instead of being merged.
-const _cijIsLocalReplica = /^(mdnas\.local|cij\.punchyface\.synology\.me)$/.test(location.hostname);
+var _cijIsLocalReplica = /^(mdnas\.local|cij\.punchyface\.synology\.me)$/.test(location.hostname);
 startVideoTimeTracking(() => document.querySelector('video'), _cijIsLocalReplica ? 'local' : 'cij');

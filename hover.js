@@ -4,9 +4,12 @@
 var HOVER_JLPT_COLORS = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0' };
 var HOVER_JLPT_LABELS = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5' };
 
-var _hoverEnabled    = false;
-var _hoverJlptMap    = null;
-var _hoverVocab      = null;
+var _hoverEnabled       = false;
+var _hoverJlptMap       = null;
+var _hoverVocab         = null;
+var _hoverApprentice    = new Set();  // words at SRS level 1-4
+var _hoverWordStatus    = new Map();  // word → {level, status}
+var _hoverShowApprentice = false;     // toggle for apprentice highlighting
 var _hoverTip        = null;
 var _hoverPinned     = null;
 var _hoverStyle      = null;
@@ -22,7 +25,7 @@ function _ensureHoverUI() {
     _hoverStyle = document.createElement('style');
     _hoverStyle.textContent = `
       .jp-tok { border-radius:2px; cursor:pointer; transition:background .1s; }
-      .jp-tok:hover { background:rgba(114,206,157,.18) !important; outline:1px solid rgba(114,206,157,.4); }
+      .jp-tok:hover { background:rgba(114,206,157,.28) !important; outline:2px solid rgba(114,206,157,.55); box-shadow:0 0 6px rgba(114,206,157,.25); border-radius:3px; }
       .jp-tok.jp-tok-sel { background:rgba(114,206,157,.22) !important; outline:2px solid rgba(114,206,157,.6); }
 
       /* ── Dark theme (default) ── */
@@ -39,8 +42,11 @@ function _ensureHoverUI() {
       .jht-close { background:none; border:none; color:#555; font-size:16px; line-height:1; cursor:pointer; padding:0 2px; }
       .jht-close:hover { color:#fff; }
       .jht-reading { font-size:12px; color:#66AAE8; padding:5px 12px 2px; }
+      .jht-mmlv { font-size:10px; font-weight:700; padding:2px 6px; border-radius:5px; }
+      .jht-mmlv.lv1,.jht-mmlv.lv2,.jht-mmlv.lv3,.jht-mmlv.lv4 { background:rgba(114,206,157,.2); color:#72CE9D; }
+      .jht-mmlv.lv5,.jht-mmlv.lv6,.jht-mmlv.lv7,.jht-mmlv.lv8,.jht-mmlv.lv9 { background:rgba(102,170,232,.2); color:#66AAE8; }
       .jht-status { font-size:11px; font-weight:700; padding:2px 9px; border-radius:12px; white-space:nowrap; }
-      .jht-status.known   { background:rgba(114,206,157,.15); color:#72CE9D; }
+      .jht-status.known   { background:rgba(253,194,129,.18); color:#FDC281; }
       .jht-status.unknown { background:rgba(237,121,137,.15); color:#ED7989; }
       .jht-kanji { display:flex; flex-wrap:wrap; gap:5px; padding:7px 12px; }
       .jht-kc { display:flex; flex-direction:column; align-items:center; padding:5px 8px;
@@ -72,7 +78,7 @@ function _ensureHoverUI() {
         padding:1px 5px; margin-left:6px; font-style:italic; vertical-align:middle;
         display:inline; white-space:nowrap; }
       .jht-loading  { font-size:11px; color:#555; font-style:italic; padding:2px 0; }
-      .jht-no-entry { font-size:11px; color:#555; font-style:italic; padding:2px 0; }
+      .jht-no-entry { font-size:12px; color:#8890aa; padding:6px 0; }
 
       /* ── Light theme ── */
       #jp-hover-tip.jht-light { background:#ffffff; border-color:#66AAE8; color:#3a3f47;
@@ -81,7 +87,7 @@ function _ensureHoverUI() {
       #jp-hover-tip.jht-light .jht-word { color:#2c2f33; }
       #jp-hover-tip.jht-light .jht-close { color:#aab4c4; }
       #jp-hover-tip.jht-light .jht-close:hover { color:#66748a; }
-      #jp-hover-tip.jht-light .jht-status.known   { background:rgba(114,206,157,.2); color:#1e7a4e; }
+      #jp-hover-tip.jht-light .jht-status.known   { background:rgba(253,194,129,.2); color:#b87a20; }
       #jp-hover-tip.jht-light .jht-status.unknown { background:rgba(237,121,137,.2); color:#b82d3e; }
       #jp-hover-tip.jht-light .jht-kc { border-color:rgba(114,206,157,.5); }
       #jp-hover-tip.jht-light .jht-kc.unknown { border-color:rgba(237,121,137,.4); }
@@ -95,14 +101,17 @@ function _ensureHoverUI() {
       #jp-hover-tip.jht-light .jht-gloss { color:#3a3f47; }
       #jp-hover-tip.jht-light .jht-pos { color:#66748a; background:rgba(0,0,0,.06); }
       #jp-hover-tip.jht-light .jht-loading,
-      #jp-hover-tip.jht-light .jht-no-entry { color:#aab4c4; }
+      #jp-hover-tip.jht-light .jht-no-entry { color:#8890aa; }
     `;
     document.head.appendChild(_hoverStyle);
     // Read initial theme
-    chrome.storage.local.get('light_theme', ({ light_theme }) => {
-      _hoverIsLight = !!light_theme;
-      if (_hoverTip) _hoverTip.classList.toggle('jht-light', _hoverIsLight);
-    });
+    if (chrome.runtime?.id) {
+      chrome.storage.local.get('light_theme', ({ light_theme }) => {
+        if (chrome.runtime.lastError) return;
+        _hoverIsLight = !!light_theme;
+        if (_hoverTip) _hoverTip.classList.toggle('jht-light', _hoverIsLight);
+      });
+    }
   }
   if (!_hoverTip) {
     _hoverTip = document.createElement('div');
@@ -138,6 +147,13 @@ async function hoverEnable(findContainer) {
   }
 
   _hoverVocab = await getVocab();
+  try { _hoverApprentice = await getApprenticeVocab(); } catch {}
+  try {
+    _hoverWordStatus = await getWordStatusMap();
+    chrome.storage.local.get('mc_show_apprentice', ({ mc_show_apprentice }) => {
+      _hoverShowApprentice = !!mc_show_apprentice;
+    });
+  } catch {}
 
   // Find the transcript container
   const container = findContainer();
@@ -170,6 +186,8 @@ function hoverActivate() {
   document.addEventListener('keydown',    _hoverKey,   true);
   _hoverEnabled = true;
   getVocab().then(v => { _hoverVocab = v; }).catch(() => {});
+  getApprenticeVocab().then(s => { _hoverApprentice = s; }).catch(() => {});
+  getWordStatusMap().then(m => { _hoverWordStatus = m; }).catch(() => {});
 }
 
 function hoverDisable() {
@@ -203,6 +221,8 @@ async function hoverRetokenize(root) {
   const tokenizer = await getTokenizer().catch(() => null);
   if (!tokenizer) return;
   _hoverVocab = await getVocab(); // refresh in case it changed
+  try { _hoverApprentice = await getApprenticeVocab(); } catch {}
+  try { _hoverWordStatus = await getWordStatusMap(); } catch {}
   _hoverTokenizeElement(root, tokenizer);
 }
 
@@ -296,6 +316,8 @@ function _hoverProcessContainer(container, tokenizer) {
       pos:     tok.pos,
       reading: tok.reading || '',
       known:   _hoverVocab.has(basic) || _hoverVocab.has(surface),
+      apprentice: _hoverShowApprentice && (_hoverApprentice.has(basic) || _hoverApprentice.has(surface)),
+      status:  _hoverWordStatus.get(basic) || _hoverWordStatus.get(surface) || null,
     });
   }
 
@@ -312,9 +334,15 @@ function _hoverProcessContainer(container, tokenizer) {
       span.dataset.basic   = w.basic;
       span.dataset.pos     = w.pos;
       span.dataset.reading = w.reading;
+      if (w.status) {
+        span.dataset.mmLevel  = w.status.level ?? '';
+        span.dataset.mmStatus = w.status.status ?? '';
+      }
       span.style.color     = w.known
         ? (_hoverIsLight ? '#1a5fa8' : '#66AAE8')
-        : (_hoverIsLight ? '#b82d3e' : '#ED7989');
+        : w.apprentice
+          ? (_hoverIsLight ? '#2d8a5e' : '#72CE9D')
+          : (_hoverIsLight ? '#b82d3e' : '#ED7989');
 
       // extractContents handles ruby-boundary ranges — ruby markup stays inside span
       span.appendChild(range.extractContents());
@@ -329,9 +357,10 @@ function _katToHira(s) {
   return (s || '').replace(/[ァ-ン]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 }
 
-const _defCache = {};
+var _defCache = {};
 async function _fetchDef(word) {
   if (_defCache[word] !== undefined) return _defCache[word];
+  if (!chrome.runtime?.id) return null;
   try {
     const resp = await chrome.runtime.sendMessage({ action: 'jishoLookup', word });
     if (!resp?.ok) { _defCache[word] = null; return null; }
@@ -344,7 +373,7 @@ async function _fetchDef(word) {
 
 // ── Furigana ──────────────────────────────────────────────────────────────────
 
-let _furiganaStyleEl = null;
+var _furiganaStyleEl = null;
 function hoverApplyFurigana(container) {
   if (!_furiganaStyleEl) {
     _furiganaStyleEl = document.createElement('style');
@@ -372,7 +401,7 @@ function _wireHoverTipButtons() {
   _hoverTip.querySelector('.jht-set-known')?.addEventListener('click', async e => {
     e.stopPropagation();
     const basic = e.currentTarget.dataset.basic || e.currentTarget.dataset.word;
-    if (!basic) return;
+    if (!basic || !chrome.runtime?.id) return;
     const { mc_user_known = [] } = await chrome.storage.local.get('mc_user_known');
     if (!mc_user_known.includes(basic)) {
       mc_user_known.push(basic);
@@ -403,12 +432,23 @@ function _hoverBuildTip(dataset, pinned, defResult) {
   const kReading = _katToHira(dataset.reading || '');
 
   const known = _hoverVocab?.has(basic) || _hoverVocab?.has(word);
-  const statusHtml = pos
-    ? `<span class="jht-status ${known ? 'known' : 'unknown'}">${known ? '✓ Known' : '? Unknown'}</span>`
+  const isAppr = (typeof _hoverApprentice !== 'undefined') && (_hoverApprentice.has(basic) || _hoverApprentice.has(word));
+
+  // Level badge from MaruMori API
+  const mmLevel = dataset.mmLevel || '';
+  const mmStatus = dataset.mmStatus || '';
+  const mmLvClass = mmLevel ? ` lv${_esc(mmLevel)}` : '';
+  const mmBadge = mmLevel
+    ? `<span class="jht-mmlv${mmLvClass}">Lv${_esc(mmLevel)}</span>` : '';
+
+  // Status: only show "Known" for known. Pipeline/apprentice shows nothing.
+  const statusLabel = known ? '✓ Known' : '';
+  const statusHtml = (pos && statusLabel)
+    ? `<span class="jht-status known">${statusLabel}</span>`
     : '';
 
   const closeBtn = pinned ? `<button class="jht-close" title="Close">×</button>` : '';
-  const headHtml = `<div class="jht-head"><span class="jht-word">${_esc(word)}</span><div class="jht-right">${statusHtml}${closeBtn}</div></div>`;
+  const headHtml = `<div class="jht-head"><span class="jht-word">${_esc(word)}</span><div class="jht-right">${mmBadge}${statusHtml}${closeBtn}</div></div>`;
 
   // Reading line: prefer Jisho reading (hiragana), fallback to kuromoji
   const displayReading = defResult?.reading || kReading;
@@ -465,7 +505,7 @@ function _esc(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-const _POS_MAP = [
+var _POS_MAP = [
   [/godan verb.*irregular/i,       'Godan verb (irr.)'],
   [/godan verb/i,                  'Godan verb'],
   [/ichidan verb.*irregular/i,     'Ichidan verb (irr.)'],
@@ -595,7 +635,7 @@ function _hoverHide() {
 
 // ── Public API for sidebar ────────────────────────────────────────────────────
 
-let _sbOutsideActive = false;
+var _sbOutsideActive = false;
 
 // Show a pinned hover tooltip for a word entry in the sidebar.
 // Works whether hover mode is active or not.
@@ -676,9 +716,13 @@ function _sbPosition(anchorEl) {
 }
 
 // Live theme switching
-chrome.storage.onChanged.addListener((changes, area) => {
+try { chrome.storage.onChanged.addListener((changes, area) => {
+  if (!chrome.runtime?.id) return;
   if (area === 'local' && 'light_theme' in changes) {
     _hoverIsLight = !!changes.light_theme.newValue;
     if (_hoverTip) _hoverTip.classList.toggle('jht-light', _hoverIsLight);
   }
-});
+  if (changes.mc_show_apprentice) {
+    _hoverShowApprentice = !!changes.mc_show_apprentice.newValue;
+  }
+}); } catch {}

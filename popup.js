@@ -12,14 +12,17 @@ async function fetchItems(path, token) {
 }
 
 async function fetchAllVocab(token) {
-  // 4 sequential requests (MM rate-limits aggressively)
-  const kanjiItems  = await fetchItems('/known/kanji', token);                    await sleep(1100);
-  const vocabItems  = await fetchItems('/known/vocabulary', token);               await sleep(1100);
-  const kanjiExtra  = await fetchItems('/known/kanji?min-level=9001', token);     await sleep(1100);
-  const vocabExtra  = await fetchItems('/known/vocabulary?min-level=9001', token);
+  // 2 sequential requests (MM rate-limits aggressively)
+  // with-status=true returns real levels + a status field per item
+  // instead of the old sentinel level=9001 for known items.
+  const kanjiItems = await fetchItems('/known/kanji?with-status=true', token);      await sleep(1100);
+  const vocabItems = await fetchItems('/known/vocabulary?with-status=true', token);
 
-  const kanji = [...new Set([...kanjiItems, ...kanjiExtra].map(x => x.item))];
-  const vocab = [...new Set([...vocabItems,  ...vocabExtra].map(x => x.item))];
+  // Deduplicate by item name, keeping the full {item, level, status} objects.
+  const seenK = new Map(); for (const k of kanjiItems) seenK.set(k.item, k);
+  const seenV = new Map(); for (const v of vocabItems) seenV.set(v.item, v);
+  const kanji = [...seenK.values()];
+  const vocab = [...seenV.values()];
   return { kanji, vocab };
 }
 
@@ -86,10 +89,11 @@ function setStats(vocab, kanji) {
 }
 
 function _mergedCounts(mmVocab, mmKanji, extraVocab, extraKanji) {
-  return {
-    vocab: new Set([...(mmVocab || []), ...(extraVocab || [])]).size,
-    kanji: new Set([...(mmKanji || []), ...(extraKanji || [])]).size,
-  };
+  const vSet = new Set((extraVocab || []).map(x => typeof x === 'string' ? x : x.item));
+  for (const v of (mmVocab || [])) vSet.add(typeof v === 'string' ? v : v.item);
+  const kSet = new Set((extraKanji || []).map(x => typeof x === 'string' ? x : x.item));
+  for (const k of (mmKanji || [])) kSet.add(typeof k === 'string' ? k : k.item);
+  return { vocab: vSet.size, kanji: kSet.size };
 }
 
 function setTokStatus(text, color) {
@@ -475,7 +479,9 @@ async function init() {
     document.getElementById('token').value = mm_token;
     const { vocab: vc, kanji: kc } = _mergedCounts(mm_vocab, mm_kanji, mm_extra_vocab, mm_extra_kanji);
     setStats(vc, kc);
-    setStatus('✓ Connected', '#72CE9D');
+    const apprInit = (mm_vocab || []).filter(v => typeof v === 'object' && v.status === 0).length
+                   + (mm_kanji || []).filter(k => typeof k === 'object' && k.status === 0).length;
+    setStatus(`✓ Connected — ${mm_vocab?.length || 0} vocab, ${mm_kanji?.length || 0} kanji` + (apprInit > 0 ? ` · ${apprInit} in pipeline` : ''), '#72CE9D');
   }
   setExtraStatus(mm_extra_vocab, mm_extra_kanji);
 
@@ -484,14 +490,16 @@ async function init() {
     if (!token) return;
     const btn = document.getElementById('connect-btn');
     btn.disabled = true;
-    setStatus('Fetching vocab… (takes ~5 seconds)', '#888');
+    setStatus('Fetching vocab… (takes ~3 seconds)', '#888');
     try {
       const { kanji, vocab } = await fetchAllVocab(token);
       await chrome.storage.local.set({ mm_token: token, mm_vocab: vocab, mm_kanji: kanji });
       const { mm_extra_vocab: ev = [], mm_extra_kanji: ek = [] } = await chrome.storage.local.get(['mm_extra_vocab', 'mm_extra_kanji']);
       const { vocab: vc, kanji: kc } = _mergedCounts(vocab, kanji, ev, ek);
       setStats(vc, kc);
-      setStatus(`✓ Connected — ${vocab.length} vocab, ${kanji.length} kanji`, '#72CE9D');
+      const appr = vocab.filter(v => typeof v === 'object' && v.status === 0).length
+                + kanji.filter(k => typeof k === 'object' && k.status === 0).length;
+      setStatus(`✓ Connected — ${vocab.length} vocab, ${kanji.length} kanji` + (appr > 0 ? ` · ${appr} in pipeline` : ''), '#72CE9D');
     } catch (e) {
       const msg = e.message === 'HTTP 401' || e.message === 'HTTP 403'
         ? 'Invalid token — check your MaruMori API token'
@@ -514,7 +522,9 @@ async function init() {
       const { mm_extra_vocab: ev = [], mm_extra_kanji: ek = [] } = await chrome.storage.local.get(['mm_extra_vocab', 'mm_extra_kanji']);
       const { vocab: vc, kanji: kc } = _mergedCounts(vocab, kanji, ev, ek);
       setStats(vc, kc);
-      setStatus('✓ Refreshed', '#72CE9D');
+      const appr = vocab.filter(v => typeof v === 'object' && v.status === 0).length
+                  + kanji.filter(k => typeof k === 'object' && k.status === 0).length;
+      setStatus(`✓ Refreshed — ${vocab.length} vocab, ${kanji.length} kanji` + (appr > 0 ? ` · ${appr} in pipeline` : ''), '#72CE9D');
     } catch (e) {
       setStatus(`Error: ${e.message}`, '#f44336');
     }
@@ -945,6 +955,14 @@ document.addEventListener('DOMContentLoaded', () => {
     _scoreColorsEnabled = e.target.checked;
     chrome.storage.local.set({ score_colors: e.target.checked });
     if (_lastScoreArgs) setScore(..._lastScoreArgs);
+  });
+
+  const apprenticeToggle = document.getElementById('apprentice-toggle');
+  chrome.storage.local.get('mc_show_apprentice', ({ mc_show_apprentice }) => {
+    apprenticeToggle.checked = !!mc_show_apprentice;
+  });
+  apprenticeToggle.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_show_apprentice: apprenticeToggle.checked });
   });
 
   init();

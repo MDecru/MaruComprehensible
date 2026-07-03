@@ -11,10 +11,10 @@ var _sbLastGroups = null;
 // Site content scripts can register custom push/restore handlers when body
 // marginRight doesn't work (e.g. YouTube, NJK where body overflow is hidden).
 function sbRegisterPush(pushFn, popFn) { _sbPushFn = pushFn; _sbPopFn = popFn; }
-let _sbSortMode = 'jlpt';   // 'jlpt' | 'freq'
-let _sbActiveFilter = 'unknown';
-let _sbViewMode = 'words';  // 'words' | 'kanji'
-let _sbLastKanjiGroups = null;
+var _sbSortMode = 'jlpt';   // 'jlpt' | 'freq'
+var _sbActiveFilter = 'unknown';
+var _sbViewMode = 'words';  // 'words' | 'kanji'
+var _sbLastKanjiGroups = null;
 
 function sidebarIsOpen() { return _sidebarEl !== null; }
 
@@ -56,8 +56,16 @@ async function sidebarToggle(text) {
     seen.get(w).count++;
   }
 
+  // Load MaruMori word-level info for badges
+  let mmStatusMap = new Map();
+  try { mmStatusMap = await getWordStatusMap(); } catch {}
+
   const groups = { 5: [], 4: [], 3: [], 2: [], 1: [], 0: [] };
-  for (const entry of seen.values()) groups[entry.level].push(entry);
+  for (const entry of seen.values()) {
+    const mm = mmStatusMap.get(entry.basic);
+    if (mm) { entry.mmLevel = mm.level; entry.mmStatus = mm.status; }
+    groups[entry.level].push(entry);
+  }
 
   // Collect unique kanji from content tokens
   const kanjiSeen = new Map();
@@ -109,8 +117,8 @@ async function _sbLoadJlptMap() {
   } catch { return {}; }
 }
 
-const _SB_LABEL = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5', 0:'Other' };
-const _SB_COLOR = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0', 0:'#555a65' };
+var _SB_LABEL = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5', 0:'Other' };
+var _SB_COLOR = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0', 0:'#555a65' };
 
 function _sbHex2rgb(hex) {
   return [1,3,5].map(i => parseInt(hex.slice(i, i+2), 16)).join(',');
@@ -125,8 +133,10 @@ function _sbWordHtml(w, wordCol, dimColor, readingColor) {
     ? `<span class="sb-r">${_sbEsc(w.reading)}</span>` : '';
   const count = w.count > 1 ? `<span class="sb-x">×${w.count}</span>` : '';
   const cls   = `sb-word${w.known ? ' sb-known' : ' sb-unknown'}`;
+  const mmBadge = w.mmLevel != null
+    ? `<span class="sb-mmlv">${_sbEsc(String(w.mmLevel))}</span>` : '';
   return `<div class="${cls}" data-basic="${_sbEsc(w.basic)}" data-reading="${_sbEsc(w.reading)}" style="--c:${wordCol}">
-    <span class="sb-s">${_sbEsc(w.basic)}</span>${reading}${count}
+    <span class="sb-s">${_sbEsc(w.basic)}</span>${mmBadge}${reading}${count}
   </div>`;
 }
 
@@ -266,6 +276,9 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
       color:${T.body};cursor:pointer;transition:background .1s}
     .sb-word:hover{background:${T.wordHover}}
     .sb-s{font-size:15px;font-weight:600;color:var(--c)}
+    .sb-mmlv{font-size:9px;font-weight:700;padding:1px 4px;border-radius:4px;
+      margin-left:4px;vertical-align:middle;position:relative;top:-1px;
+      background:rgba(102,170,232,.2);color:#66AAE8}
     .sb-r{font-size:11px;color:${T.reading}}
     .sb-x{margin-left:auto;font-size:10px;color:${T.dim}}
     #jp-sidebar.filter-unknown .sb-known{display:none}

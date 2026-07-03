@@ -63,7 +63,7 @@ li:last-child { border-bottom: none; }
 <div class="release">
   <div class="release-header">
     <span class="version">v1.5</span>
-    <span class="date">2026-07-03</span>
+    <span class="date">2026-07-04</span>
     <span class="tag tag-latest">Latest</span>
   </div>
   <ul>
@@ -90,6 +90,18 @@ li:last-child { border-bottom: none; }
     <li><span class="ct ui">UI</span> Removed the "Pre-load tokenizer" button — the tokenizer preloads automatically; it can still be triggered manually from the Main tab's tokenizer status line</li>
     <li><span class="ct ui">UI</span> "MaruMori API key" instructions on the Settings tab now include a direct link to marumori.io/settings → Public API</li>
     <li><span class="ct ui">UI</span> Extension pages now use a modern system font on Windows instead of falling back to Arial</li>
+    <li><span class="ct feat">Feature</span> <b>Apprentice word highlighting</b> — words at SRS levels 1–4 that are still in your learning pipeline now show in green (or purple in colorblind mode), distinct from known (blue) and unknown (red); toggle on the Settings tab or in any video subtitle settings panel</li>
+    <li><span class="ct feat">Feature</span> <b>MaruMori level badges</b> — SRS level badges appear in hover tooltips (green for apprentice, blue for graduated) and the word sidebar, so you can see your progress at a glance</li>
+    <li><span class="ct feat">Feature</span> <b>Stacked bar chart</b> — the Immersion Stats progress chart now shows per-day source breakdowns as stacked colored bars; cumulative line uses a dashed gradient stroke; breakdown bars fade from solid to lighter on the right</li>
+    <li><span class="ct fix">Fix</span> MaruMori API updated to use <code>with-status=true</code> — captures real SRS levels and status (learning/known/suspended) instead of the old level=9001 sentinel; fetch reduced from 4 API calls to 2</li>
+    <li><span class="ct fix">Fix</span> Subtitle outline now uses crisp <code>-webkit-text-stroke</code> with <code>paint-order: stroke fill</code> — outline sits purely outside the characters, no blurry shadows or stepping artifacts</li>
+    <li><span class="ct fix">Fix</span> "Unknown words only" mode no longer leaves behind black-bar artifacts or ghost furigana shadows — background/shadow moves from the wrapper to individual visible word spans</li>
+    <li><span class="ct fix">Fix</span> New subtitle cues no longer flash unstyled text before tokenization completes — wrapper stays hidden until coloring is done</li>
+    <li><span class="ct fix">Fix</span> Outline thickness slider expanded from 1–5 to 1–8 with 0.5 step increments for more dramatic outlines</li>
+    <li><span class="ct fix">Fix</span> Hover fluorescence (word highlight on mouseover) made more visible with thicker outline and glow</li>
+    <li><span class="ct fix">Fix</span> All top-level <code>const</code>/<code>let</code> declarations in shared content scripts converted to <code>var</code> to prevent redeclaration errors on multi-inject</li>
+    <li><span class="ct fix">Fix</span> All <code>chrome.*</code> API calls now guarded with <code>chrome.runtime?.id</code> checks to prevent "Extension context invalidated" errors after reload</li>
+    <li><span class="ct ui">UI</span> CIJ Library website updated with the same API changes, apprentice coloring, level badges, and simplified tooltip labels</li>
   </ul>
 </div>
 
