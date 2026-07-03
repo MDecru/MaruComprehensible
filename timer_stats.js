@@ -483,7 +483,7 @@ async function init() {
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.mc_timer_days || changes.mc_timer_settings) {
+    if (changes.mc_timer_days || changes.mc_timer_settings || changes.mc_timer_source_days) {
       renderHero();
       renderChart();
       renderGrid();
