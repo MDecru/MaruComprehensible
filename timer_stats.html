@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Immersion Stats — MaruComprehension</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #1a1c1d;
+  --surface: #2D3031;
+  --deep:    #232425;
+  --border:  #363A3B;
+  --text:    #f2f4fa;
+  --body:    #d8dcea;
+  --muted:   #a8b2cc;
+  --dim:     #66748a;
+  --ph:      #4a5068;
+  --ring-bg: #363A3B;
+  --tooltip-bg: rgba(0,0,0,.88);
+}
+body.light-theme {
+  --bg:      #ffffff;
+  --surface: #f0f2f5;
+  --deep:    #e2e8f0;
+  --border:  #d0d7e2;
+  --text:    #2c2f33;
+  --body:    #3a3f47;
+  --muted:   #4a5570;
+  --dim:     #66748a;
+  --ph:      #aab4c4;
+  --ring-bg: #d0d7e2;
+  --tooltip-bg: rgba(0,0,0,.78);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg); color: var(--body);
+  min-height: 100vh; padding: 40px 24px 60px;
+}
+.page { max-width: 680px; margin: 0 auto; }
+.header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 26px; }
+h1 { font-size: 22px; font-weight: 800; color: var(--text); }
+.subtitle { font-size: 13px; color: var(--dim); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+.sec-label { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+
+/* ── Hero row: ring + stat cards ── */
+.hero-row { display: flex; gap: 26px; align-items: center; margin-bottom: 4px; }
+.ring-wrap { position: relative; width: 148px; height: 148px; flex-shrink: 0; }
+.ring-wrap svg { width: 148px; height: 148px; transform: rotate(-90deg); display: block; }
+.ring-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.25; }
+#today-val { font-size: 28px; font-weight: 800; color: var(--text); }
+.ring-lbl { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .6px; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+.track-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ph); transition: background .2s, box-shadow .2s; }
+.track-dot.on { background: #72CE9D; box-shadow: 0 0 5px #72CE9D; }
+
+.stat-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-card { border-radius: 10px; padding: 11px 14px; border: 1px solid var(--border); background: var(--deep); text-align: center; }
+.stat-card.blue  { border-color: #66AAE8; }
+.stat-card.green { border-color: #72CE9D; }
+.stat-card .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.stat-card.blue .lbl  { color: #66AAE8; }
+.stat-card.green .lbl { color: #72CE9D; }
+.stat-card .val { font-size: 20px; font-weight: 800; color: var(--text); }
+
+/* ── Add time + log ── */
+.add-row { display: flex; gap: 10px; margin-bottom: 12px; }
+input[type="text"], input[type="number"] {
+  padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--deep); color: var(--text); font-size: 13px; outline: none; transition: border-color .15s;
+}
+input[type="text"]:focus, input[type="number"]:focus { border-color: #72CE9D; }
+input[type="text"]::placeholder, input[type="number"]::placeholder { color: var(--ph); }
+#src-input { flex: 1.6; }
+#min-input { flex: 0.6; }
+.btn { padding: 9px 16px; border-radius: 10px; border: 1px solid transparent; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; transition: filter .15s; color: #fff; }
+.btn:hover { filter: brightness(.9); }
+.btn-blue  { background: #66AAE8; border-color: #66AAE8; }
+
+.log-list { display: flex; flex-direction: column; }
+.log-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.log-row:last-child { border-bottom: none; }
+.log-src { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.log-date { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.log-min { color: #66AAE8; font-weight: 700; flex-shrink: 0; min-width: 40px; text-align: right; }
+.log-del { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0 4px; flex-shrink: 0; }
+.log-del:hover { color: #ED7989; }
+.log-empty { font-size: 12px; color: var(--ph); padding: 4px 0; }
+
+/* ── Chart ── */
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.mode-toggle { display: flex; gap: 6px; }
+.mode-btn {
+  font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--deep); color: var(--dim);
+  cursor: pointer; text-transform: uppercase; letter-spacing: .3px; font-family: inherit; transition: all .15s;
+}
+.mode-btn.active { background: rgba(102,170,232,.15); color: #66AAE8; border-color: #66AAE8; }
+.chart-wrap { position: relative; }
+#chart { display: block; width: 100%; height: 160px; cursor: crosshair; }
+.tooltip {
+  position: absolute; pointer-events: none; background: var(--tooltip-bg); color: #fff;
+  font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 7px;
+  white-space: nowrap; opacity: 0; transition: opacity .1s; transform: translate(-50%,-118%);
+  top: 0; left: 0; z-index: 10; letter-spacing: .2px;
+}
+
+/* ── Streak grid ── */
+.grid-wrap { overflow-x: auto; }
+#grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; width: max-content; }
+.cell { width: 11px; height: 11px; border-radius: 3px; background: var(--ring-bg); opacity: .45; }
+.cell.t1 { background: #66AAE8; opacity: .35; }
+.cell.t2 { background: #66AAE8; opacity: .6; }
+.cell.t3 { background: #66AAE8; opacity: .82; }
+.cell.t4 { background: #66AAE8; opacity: 1; }
+.cell.blank { background: transparent; opacity: 0; }
+.cell.editable { cursor: pointer; }
+.cell.editable:hover { outline: 1px solid #66AAE8; outline-offset: 1px; }
+.legend { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 11px; color: var(--dim); }
+.legend .cell { width: 10px; height: 10px; }
+.grid-hint { font-size: 11px; color: var(--ph); margin-top: 8px; }
+
+/* ── Breakdown by source ── */
+.bd-row { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+.bd-label { width: 110px; flex-shrink: 0; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.bd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.bd-track { flex: 1; height: 8px; border-radius: 4px; background: var(--deep); overflow: hidden; }
+.bd-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+.bd-val { width: 100px; flex-shrink: 0; text-align: right; font-size: 12px; color: var(--muted); }
+.bd-val .pct { color: var(--dim); margin-left: 5px; }
+.bd-empty { font-size: 12px; color: var(--ph); padding: 4px 0; }
+.bd-clear { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 0 2px; flex-shrink: 0; }
+.bd-clear:hover { color: #ED7989; }
+.bd-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 2px; margin-top: 14px; background: var(--deep); }
+.bd-bar-seg { height: 100%; border-radius: 4px; transition: width .4s ease, filter .15s; }
+.bd-bar-seg:hover { filter: brightness(1.2); }
+.ring-bg { stroke: var(--ring-bg); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Immersion Stats</h1>
+    <span class="subtitle">Time spent with Japanese video content</span>
+  </div>
+
+  <div class="card">
+    <div class="hero-row">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="52" fill="none" stroke-width="8"/>
+          <circle id="arc" cx="60" cy="60" r="52" fill="none" stroke="#66AAE8"
+            stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="0 327" style="transition:stroke-dasharray .5s"/>
+        </svg>
+        <div class="ring-inner">
+          <span id="today-val">0m</span>
+          <span class="ring-lbl"><span class="track-dot" id="track-dot"></span>today</span>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="lbl">Current streak</div><div class="val" id="cur-streak">0d</div></div>
+        <div class="stat-card green"><div class="lbl">Longest streak</div><div class="val" id="long-streak">0d</div></div>
+        <div class="stat-card blue"><div class="lbl">All time</div><div class="val" id="alltime">0m</div></div>
+        <div class="stat-card green"><div class="lbl">Active days</div><div class="val" id="active-days">0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="sec-label">By source</p>
+    <div id="breakdown-list"></div>
+    <div id="breakdown-bar" class="bd-bar"></div>
+  </div>
+
+  <div class="card">
+    <p class="sec-label">Add immersion time</p>
+    <div class="add-row">
+      <input type="text" id="src-input" placeholder="e.g. Spirited Away">
+      <input type="number" id="min-input" placeholder="min" min="1" step="1">
+      <button class="btn btn-blue" id="add-btn">+ Add time</button>
+    </div>
+    <div id="log-list" class="log-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="chart-header">
+      <p class="sec-label" style="margin:0">Progress</p>
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-mode="day">Per day</button>
+        <button class="mode-btn" data-mode="cum">Cumulative</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg id="chart" viewBox="0 0 640 160" preserveAspectRatio="none"></svg>
+      <div id="tooltip" class="tooltip"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="sec-label">Streak</p>
+    <div class="grid-wrap"><div id="grid"></div></div>
+    <div class="legend">
+      Less
+      <span class="cell"></span><span class="cell t1"></span><span class="cell t2"></span><span class="cell t3"></span><span class="cell t4"></span>
+      More
+    </div>
+    <p class="grid-hint">Click a day to edit or clear its tracked time.</p>
+  </div>
+
+  <p class="subtitle">Tip: change the daily reset time from the extension popup's Settings tab.</p>
+</div>
+<script src="timer_stats.js"></script>
+</body>
+</html>

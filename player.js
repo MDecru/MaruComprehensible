@@ -11,6 +11,18 @@ const settingsBtn= document.getElementById('settings-btn');
 const settingsPnl= document.getElementById('settings-pnl');
 const loading    = document.getElementById('loading');
 
+// Track immersion time while a local video is actually playing and the tab is visible.
+startVideoTimeTracking(() => video, 'player');
+
+// Immersion status dot + user-preferred bar corner
+{
+  const ctrlBar = document.getElementById('ctrl-bar');
+  if (ctrlBar) {
+    ctrlBar.insertBefore(mcCreateTimerDotButton(), ctrlBar.firstChild);
+    mcApplyBarPosition(ctrlBar);
+  }
+}
+
 let _vtt = null;          // raw VTT text
 let _cues = [];           // [{start, end, text}]
 let _subActive = false;
@@ -365,7 +377,7 @@ function _buildSettingsPanel() {
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _tBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
   const _tabOn  = `color:#66AAE8;border-bottom:2px solid #66AAE8;${_tBase}`;
   const _tabOff = `color:#555;border-bottom:2px solid transparent;${_tBase}`;
   const tabBar = document.createElement('div');

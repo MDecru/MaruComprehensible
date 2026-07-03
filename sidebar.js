@@ -2,11 +2,11 @@
 // Depends on: common.js (buildMergedTokens, getTokenizer, getVocab, MM_CONTENT_POS, hasKanji)
 //             hover.js (_katToHira, _hoverJlptMap)
 
-let _sidebarEl = null;
-let _sbPrevBodyMargin = '';
-let _sbPushFn = null;
-let _sbPopFn  = null;
-let _sbLastGroups = null;
+var _sidebarEl = null;
+var _sbPrevBodyMargin = '';
+var _sbPushFn = null;
+var _sbPopFn  = null;
+var _sbLastGroups = null;
 
 // Site content scripts can register custom push/restore handlers when body
 // marginRight doesn't work (e.g. YouTube, NJK where body overflow is hidden).
@@ -229,7 +229,7 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
   el.innerHTML = `<style>
     #jp-sidebar{position:fixed;top:0;right:0;width:260px;height:100vh;
       background:${T.bg};border-left:1px solid ${T.border};
-      font-family:-apple-system,'Helvetica Neue',sans-serif;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
       z-index:2147483646;overflow-y:auto;
       box-shadow:-6px 0 24px rgba(0,0,0,.4);color:${T.body};font-size:13px}
     #jp-sb-hd{display:flex;align-items:center;padding:13px 14px 11px;

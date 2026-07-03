@@ -8,7 +8,7 @@
 body {
   background: #1a1c20;
   color: #d0d4e0;
-  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   max-width: 660px;
   margin: 0 auto;
   padding: 44px 28px 64px;
@@ -62,9 +62,41 @@ li:last-child { border-bottom: none; }
 
 <div class="release">
   <div class="release-header">
+    <span class="version">v1.5</span>
+    <span class="date">2026-07-03</span>
+    <span class="tag tag-latest">Latest</span>
+  </div>
+  <ul>
+    <li><span class="ct feat">Feature</span> <b>Immersion timer</b> — automatically tracks time spent watching Japanese video on YouTube, CIJ, Nihongo-Jikan, and the local player; new Timer tab shows today's total, current streak, and a quick "add time" entry for sources the extension can't auto-detect</li>
+    <li><span class="ct feat">Feature</span> <b>Immersion Stats page</b> — dedicated view with a progress ring, current/longest streak, all-time total, a per-day/cumulative chart, a GitHub-style streak grid, and a by-source breakdown (list + stacked bar) showing how your time splits across YouTube, CIJ, your local NAS, Nihongo-Jikan, the local player, and manual entries</li>
+    <li><span class="ct feat">Feature</span> <b>Focus timer</b> — countdown stopwatch for SRS review sessions; keeps running in the background even with the popup closed, can auto-add its duration to your immersion time when it finishes, and plays a sound and/or shows an on-screen effect (your choice)</li>
+    <li><span class="ct feat">Feature</span> <b>Right-click "Search on MaruMori"</b> — select any word or phrase on any page and search it on MaruMori's dictionary straight from the context menu</li>
+    <li><span class="ct feat">Feature</span> <b>Full backup &amp; restore</b> — export everything (API key, vocab, known words, history, immersion tracking, settings) to one file from the Extra tab, and import it on another device</li>
+    <li><span class="ct feat">Feature</span> Local NAS viewing (mdnas/synology) is now tracked as its own source, separate from cijapanese.com</li>
+    <li><span class="ct feat">Feature</span> Streak grid days and per-source totals can be edited or cleared individually to correct mistracked time; an "Unknown source" entry surfaces any unattributed time so nothing is silently missing</li>
+    <li><span class="ct fix">Fix</span> Immersion timer no longer tracks English or other non-Japanese YouTube videos that happen to have auto-generated Japanese subtitles — only videos with <em>manual</em> Japanese captions count as Japanese content</li>
+    <li><span class="ct fix">Fix</span> Auto-scoring on YouTube and CIJ now retries automatically if captions aren't ready on the first try, instead of requiring the popup to be reopened to force a rescore</li>
+    <li><span class="ct fix">Fix</span> Subtitle cues no longer carry over from a previous YouTube video — cached caption data is cleared on each navigation, preventing subtitles from a completely different video being displayed</li>
+    <li><span class="ct fix">Fix</span> Hover-on-transcript now works on Nihongo-Jikan pages that don't use a recognizable transcript element class name</li>
+    <li><span class="ct fix">Fix</span> The "currently tracking" indicator (Timer tab &amp; stats page) now reliably reflects live playback instead of staying grey</li>
+    <li><span class="ct fix">Fix</span> Video control bar bottom positions raised to clear YouTube's native timeline/progress bar</li>
+    <li><span class="ct ui">UI</span> Light theme now applies to the History and Immersion Stats pages, following the extension's light/dark toggle</li>
+    <li><span class="ct ui">UI</span> Stat cards (vocab/kanji counts, streak cards) now use solid backgrounds with centered text instead of translucent accent fills</li>
+    <li><span class="ct ui">UI</span> MaruMori logo watermark on the Settings tab is larger and more visible; extension toolbar icon is now the MaruMori logo</li>
+    <li><span class="ct ui">UI</span> Focus timer card shows a green border while running and an amber border while paused</li>
+    <li><span class="ct ui">UI</span> Import/Export button labels shortened to "Import Data" / "Export Data" to fit without wrapping</li>
+    <li><span class="ct ui">UI</span> Number input spinners (up/down arrows) hidden for a cleaner look</li>
+    <li><span class="ct ui">UI</span> Score-block hover shine animation made subtler</li>
+    <li><span class="ct ui">UI</span> Removed the "Pre-load tokenizer" button — the tokenizer preloads automatically; it can still be triggered manually from the Main tab's tokenizer status line</li>
+    <li><span class="ct ui">UI</span> "MaruMori API key" instructions on the Settings tab now include a direct link to marumori.io/settings → Public API</li>
+    <li><span class="ct ui">UI</span> Extension pages now use a modern system font on Windows instead of falling back to Arial</li>
+  </ul>
+</div>
+
+<div class="release">
+  <div class="release-header">
     <span class="version">v1.4</span>
     <span class="date">2026-07-02</span>
-    <span class="tag tag-latest">Latest</span>
   </div>
   <ul>
     <li><span class="ct feat">Feature</span> <b>Hover cards on history word list</b> — every unknown word is immediately interactive; hover to see reading, definitions, and Set as Known — no waiting for the tokenizer</li>

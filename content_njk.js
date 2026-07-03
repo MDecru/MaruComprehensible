@@ -51,9 +51,59 @@ async function tryYouTubeId(videoId, container) {
   ];
   for (const url of urls) {
     const res = await fetchAndScoreUrl(url);
-    if (res !== null) { showBadge(container, res.score); return res; }
+    if (res !== null) { _njkCreateControlBar(container, res.score); return res; }
   }
   return null;
+}
+
+// Minimal control bar (dot + score + word sidebar) — NJK has no subtitle
+// overlay tool, so no 字幕/⚙ buttons here.
+let _njkControlBar = null;
+function _njkCreateControlBar(container, score) {
+  if (_njkControlBar && document.contains(_njkControlBar)) {
+    const el = document.getElementById('mc-njk-score');
+    if (el && score !== null) el.textContent = `${score}%`;
+    return;
+  }
+  if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
+
+  const bar = document.createElement('div');
+  bar.id = 'mc-njk-bar';
+  bar.style.cssText = [
+    'position:absolute', 'z-index:9997',
+    'display:inline-flex', 'align-items:stretch',
+    'border-radius:7px', 'overflow:hidden',
+    'background:rgba(0,0,0,.78)',
+    'border:1px solid rgba(255,255,255,.14)',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+  ].join(';');
+
+  bar.appendChild(mcCreateTimerDotButton());
+
+  const scoreEl = document.createElement('span');
+  scoreEl.id = 'mc-njk-score';
+  scoreEl.style.cssText = 'padding:6px 10px;font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center';
+  scoreEl.textContent = score !== null ? `${score}%` : '–';
+  bar.appendChild(scoreEl);
+
+  const sbBtn = document.createElement('button');
+  sbBtn.id = 'mc-njk-sidebar-btn';
+  sbBtn.textContent = '≡';
+  sbBtn.title = 'Toggle word sidebar';
+  sbBtn.style.cssText = 'padding:6px 10px;font-size:14px;color:#888;background:none;border:none;border-left:1px solid rgba(255,255,255,.12);cursor:pointer;transition:color .15s';
+  sbBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (sidebarIsOpen()) { sidebarToggle(null); sbBtn.style.color = '#888'; return; }
+    const text = extractPageTranscript();
+    if (!text) return;
+    const r = await sidebarToggle(text);
+    sbBtn.style.color = r?.ok ? '#66AAE8' : '#888';
+  });
+  bar.appendChild(sbBtn);
+
+  mcApplyBarPosition(bar);
+  container.appendChild(bar);
+  _njkControlBar = bar;
 }
 
 async function scanPage() {
@@ -78,7 +128,7 @@ async function scanPage() {
     const res = await scoreText(transcriptText);
     if (res?.score !== null) {
       const container = player.parentElement || document.body;
-      showBadge(container, res.score);
+      _njkCreateControlBar(container, res.score);
       _njkSave(res);
       return res;
     }
@@ -98,7 +148,7 @@ async function scanPage() {
     for (const track of video.querySelectorAll('track')) {
       if (!track.src) continue;
       const res = await fetchAndScoreUrl(track.src);
-      if (res !== null) { showBadge(video.parentElement || video, res.score); _njkSave(res); return res; }
+      if (res !== null) { _njkCreateControlBar(video.parentElement || video, res.score); _njkSave(res); return res; }
     }
   }
 
@@ -117,7 +167,53 @@ function njkFindTranscriptElement() {
     const text = el.textContent.replace(/▶/g, '').trim();
     if (text.length > 20 && /[぀-鿿]{3,}/.test(text)) return el;
   }
-  return null;
+  // NJK doesn't always use predictable class/id names for its transcript
+  // container — extractPageTranscript() already falls back to scanning the
+  // whole page for Japanese-heavy text nodes for scoring purposes, which is
+  // why scoring can succeed here even though the selectors above found
+  // nothing. Hover needs an actual element (to inject .jp-tok spans into),
+  // so find it by density instead.
+  return _njkFindTranscriptAncestor();
+}
+
+// A transcript is rendered as many sibling line-elements (e.g. <p> per line)
+// under one wrapper, so that wrapper will have by far the most Japanese-text-
+// bearing children of anything on the page. Scattered one-off Japanese text
+// elsewhere (nav links, a header title, a footer notice) each contribute at
+// most a single child to their own parent, so they lose out even in
+// aggregate. This mirrors extractPageTranscript()'s fallback (which scores
+// the whole page's Japanese-heavy text) but needs to resolve to one element,
+// not just text, since hover injects spans into it.
+function _njkFindTranscriptAncestor() {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const leafJaChars = new Map(); // nearest element per text node -> JA char count
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest('rt, rp, script, style, #jp-hover-tip')) continue;
+    const jaChars = (node.textContent.match(/[぀-鿿]/g) || []).length;
+    if (jaChars < 2) continue;
+    let el = node.parentElement;
+    if (el?.nodeName === 'RUBY') el = el.parentElement;
+    if (el) leafJaChars.set(el, (leafJaChars.get(el) || 0) + jaChars);
+  }
+
+  const parentStats = new Map(); // parent element -> { children: Set, chars: number }
+  for (const [el, chars] of leafJaChars) {
+    const parent = el.parentElement || el;
+    if (!parentStats.has(parent)) parentStats.set(parent, { children: new Set(), chars: 0 });
+    const s = parentStats.get(parent);
+    s.children.add(el);
+    s.chars += chars;
+  }
+
+  let best = null, bestScore = -1;
+  for (const [parent, s] of parentStats) {
+    if (s.children.size < 2) continue; // need at least 2 sibling lines to call it a transcript
+    const score = s.children.size * 100 + s.chars;
+    if (score > bestScore) { best = parent; bestScore = score; }
+  }
+  if (!best || best === document.body || best === document.documentElement) return null;
+  return best;
 }
 
 // Message handler for popup
@@ -164,6 +260,10 @@ const _njkHasPlayer = !!document.querySelector('iframe[src*="youtube"], video, [
 
 if (_njkHasPlayer) {
   scanPage();
+
+  // Track immersion time on native <video> players. Embedded YouTube iframes
+  // can't be measured cross-origin, so this is best-effort.
+  startVideoTimeTracking(() => document.querySelector('video'), 'njk');
 
   let _njkAutoHoverPending = false;
   let _observer = new MutationObserver(() => {

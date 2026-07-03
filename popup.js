@@ -127,6 +127,346 @@ function setExtraStatus(extraVocab, extraKanji) {
   }
 }
 
+// ── Focus timer (stopwatch) ─────────────────────────────────────────────────
+
+let _swTickTimer = null;
+
+function swFmtTime(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+const SW_DEFAULT = {
+  durationSec: 1200, remainingSec: 1200, running: false, paused: false, endsAt: null,
+  autoAddImmersion: true, notifySound: true, notifyEffect: false,
+};
+
+async function swGetState() {
+  const { mc_stopwatch } = await chrome.storage.local.get('mc_stopwatch');
+  return { ...SW_DEFAULT, ...(mc_stopwatch || {}) };
+}
+
+function swRenderState(rawState) {
+  const state = { ...SW_DEFAULT, ...(rawState || {}) };
+  const badge = document.getElementById('sw-status-badge');
+  const timeEl = document.getElementById('sw-time');
+  const fill = document.getElementById('sw-bar-fill');
+  const startBtn = document.getElementById('sw-start-btn');
+  const durInput = document.getElementById('sw-duration-input');
+  if (!badge) return;
+
+  let remaining;
+  if (state.running && state.endsAt) remaining = Math.max(0, (state.endsAt - Date.now()) / 1000);
+  else if (state.paused) remaining = state.remainingSec;
+  else remaining = state.durationSec;
+
+  timeEl.textContent = swFmtTime(remaining);
+  const pct = state.durationSec > 0 ? Math.max(0, Math.min(100, 100 - (remaining / state.durationSec) * 100)) : 0;
+  fill.style.width = `${pct}%`;
+
+  const card = document.querySelector('.sw-card');
+  badge.classList.remove('running', 'paused');
+  card?.classList.remove('running', 'paused');
+  if (state.running) { badge.textContent = 'Running'; badge.classList.add('running'); card?.classList.add('running'); }
+  else if (state.paused) { badge.textContent = 'Paused'; badge.classList.add('paused'); card?.classList.add('paused'); }
+  else { badge.textContent = 'Ready'; }
+
+  startBtn.innerHTML = state.running ? '&#10074;&#10074; Pause' : (state.paused ? '&#9654; Resume' : '&#9654; Start');
+  durInput.disabled = state.running || state.paused;
+  // Don't clobber an in-progress edit — only sync the field from stored state
+  // when the user isn't actively typing in it.
+  if (!state.running && !state.paused && document.activeElement !== durInput) {
+    durInput.value = Math.max(1, Math.round(state.durationSec / 60));
+  }
+
+  document.getElementById('sw-autoadd-toggle').checked = state.autoAddImmersion !== false;
+  document.getElementById('sw-sound-toggle').checked = state.notifySound !== false;
+  document.getElementById('sw-effect-toggle').checked = !!state.notifyEffect;
+}
+
+async function swTick() { swRenderState(await swGetState()); }
+
+async function initStopwatch() {
+  swRenderState(await swGetState());
+  if (!_swTickTimer) _swTickTimer = setInterval(swTick, 1000);
+
+  document.getElementById('sw-start-btn').addEventListener('click', async () => {
+    const cur = await swGetState();
+    if (cur.running) {
+      const remainingSec = Math.max(0, (cur.endsAt - Date.now()) / 1000);
+      await chrome.storage.local.set({ mc_stopwatch: { ...cur, running: false, paused: true, remainingSec, endsAt: null } });
+    } else {
+      const durationSec = cur.paused ? cur.durationSec : Math.max(60, Math.round((parseFloat(document.getElementById('sw-duration-input').value) || 20) * 60));
+      const remainingSec = cur.paused ? cur.remainingSec : durationSec;
+      await chrome.storage.local.set({ mc_stopwatch: {
+        ...cur, durationSec, running: true, paused: false, endsAt: Date.now() + remainingSec * 1000,
+        autoAddImmersion: document.getElementById('sw-autoadd-toggle').checked,
+        notifySound: document.getElementById('sw-sound-toggle').checked,
+        notifyEffect: document.getElementById('sw-effect-toggle').checked,
+      } });
+    }
+    swTick();
+  });
+
+  document.getElementById('sw-reset-btn').addEventListener('click', async () => {
+    const cur = await swGetState();
+    const durationSec = Math.max(60, Math.round((parseFloat(document.getElementById('sw-duration-input').value) || 20) * 60));
+    await chrome.storage.local.set({ mc_stopwatch: { ...cur, durationSec, running: false, paused: false, remainingSec: durationSec, endsAt: null } });
+    swTick();
+  });
+
+  for (const id of ['sw-autoadd-toggle', 'sw-sound-toggle', 'sw-effect-toggle']) {
+    document.getElementById(id).addEventListener('change', async () => {
+      const cur = await swGetState();
+      await chrome.storage.local.set({ mc_stopwatch: {
+        ...cur,
+        autoAddImmersion: document.getElementById('sw-autoadd-toggle').checked,
+        notifySound: document.getElementById('sw-sound-toggle').checked,
+        notifyEffect: document.getElementById('sw-effect-toggle').checked,
+      } });
+    });
+  }
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.mc_stopwatch) swRenderState(changes.mc_stopwatch.newValue);
+  });
+}
+
+// ── Timer tab ────────────────────────────────────────────────────────────────
+// Full immersion stats (ring, chart, streak grid, log, reset-hour setting)
+// live on the dedicated timer_stats.html page — this tab just shows an
+// at-a-glance summary plus quick-add, so the popup doesn't turn into a
+// long scrolling list.
+
+const TIMER_DEFAULT_RESET_HOUR = 4;
+
+function timerLogicalDay(ts, resetHour) {
+  const d = new Date(ts - resetHour * 3600000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function timerParseKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function timerKeyOffset(baseKey, offsetDays) {
+  const dt = timerParseKey(baseKey);
+  dt.setDate(dt.getDate() + offsetDays);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+function timerFormatDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${sec}s`;
+}
+
+async function timerGetResetHour() {
+  const { mc_timer_settings = {} } = await chrome.storage.local.get('mc_timer_settings');
+  return mc_timer_settings.resetHour ?? TIMER_DEFAULT_RESET_HOUR;
+}
+
+function timerComputeStreaks(daysMap, todayKey) {
+  const keys = Object.keys(daysMap).filter(k => daysMap[k] > 0).sort();
+  if (!keys.length) return { current: 0, longest: 0 };
+  const set = new Set(keys);
+
+  let longest = 0, run = 0, prev = null;
+  for (const k of keys) {
+    run = (prev && timerKeyOffset(prev, 1) === k) ? run + 1 : 1;
+    longest = Math.max(longest, run);
+    prev = k;
+  }
+
+  let cursor = set.has(todayKey) ? todayKey : timerKeyOffset(todayKey, -1);
+  let current = 0;
+  while (set.has(cursor)) { current++; cursor = timerKeyOffset(cursor, -1); }
+  return { current, longest };
+}
+
+async function renderTimerSummary() {
+  const [resetHour, { mc_timer_days = {} }] = await Promise.all([
+    timerGetResetHour(),
+    chrome.storage.local.get('mc_timer_days'),
+  ]);
+  const todayKey = timerLogicalDay(Date.now(), resetHour);
+  const todaySec = mc_timer_days[todayKey] || 0;
+
+  const valEl = document.getElementById('timer-today-val');
+  if (valEl) valEl.textContent = timerFormatDuration(todaySec);
+
+  const { current } = timerComputeStreaks(mc_timer_days, todayKey);
+  const csEl = document.getElementById('timer-cur-streak');
+  if (csEl) csEl.textContent = `${current}d`;
+}
+
+async function timerAddEntry(source, minutes) {
+  const [resetHour, { mc_timer_days = {}, mc_timer_log = [], mc_timer_site_totals = {}, mc_timer_source_days = {} }] = await Promise.all([
+    timerGetResetHour(),
+    chrome.storage.local.get(['mc_timer_days', 'mc_timer_log', 'mc_timer_site_totals', 'mc_timer_source_days']),
+  ]);
+  const now = Date.now();
+  const day = timerLogicalDay(now, resetHour);
+  const sec = Math.round(minutes * 60);
+  mc_timer_days[day] = (mc_timer_days[day] || 0) + sec;
+  mc_timer_site_totals.manual = (mc_timer_site_totals.manual || 0) + sec;
+  mc_timer_source_days.manual = mc_timer_source_days.manual || {};
+  mc_timer_source_days.manual[day] = (mc_timer_source_days.manual[day] || 0) + sec;
+  const entry = { id: `${now}_${Math.random().toString(36).slice(2, 7)}`, ts: now, day, source, minutes };
+  const log = [entry, ...mc_timer_log].slice(0, 60);
+  await chrome.storage.local.set({ mc_timer_days, mc_timer_log: log, mc_timer_site_totals, mc_timer_source_days });
+}
+
+function timerFmtHour(h) {
+  const period = h < 12 ? 'AM' : 'PM';
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:00 ${period}`;
+}
+
+// Lives on the Settings tab — controls when the Timer tab's daily immersion
+// totals/streaks roll over to the next day.
+async function initTimerResetHourSelect() {
+  const sel = document.getElementById('timer-reset-hour');
+  if (!sel) return;
+  const resetHour = await timerGetResetHour();
+  sel.innerHTML = '';
+  for (let h = 0; h < 24; h++) {
+    const opt = document.createElement('option');
+    opt.value = h; opt.textContent = timerFmtHour(h);
+    if (h === resetHour) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', async e => {
+    await chrome.storage.local.set({ mc_timer_settings: { resetHour: parseInt(e.target.value, 10) } });
+  });
+}
+
+// Lives on the Settings tab — master switch for the automatic per-video
+// immersion tracking (manual "Add time" and the focus timer are unaffected).
+async function initTimerTrackingToggle() {
+  const toggle = document.getElementById('timer-tracking-toggle');
+  if (!toggle) return;
+  const { mc_timer_tracking_enabled } = await chrome.storage.local.get('mc_timer_tracking_enabled');
+  toggle.checked = mc_timer_tracking_enabled !== false;
+  toggle.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_timer_tracking_enabled: toggle.checked });
+  });
+  // Stay in sync when toggled elsewhere (Timer tab switch, on-video dot)
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.mc_timer_tracking_enabled) {
+      toggle.checked = changes.mc_timer_tracking_enabled.newValue !== false;
+    }
+  });
+}
+
+// Settings tab — corner for the on-video control bars (YT/CIJ/NJK/local player)
+async function initBarPositionSelect() {
+  const sel = document.getElementById('bar-position-select');
+  if (!sel) return;
+  const { mc_bar_position } = await chrome.storage.local.get('mc_bar_position');
+  sel.value = ['tl', 'tr', 'bl', 'br'].includes(mc_bar_position) ? mc_bar_position : 'tl';
+  sel.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_bar_position: sel.value });
+  });
+}
+
+const TIMER_HEARTBEAT_STALE_MS = 5000;
+async function timerRefreshTrackDot() {
+  const dot = document.getElementById('timer-track-dot');
+  if (!dot) return;
+  const { mc_timer_last_active = 0 } = await chrome.storage.local.get('mc_timer_last_active');
+  dot.classList.toggle('on', Date.now() - mc_timer_last_active < TIMER_HEARTBEAT_STALE_MS);
+}
+
+const DETECTED_SOURCE_LABELS = {
+  'cijapanese.com':                    'CIJ',
+  'www.cijapanese.com':                'CIJ',
+  'nihongo-jikan.com':                 'Nihongo-Jikan',
+  'www.nihongo-jikan.com':             'Nihongo-Jikan',
+  'www.youtube.com':                   'YouTube',
+  'mdnas.local':                       'Local NAS (CIJ)',
+  'cij.punchyface.synology.me':        'Local NAS (CIJ)',
+};
+
+async function initTimerTab() {
+  await renderTimerSummary();
+  timerRefreshTrackDot();
+  setInterval(timerRefreshTrackDot, 2000);
+
+  // Auto-detect toggle — mirrors mc_timer_tracking_enabled from Settings
+  const autoToggle = document.getElementById('timer-autotrack-toggle');
+  const detectBtn = document.getElementById('timer-detect-btn');
+  const detectStatus = document.getElementById('timer-detect-status');
+
+  function _applyAutoTrackState(enabled) {
+    autoToggle.checked = enabled;
+    detectBtn.style.display = enabled ? 'none' : '';
+    if (enabled) detectStatus.textContent = '';
+  }
+
+  const { mc_timer_tracking_enabled } = await chrome.storage.local.get('mc_timer_tracking_enabled');
+  _applyAutoTrackState(mc_timer_tracking_enabled !== false);
+
+  autoToggle.addEventListener('change', () => {
+    chrome.storage.local.set({ mc_timer_tracking_enabled: autoToggle.checked });
+    _applyAutoTrackState(autoToggle.checked);
+  });
+
+  // "Detect current tab" — identifies source from the active tab's URL,
+  // pre-fills the source field so the user just needs to enter minutes.
+  detectBtn.addEventListener('click', async () => {
+    detectStatus.textContent = '';
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) { detectStatus.textContent = 'No active tab found.'; return; }
+      let hostname = '';
+      try { hostname = new URL(tab.url).hostname; } catch {}
+      const label = DETECTED_SOURCE_LABELS[hostname];
+      if (!label) {
+        detectStatus.textContent = 'This page is not a recognised immersion source.';
+        detectStatus.style.color = 'var(--dim)';
+        return;
+      }
+      const srcInput = document.getElementById('timer-source-input');
+      const minInput = document.getElementById('timer-minutes-input');
+      srcInput.value = label;
+      minInput.value = '';
+      minInput.focus();
+      detectStatus.textContent = `Detected: ${label} — enter minutes and click Add time.`;
+      detectStatus.style.color = '#72CE9D';
+    } catch (e) {
+      detectStatus.textContent = `Error: ${e.message}`;
+      detectStatus.style.color = '#f44336';
+    }
+  });
+
+  const srcInput = document.getElementById('timer-source-input');
+  const minInput = document.getElementById('timer-minutes-input');
+  document.getElementById('timer-add-btn').addEventListener('click', async () => {
+    const minutes = parseFloat(minInput.value);
+    if (!minutes || minutes <= 0) return;
+    const source = srcInput.value.trim() || 'Manual';
+    await timerAddEntry(source, minutes);
+    srcInput.value = ''; minInput.value = '';
+    detectStatus.textContent = '';
+  });
+
+  document.getElementById('timer-stats-btn').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('timer_stats.html') });
+    window.close();
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.mc_timer_days || changes.mc_timer_settings) renderTimerSummary();
+    if (changes.mc_timer_last_active) timerRefreshTrackDot();
+    if (changes.mc_timer_tracking_enabled) {
+      _applyAutoTrackState(changes.mc_timer_tracking_enabled.newValue !== false);
+    }
+  });
+}
+
 async function init() {
   const { mm_token, mm_vocab, mm_kanji, mm_extra_vocab, mm_extra_kanji } =
     await chrome.storage.local.get(['mm_token', 'mm_vocab', 'mm_kanji', 'mm_extra_vocab', 'mm_extra_kanji']);
@@ -217,8 +557,6 @@ async function init() {
   async function _doPreload() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) return;
-    const btn = document.getElementById('preload-btn');
-    if (btn) btn.disabled = true;
     setTokStatus('loading…', '#888');
     try {
       await preloadInTab(tab.id);
@@ -234,10 +572,8 @@ async function init() {
     } catch (e) {
       setTokStatus(`error: ${e.message}`, '#f44336');
     }
-    if (btn) btn.disabled = false;
   }
 
-  document.getElementById('preload-btn').addEventListener('click', _doPreload);
   document.getElementById('tok-status').addEventListener('click', () => {
     const el = document.getElementById('tok-status');
     if (el.textContent.includes('✓')) return;
@@ -414,6 +750,62 @@ async function init() {
     setExtraStatus([], []);
   });
 
+  // ── Backup & restore (everything in chrome.storage.local) ─────────────────
+  const backupStatusEl = document.getElementById('backup-status');
+  function setBackupStatus(text, color) {
+    if (!backupStatusEl) return;
+    backupStatusEl.textContent = text;
+    backupStatusEl.style.color = color || 'var(--dim)';
+  }
+
+  document.getElementById('export-all-btn').addEventListener('click', async () => {
+    try {
+      const data = await chrome.storage.local.get(null);
+      const payload = {
+        app: 'MaruComprehension',
+        exportVersion: 1,
+        extensionVersion: chrome.runtime.getManifest().version,
+        exportedAt: new Date().toISOString(),
+        data,
+      };
+      const date = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+      a.download = `marucomprehension-backup-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setBackupStatus('✓ Exported', '#72CE9D');
+    } catch (e) {
+      setBackupStatus(`Export failed: ${e.message}`, '#f44336');
+    }
+  });
+
+  document.getElementById('import-all-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      // Accept our own wrapped format, or a raw storage dump as a fallback.
+      const data = (parsed && typeof parsed.data === 'object' && parsed.data) ? parsed.data : parsed;
+      const keys = Object.keys(data || {});
+      if (!keys.length) throw new Error('No data found in file');
+
+      if (!confirm(`Import ${keys.length} setting${keys.length !== 1 ? 's' : ''}/data key(s) from this backup? This replaces ALL current MaruComprehension data on this device (API key, vocab, known words, history, immersion tracking, settings) and can't be undone.`)) {
+        e.target.value = '';
+        return;
+      }
+
+      setBackupStatus('Importing…', '#888');
+      await chrome.storage.local.clear();
+      await chrome.storage.local.set(data);
+      setBackupStatus('✓ Imported — reloading…', '#72CE9D');
+      setTimeout(() => window.location.reload(), 700);
+    } catch (err) {
+      setBackupStatus(`Import failed: ${err.message}`, '#f44336');
+    }
+    e.target.value = '';
+  });
+
   document.getElementById('local-player-btn').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('player.html') });
     window.close();
@@ -521,6 +913,9 @@ async function init() {
   const vEl = document.getElementById('version-label');
   if (vEl) vEl.textContent = `v${v}`;
 
+  initTimerTab();
+  initStopwatch();
+  initBarPositionSelect();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

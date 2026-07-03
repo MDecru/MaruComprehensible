@@ -1,16 +1,16 @@
 // Shared scoring logic — loaded before each site-specific content script
 
-const KUROMOJI_DICT_URL = chrome.runtime.getURL('dict');
-const DICT_FILES = [
+var KUROMOJI_DICT_URL = chrome.runtime.getURL('dict');
+var DICT_FILES = [
   'base.dat.gz', 'check.dat.gz', 'cc.dat.gz',
   'tid.dat.gz', 'tid_map.dat.gz', 'tid_pos.dat.gz',
   'unk.dat.gz', 'unk_char.dat.gz', 'unk_compat.dat.gz', 'unk_invoke.dat.gz', 'unk_map.dat.gz', 'unk_pos.dat.gz',
 ];
-const MM_CONTENT_POS = new Set(['名詞','動詞','形容詞','形容動詞','副詞','連体詞','感動詞']);
-const NUMERAL_RE = /^[0-9０-９]+$/;
+var MM_CONTENT_POS = new Set(['名詞','動詞','形容詞','形容動詞','副詞','連体詞','感動詞']);
+var NUMERAL_RE = /^[0-9０-９]+$/;
 
-let _tokenizer = null;
-let _tokenizerPromise = null;
+var _tokenizer = null;
+var _tokenizerPromise = null;
 
 function getTokenizer() {
   if (_tokenizer) return Promise.resolve(_tokenizer);
@@ -265,8 +265,8 @@ async function saveVideoHistory(key, { title, url, site, score }) {
   } catch {}
 }
 
-let _pendingWords = {};
-let _wordFlushTimer = null;
+var _pendingWords = {};
+var _wordFlushTimer = null;
 async function trackUnknownWords(words) {
   try {
     if (!chrome.runtime?.id || !words?.length) return;
@@ -303,12 +303,165 @@ async function scoreVTT(vttText) {
 }
 
 function compColor(pct) {
+  if (pct == null || !isFinite(pct)) return 'rgb(114,206,157)';
   const stops = [[237,121,137],[253,194,129],[114,206,157]];
   const t = Math.max(0, Math.min(100, pct)) / 100;
   const seg = t < 0.5 ? 0 : 1;
   const lt = t < 0.5 ? t * 2 : (t - 0.5) * 2;
   const [r1,g1,b1] = stops[seg], [r2,g2,b2] = stops[seg+1];
   return `rgb(${Math.round(r1+(r2-r1)*lt)},${Math.round(g1+(g2-g1)*lt)},${Math.round(b1+(b2-b1)*lt)})`;
+}
+
+// ── Immersion timer (auto video-time tracking) ────────────────────────────
+
+var TIMER_DEFAULT_RESET_HOUR = 4;
+
+function timerLogicalDay(ts, resetHour) {
+  const d = new Date(ts - resetHour * 3600000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+var _timerResetHour = TIMER_DEFAULT_RESET_HOUR;
+var _timerTrackingEnabled = true;
+_chromeGet(['mc_timer_settings', 'mc_timer_tracking_enabled']).then(d => {
+  if (d.mc_timer_settings?.resetHour != null) _timerResetHour = d.mc_timer_settings.resetHour;
+  if (d.mc_timer_tracking_enabled === false) _timerTrackingEnabled = false;
+});
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.mc_timer_settings) {
+      _timerResetHour = changes.mc_timer_settings.newValue?.resetHour ?? TIMER_DEFAULT_RESET_HOUR;
+    }
+    if (changes.mc_timer_tracking_enabled) {
+      _timerTrackingEnabled = changes.mc_timer_tracking_enabled.newValue !== false;
+    }
+  });
+} catch {}
+
+var _timerPendingSec = 0;
+var _timerFlushTimer = null;
+var _timerSite = null; // set once by startVideoTimeTracking — one video source per page
+function _timerFlush() {
+  _timerFlushTimer = null;
+  const add = _timerPendingSec;
+  _timerPendingSec = 0;
+  if (add <= 0 || !chrome.runtime?.id) return;
+  try {
+    chrome.storage.local.get(['mc_timer_days', 'mc_timer_site_totals', 'mc_timer_source_days'], ({ mc_timer_days = {}, mc_timer_site_totals = {}, mc_timer_source_days = {} }) => {
+      if (chrome.runtime.lastError) return;
+      const day = timerLogicalDay(Date.now(), _timerResetHour);
+      mc_timer_days[day] = (mc_timer_days[day] || 0) + add;
+      if (_timerSite) {
+        mc_timer_site_totals[_timerSite] = (mc_timer_site_totals[_timerSite] || 0) + add;
+        mc_timer_source_days[_timerSite] = mc_timer_source_days[_timerSite] || {};
+        mc_timer_source_days[_timerSite][day] = (mc_timer_source_days[_timerSite][day] || 0) + add;
+      }
+      chrome.storage.local.set({ mc_timer_days, mc_timer_site_totals, mc_timer_source_days });
+    });
+  } catch {}
+}
+function _timerAddSeconds(sec) {
+  _timerPendingSec += sec;
+  if (!_timerFlushTimer) _timerFlushTimer = setTimeout(_timerFlush, 3000);
+}
+window.addEventListener('pagehide', () => {
+  if (_timerFlushTimer) { clearTimeout(_timerFlushTimer); _timerFlush(); }
+});
+
+// Lets any extension page (popup, stats page) show a "currently tracking"
+// indicator without guessing which tab to check — they just read this
+// timestamp from storage and treat it as live if it's recent. Throttled to
+// one write per ~2s since it doesn't need per-second precision.
+var _timerHeartbeatTimer = null;
+function _timerHeartbeat() {
+  if (_timerHeartbeatTimer || !chrome.runtime?.id) return;
+  _timerHeartbeatTimer = setTimeout(() => { _timerHeartbeatTimer = null; }, 2000);
+  try { chrome.storage.local.set({ mc_timer_last_active: Date.now() }); } catch {}
+}
+
+// Tracks real elapsed time while getVideoEl() returns a playing, visible video.
+// Ignores background tabs and large gaps (throttled/suspended timers) so only
+// genuine watch time accumulates into the daily immersion total. `site` is a
+// short id (e.g. 'yt', 'cij', 'njk', 'player') used for the per-source breakdown.
+var _timerIsRecording = false; // page-local: true while this tab is actively accumulating
+
+function startVideoTimeTracking(getVideoEl, site) {
+  _timerSite = site || null;
+  let lastTick = null;
+  setInterval(() => {
+    if (!_timerTrackingEnabled) { lastTick = null; _timerIsRecording = false; return; }
+    let video;
+    try { video = getVideoEl(); } catch { video = null; }
+    const backgrounded = document.hidden && document.pictureInPictureElement !== video;
+    if (!video || video.paused || video.ended || backgrounded) { lastTick = null; _timerIsRecording = false; return; }
+    _timerIsRecording = true;
+    _timerHeartbeat();
+    const now = Date.now();
+    if (lastTick != null) {
+      const delta = (now - lastTick) / 1000;
+      if (delta > 0 && delta < 5) _timerAddSeconds(delta);
+    }
+    lastTick = now;
+  }, 1000);
+}
+
+// ── Shared control-bar widgets ─────────────────────────────────────────────
+
+// Immersion status dot for on-video control bars. Green glow = this tab is
+// recording immersion time right now; grey = auto-detect on but idle;
+// red = auto-detect disabled. Click toggles the global auto-detect setting.
+function mcCreateTimerDotButton({ borderSide = 'right' } = {}) {
+  const btn = document.createElement('button');
+  btn.className = 'mc-timer-dot-btn';
+  btn.style.cssText = [
+    'padding:0 9px', 'background:none', 'border:none',
+    `border-${borderSide}:1px solid rgba(255,255,255,.12)`,
+    'cursor:pointer', 'display:flex', 'align-items:center',
+  ].join(';');
+  const dot = document.createElement('span');
+  dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#666;transition:background .2s,box-shadow .2s';
+  btn.appendChild(dot);
+
+  const update = () => {
+    if (!chrome.runtime?.id) return;
+    if (!_timerTrackingEnabled) {
+      dot.style.background = '#ED7989'; dot.style.boxShadow = 'none';
+      btn.title = 'Immersion tracking disabled — click to enable';
+    } else if (_timerIsRecording) {
+      dot.style.background = '#72CE9D'; dot.style.boxShadow = '0 0 5px #72CE9D';
+      btn.title = 'Recording immersion time — click to disable tracking';
+    } else {
+      dot.style.background = '#666'; dot.style.boxShadow = 'none';
+      btn.title = 'Immersion auto-detect on (idle) — click to disable';
+    }
+  };
+  update();
+  setInterval(update, 1000);
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    try { chrome.storage.local.set({ mc_timer_tracking_enabled: !_timerTrackingEnabled }); } catch {}
+  });
+  return btn;
+}
+
+// Applies the user's preferred corner (mc_bar_position: tl/tr/bl/br) to an
+// absolutely-positioned control bar, and live-updates when the setting changes.
+function mcApplyBarPosition(bar) {
+  const apply = pos => {
+    const p = (pos === 'tr' || pos === 'bl' || pos === 'br') ? pos : 'tl';
+    // 'auto' (not '') so stylesheet top/left rules can't fight the inline values
+    bar.style.top = bar.style.bottom = bar.style.left = bar.style.right = 'auto';
+    if (p[0] === 't') bar.style.top = '12px'; else bar.style.bottom = '80px';
+    if (p[1] === 'l') bar.style.left = '12px'; else bar.style.right = '12px';
+  };
+  _chromeGet(['mc_bar_position']).then(d => apply(d.mc_bar_position));
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.mc_bar_position) apply(changes.mc_bar_position.newValue);
+    });
+  } catch {}
 }
 
 function showBadge(container, score, { top='10px', left='10px' } = {}) {

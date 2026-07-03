@@ -34,7 +34,7 @@
   * { box-sizing:border-box; margin:0; padding:0; }
 
   body {
-    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     width: 320px;
     background: var(--bg);
     color: var(--body);
@@ -116,7 +116,22 @@
     background:var(--surface); border-radius:14px; padding:14px 8px 12px;
     margin-bottom:12px; border:1px solid var(--border);
     cursor:pointer; transition:filter .15s, border-color .15s;
-    position:relative;
+    position:relative; overflow:hidden;
+  }
+  .score-block::before, .timer-stats-card::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    transform:translateX(-100%);
+    transition:transform 0s;
+  }
+  .score-block::before {
+    background:linear-gradient(90deg, transparent 0%, rgba(114,206,157,.04) 50%, transparent 100%);
+  }
+  .timer-stats-card::before {
+    background:linear-gradient(90deg, transparent 0%, rgba(102,170,232,.05) 50%, transparent 100%);
+  }
+  .score-block:hover::before, .timer-stats-card:hover::before {
+    transform:translateX(200%);
+    transition:transform .9s ease;
   }
   .score-block:hover { filter:brightness(1.06); border-color:#72CE9D; }
   body.light-theme .score-block { background:#ffffff; }
@@ -145,9 +160,9 @@
 
   /* ── Stat cards ── */
   .stats { display:flex; gap:8px; margin-bottom:12px; }
-  .stat-card { flex:1; border-radius:10px; padding:9px 12px; border:1px solid var(--border); }
-  .stat-card.vocab { background:rgba(102,170,232,.1); }
-  .stat-card.kanji { background:rgba(114,206,157,.1); }
+  .stat-card { flex:1; border-radius:10px; padding:9px 12px; border:1px solid var(--border); text-align:center; background:var(--surface); }
+  .stat-card.vocab { border-color:#66AAE8; }
+  .stat-card.kanji { border-color:#72CE9D; }
   .stat-card .lbl  { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
   .stat-card.vocab .lbl { color:#66AAE8; }
   .stat-card.kanji .lbl { color:#72CE9D; }
@@ -180,12 +195,74 @@
   .hist-title { font-size:12px; color:var(--muted); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .15s; }
   .hist-score { font-size:12px; font-weight:800; flex-shrink:0; }
   #hist-empty { font-size:11px; color:var(--dim); padding:4px 0; }
+
+  /* ── Timer tab ── */
+  .timer-track-dot {
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--dim); margin-right:4px; transition:background .2s, box-shadow .2s;
+  }
+  .timer-track-dot.on { background:#72CE9D; box-shadow:0 0 4px #72CE9D; }
+  .timer-stats-card {
+    display:flex; gap:16px; margin-bottom:12px; padding:8px 12px;
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    cursor:pointer; transition:border-color .15s;
+    position:relative; overflow:hidden;
+  }
+  .timer-stats-card:hover { border-color:#66AAE8; }
+  /* ── MaruMori section watermark ── */
+  .mm-section { position:relative; }
+  .mm-section::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:url('icons/marumori_logo.png') no-repeat right 4px top 4px / 128px auto;
+    opacity:.14;
+  }
+  body.light-theme .mm-section::before { opacity:.10; }
+  .mm-section > * { position:relative; }
+
+  #timer-reset-hour, #bar-position-select {
+    width:auto; padding:7px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); font-size:12px; outline:none;
+    font-family:inherit; cursor:pointer;
+  }
+  input[type="number"] {
+    width:100%; padding:9px 10px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); font-size:13px; outline:none;
+    transition:border-color .15s;
+    -moz-appearance:textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance:none; margin:0;
+  }
+  input[type="number"]:focus { border-color:#72CE9D; }
+  input[type="number"]::placeholder { color:var(--ph); }
+
+  /* ── Focus timer (stopwatch) ── */
+  .sw-card { background:var(--surface); border:2px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; transition:border-color .5s; }
+  .sw-card.running { border-color:#72CE9D; }
+  .sw-card.paused  { border-color:#FDC281; }
+  .sw-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sw-status-badge { font-size:9px; font-weight:700; padding:2px 8px; border-radius:8px; text-transform:uppercase; letter-spacing:.4px; color:var(--dim); background:var(--deep); }
+  .sw-status-badge.running { color:#72CE9D; background:rgba(114,206,157,.15); }
+  .sw-status-badge.paused  { color:#FDC281; background:rgba(253,194,129,.15); }
+  .sw-display { text-align:center; margin-bottom:10px; }
+  #sw-time { font-size:34px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+  .sw-bar-track { height:6px; border-radius:3px; background:var(--ring-bg); overflow:hidden; margin-bottom:12px; }
+  .sw-bar-fill { height:100%; width:0%; background:#72CE9D; border-radius:3px; transition:width .3s linear, background .3s; }
+  .sw-controls { display:flex; gap:8px; margin-bottom:10px; align-items:stretch; }
+  .sw-controls input[type="number"] { flex:0 0 56px; margin-bottom:0; text-align:center; padding-left:6px; padding-right:6px; }
+  .sw-controls .btn { flex:1; margin-bottom:0; }
+  .sw-controls #sw-reset-btn { flex:0 0 auto; width:auto; padding:9px 12px; }
+  .sw-opts { display:flex; flex-direction:column; gap:7px; }
+  .sw-opt { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); cursor:pointer; }
+  .sw-opt input { accent-color:#72CE9D; cursor:pointer; flex-shrink:0; }
 </style>
 </head>
 <body>
 
 <div class="tabs">
   <button class="tab-btn active" data-tab="main">Main</button>
+  <button class="tab-btn" data-tab="timer">Timer</button>
   <button class="tab-btn" data-tab="history">History</button>
   <button class="tab-btn" data-tab="vocab">Settings</button>
   <button class="tab-btn" data-tab="advanced">Extra</button>
@@ -269,6 +346,66 @@
   <div id="tok-status">Tokenizer: not loaded</div>
 </div>
 
+<!-- ── Timer ── -->
+<div class="tab-panel" id="tab-timer">
+
+  <div class="sw-card">
+    <div class="sw-header">
+      <span class="sec-label" style="margin:0">Focus timer</span>
+      <span id="sw-status-badge" class="sw-status-badge">Ready</span>
+    </div>
+    <div class="sw-display"><span id="sw-time">20:00</span></div>
+    <div class="sw-bar-track"><div class="sw-bar-fill" id="sw-bar-fill"></div></div>
+    <div class="sw-controls">
+      <input type="number" id="sw-duration-input" min="1" step="1" value="20" title="Minutes">
+      <button class="btn btn-green" id="sw-start-btn">&#9654; Start</button>
+      <button class="btn btn-slate" id="sw-reset-btn" title="Reset">&#8635;</button>
+    </div>
+    <div class="sw-opts">
+      <label class="sw-opt"><input type="checkbox" id="sw-autoadd-toggle" checked><span>Add as immersion time when done</span></label>
+      <label class="sw-opt"><input type="checkbox" id="sw-sound-toggle" checked><span>Play sound</span></label>
+      <label class="sw-opt"><input type="checkbox" id="sw-effect-toggle"><span>Show on-screen effect</span></label>
+    </div>
+  </div>
+
+  <hr>
+
+  <div class="theme-row" style="margin-bottom:8px">
+    <span style="display:flex;align-items:center;gap:6px">
+      <span id="timer-track-dot" class="timer-track-dot"></span>Auto-detect immersion
+    </span>
+    <label class="theme-switch">
+      <input type="checkbox" id="timer-autotrack-toggle" checked>
+      <span class="theme-track"></span>
+    </label>
+  </div>
+  <button class="btn btn-purple" id="timer-detect-btn" style="display:none;margin-bottom:12px">Detect current tab as immersion</button>
+  <div id="timer-detect-status" style="font-size:11px;color:var(--dim);margin-top:-8px;margin-bottom:12px"></div>
+
+  <div id="timer-stats-btn" class="timer-stats-card">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#66AAE8;margin-bottom:2px">Today</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text)" id="timer-today-val">0m</div>
+    </div>
+    <div style="width:1px;background:var(--border);flex-shrink:0"></div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#72CE9D;margin-bottom:2px">Streak</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text)" id="timer-cur-streak">0d</div>
+    </div>
+    <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:1px;color:var(--dim)">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">All Data</div>
+      <div style="font-size:14px;line-height:1">›</div>
+    </div>
+  </div>
+
+  <p class="sec-label">Add immersion time</p>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <input type="text" id="timer-source-input" placeholder="e.g. Spirited Away" style="flex:1.6;margin-bottom:0">
+    <input type="number" id="timer-minutes-input" placeholder="min" min="1" step="1" style="flex:0.7;margin-bottom:0">
+  </div>
+  <button class="btn btn-blue" id="timer-add-btn">+ Add time</button>
+</div>
+
 <!-- ── History ── -->
 <div class="tab-panel" id="tab-history">
   <div class="theme-row" style="margin-bottom:8px">
@@ -318,26 +455,56 @@
     <span><span style="color:#7E69F0">●</span> 95%+</span>
   </div>
   <hr style="margin-top:0">
-  <h2>MaruMori vocab</h2>
-  <p style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.5">
-    Paste your <strong style="color:var(--muted)">MaruMori API key</strong> from
-    <span style="color:var(--muted)">marumori.io → Settings → API</span>
-  </p>
-  <input type="text" id="token" placeholder="MaruMori API key…" autocomplete="off" spellcheck="false">
-  <button class="btn btn-green" id="connect-btn">Connect &amp; fetch vocab</button>
-
-  <div id="connect-status"></div>
-  <div style="display:flex;gap:8px;align-items:flex-start">
-    <button class="btn btn-slate" id="refresh-btn" style="flex:1;margin-bottom:0">↻ Refresh</button>
-    <button class="btn btn-pink" id="disconnect-btn" style="flex:1;margin-bottom:0">✕ Disconnect</button>
+  <p class="sec-label">Video controls</p>
+  <div class="theme-row" style="margin-bottom:4px">
+    <span>Position on video</span>
+    <select id="bar-position-select">
+      <option value="tl">Top left</option>
+      <option value="tr">Top right</option>
+      <option value="bl">Bottom left</option>
+      <option value="br">Bottom right</option>
+    </select>
   </div>
-  <hr>
-  <button class="btn btn-slate" id="preload-btn">Pre-load tokenizer</button>
+  <p style="font-size:11px;color:var(--dim);margin:-2px 0 14px;line-height:1.4">
+    Where the score/subtitle control bar sits on videos.
+  </p>
+  <hr style="margin-top:0">
+  <div class="mm-section">
+    <h2>MaruMori vocab</h2>
+    <p style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.5">
+      Paste your <strong style="color:var(--muted)">MaruMori API key</strong> from
+      <a href="https://marumori.io/settings" target="_blank" style="color:var(--muted)">marumori.io/settings → Public API</a>
+    </p>
+    <input type="text" id="token" placeholder="MaruMori API key…" autocomplete="off" spellcheck="false">
+    <button class="btn btn-green" id="connect-btn">Connect &amp; fetch vocab</button>
+
+    <div id="connect-status"></div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <button class="btn btn-slate" id="refresh-btn" style="flex:1;margin-bottom:0">↻ Refresh</button>
+      <button class="btn btn-pink" id="disconnect-btn" style="flex:1;margin-bottom:0">✕ Disconnect</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Advanced ── -->
 <div class="tab-panel" id="tab-advanced">
   <h2>Advanced</h2>
+  <p class="sec-label">Backup &amp; restore</p>
+  <p style="font-size:10px;color:var(--dim);margin-bottom:10px;line-height:1.4">
+    Export all data (API key, vocab, history, settings) as one file to back up or move devices.
+  </p>
+  <div style="display:flex;gap:8px;margin-bottom:4px;align-items:flex-start">
+    <button class="btn btn-green" id="export-all-btn" style="flex:1;margin-bottom:0">&#8595; Export Data</button>
+    <label class="btn btn-amber" style="flex:1;margin-bottom:0">
+      &#8593; Import Data
+      <input type="file" id="import-all-file" accept=".json" style="display:none">
+    </label>
+  </div>
+  <p style="font-size:10px;color:var(--dim);margin-bottom:0;line-height:1.4">
+    The exported file contains your MaruMori API key in plain text — keep it as private as a password.
+  </p>
+  <div id="backup-status" style="font-size:11px;margin-top:6px"></div>
+  <hr>
   <p class="sec-label">Extra known vocab</p>
   <div style="display:flex;gap:8px;margin-bottom:4px;align-items:flex-start">
     <label class="btn btn-amber" style="flex:1;margin-bottom:0">

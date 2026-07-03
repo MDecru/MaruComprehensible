@@ -1,5 +1,13 @@
 // History page — watched videos + unknown word frequency
 
+function _applyTheme(light) {
+  document.body.classList.toggle('light-theme', !!light);
+}
+chrome.storage.local.get('light_theme', ({ light_theme }) => _applyTheme(light_theme));
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.light_theme) _applyTheme(changes.light_theme.newValue);
+});
+
 let _videos = {};
 let _words  = {};
 let _knownWords  = new Set();

@@ -14,9 +14,6 @@ function _jaTracksFrom(data) {
 
 // Seed from the initial page load value (hard navigation).
 _cachedJaTracks = _jaTracksFrom(window.ytInitialPlayerResponse);
-console.log('[MC-bridge] init: ytInitialPlayerResponse present:', !!window.ytInitialPlayerResponse,
-  '| captions present:', !!window.ytInitialPlayerResponse?.captions,
-  '| seed tracks:', _cachedJaTracks.length);
 
 // --- XHR interception ---
 // YouTube player uses XHR (not fetch) for captions, so our window.fetch override
@@ -38,7 +35,6 @@ XMLHttpRequest.prototype.send = function(...args) {
           if (/^ja/i.test(lang)) {
             const kind = u.searchParams.get('kind') || '';
             _cachedCaptions.push({ lang, kind, text: this.responseText });
-            console.log('[MC-bridge] XHR cached caption lang:', lang, 'kind:', kind, 'len:', this.responseText.length);
           }
         } catch {}
       }
@@ -56,7 +52,10 @@ window.fetch = async function(input, init) {
   if (url.includes('/youtubei/v1/player')) {
     resp.clone().json().then(data => {
       const tracks = _jaTracksFrom(data);
-      if (tracks.length) _cachedJaTracks = tracks;
+      if (tracks.length) {
+        _cachedJaTracks = tracks;
+        _cachedCaptions = []; // clear stale captions from previous video
+      }
     }).catch(() => {});
   }
   if (url.includes('api/timedtext')) {
@@ -68,7 +67,6 @@ window.fetch = async function(input, init) {
           if (/^ja/i.test(lang)) {
             const kind = u.searchParams.get('kind') || '';
             _cachedCaptions.push({ lang, kind, text });
-            console.log('[MC-bridge] fetch cached caption lang:', lang, 'len:', text.length);
           }
         } catch {}
       }
@@ -152,16 +150,6 @@ document.addEventListener('__mc_get_ytpr', () => {
                : (configTracks.length ? configTracks
                : (_cachedJaTracks || []));
 
-  // --- diagnostic (remove after debugging) ---
-  const pr = window.ytInitialPlayerResponse;
-  const allTracks = pr?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-  console.log('[MC-bridge] ytInitialPlayerResponse present:', !!pr);
-  console.log('[MC-bridge] all captionTracks from ytInitialPlayerResponse:', allTracks.map(t => t.languageCode + '|' + (t.kind||'manual') + '|' + (t.vssId||'')));
-  console.log('[MC-bridge] ytplayer.config present:', !!ytPlayerConfig, '| configTracks:', configTracks.length);
-  console.log('[MC-bridge] cached tracks:', JSON.stringify(_cachedJaTracks));
-  console.log('[MC-bridge] cached captions:', _cachedCaptions.length, 'entries');
-  console.log('[MC-bridge] returning:', JSON.stringify(result));
-  // -------------------------------------------
 
   document.dispatchEvent(new CustomEvent('__mc_ytpr_response', {
     detail: JSON.stringify(result),

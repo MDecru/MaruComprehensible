@@ -2,6 +2,16 @@
 
 let _lastVideoId = null;
 let _scoring = false;
+// videoIds where the first caption fetch found nothing — we retry each once
+// automatically before giving up, since YouTube's caption metadata isn't
+// always ready the moment the page/SPA-navigation settles.
+let _ytRetriedVideos = new Set();
+// True only once fetchJaVTT() returns a non-null VTT from a MANUAL (non-ASR)
+// Japanese track for the current video. Gates immersion tracking so watching
+// an English video that happens to have auto-generated Japanese subtitles
+// available doesn't count as JP immersion.
+let _ytIsJapaneseContent = false;
+let _ytFoundManualJaTrack = false;
 
 function currentVideoId() {
   return new URLSearchParams(location.search).get('v');
@@ -140,34 +150,35 @@ async function _fetchVTT(url) {
   try {
     const resp = await _bridgeFetch(url);
     const t = resp?.text || '';
-    console.log('[MC-yt] _fetchVTT status:', resp?.status, 'len:', t.length, 'prefix:', t.slice(0,80).replace(/\n/g,' '), '|', url.slice(0,70));
     if (!resp?.ok) return null;
     if (t.includes('-->')) return t;                             // already VTT
     if (t.includes('<timedtext') || t.startsWith('<?xml')) return _srv3ToVtt(t);  // SRV3 XML
     if (t.startsWith('{') && t.includes('"events"')) return _json3ToVtt(t);       // JSON3
     return null;
   } catch(e) {
-    console.log('[MC-yt] _fetchVTT exception:', e.message);
     return null;
   }
 }
 
 async function fetchJaVTT(videoId) {
-  console.log('[MC-yt] fetchJaVTT start, videoId:', videoId);
 
   // 1. Ask yt_bridge.js (main world) for the live caption track list.
   //    This works for both hard loads and SPA navigation.
   const jaTracks = await _getJaTracks();
-  console.log('[MC-yt] step1 bridge tracks:', JSON.stringify(jaTracks));
   // Prefer manual over ASR
   const sorted = [
     ...jaTracks.filter(t => t.kind !== 'asr'),
     ...jaTracks.filter(t => t.kind === 'asr'),
   ];
+  // A video is Japanese content if it has at least one manual (non-ASR)
+  // Japanese caption track — regardless of which track we successfully fetch.
+  if (jaTracks.some(t => t.kind !== 'asr')) _ytFoundManualJaTrack = true;
   for (const track of sorted) {
     const vtt = await _fetchVTT(`${track.baseUrl}&fmt=vtt`);
-    console.log('[MC-yt] step1 vtt from bridge track:', !!vtt, track.baseUrl?.slice(0, 60));
-    if (vtt) return vtt;
+    if (vtt) {
+      if (track.kind !== 'asr') _ytFoundManualJaTrack = true;
+      return vtt;
+    }
   }
 
   // 2. Parse ytInitialPlayerResponse out of inline <script> tags (hard navigation fallback).
@@ -175,7 +186,6 @@ async function fetchJaVTT(videoId) {
   for (const s of document.querySelectorAll('script')) {
     scriptUrls.push(..._captionUrlsFromScript(s.textContent));
   }
-  console.log('[MC-yt] step2 script-parsed urls:', scriptUrls.length, scriptUrls[0]?.slice(0, 80));
   for (const baseUrl of scriptUrls) {
     const vtt = await _fetchVTT(`${baseUrl}&fmt=vtt`);
     if (vtt) return vtt;
@@ -184,7 +194,6 @@ async function fetchJaVTT(videoId) {
   // 3. Timedtext API — try listing available tracks first (gets the exact name parameter).
   try {
     const listResult = await _bridgeFetch(`https://www.youtube.com/api/timedtext?v=${videoId}&type=list`);
-    console.log('[MC-yt] step3 timedtext list ok:', listResult?.ok, 'xml:', listResult?.text?.slice(0, 300));
     if (listResult?.ok && listResult.text) {
       const xml = listResult.text;
       for (const m of xml.matchAll(/<track\b([^>]*)>/g)) {
@@ -198,20 +207,17 @@ async function fetchJaVTT(videoId) {
         if (vtt) return vtt;
       }
     }
-  } catch(e) { console.log('[MC-yt] step3 timedtext list error:', e.message); }
+  } catch {}
 
   // 4. Last resort: direct timedtext guesses
-  console.log('[MC-yt] step4 trying direct timedtext guesses');
   for (const url of [
     `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt`,
     `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt&kind=asr`,
   ]) {
     const vtt = await _fetchVTT(url);
-    console.log('[MC-yt] step4 direct guess:', !!vtt, url);
     if (vtt) return vtt;
   }
 
-  console.log('[MC-yt] fetchJaVTT: all steps failed');
   return null;
 }
 
@@ -227,6 +233,16 @@ async function scoreVideo() {
 
   try {
     const vtt = await fetchJaVTT(videoId);
+    if (!vtt && !_ytRetriedVideos.has(videoId)) {
+      // Captions/track data can still be settling right after navigation —
+      // retry once before giving up, instead of silently staying unscored
+      // until the user happens to reopen the popup (which forces a rescore).
+      _ytRetriedVideos.add(videoId);
+      _lastVideoId = null;
+      setTimeout(() => { if (currentVideoId() === videoId) scoreVideo(); }, 4000);
+      return;
+    }
+    if (vtt && _ytFoundManualJaTrack) _ytIsJapaneseContent = true;
     const res = vtt ? await scoreVTT(vtt) : null;
     if (res?.score != null) {
       const title = document.querySelector('h1.ytd-video-primary-info-renderer, #above-the-fold #title h1, ytd-video-primary-info-renderer h1')?.textContent?.trim()
@@ -289,6 +305,7 @@ let _ytSubBtn      = null;   // 字幕 button inside bar
 let _ytSettingsBtn = null;   // ⚙ button inside bar (hidden when subs off)
 let _ytSettingsPnl = null;   // settings panel
 let _ytCues        = null;   // [{start, end, text}]
+let _ytCuesVideoId = null;   // which video _ytCues belongs to
 let _ytLastCueIdx  = -2;
 let _ytSubCleanup  = null;
 let _ytFontSize      = 20;
@@ -415,14 +432,16 @@ function _ytDestroyAll() {
   _ytControlBar?.remove();  _ytControlBar  = null;
   _ytSettingsPnl?.remove(); _ytSettingsPnl = null;
   _ytSubBtn = null; _ytSettingsBtn = null;
-  _ytCues = null; _ytLastCueIdx = -2;
+  _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
   _ytPausedByHover = false;
 }
 
 // Reset subtitle state for a new video (bar persists, score updates).
 function _ytResetForNewVideo() {
+  _ytIsJapaneseContent = false;
+  _ytFoundManualJaTrack = false;
   _ytSubCleanup?.(); _ytSubCleanup = null;
-  _ytCues = null; _ytLastCueIdx = -2;
+  _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
   if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
   _ytSetSubActive(false);
   if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
@@ -445,7 +464,7 @@ function _ytToggleSettings(player) {
     'position:absolute', 'top:44px', 'left:12px', 'z-index:9998',
     'background:rgba(22,24,28,.97)', 'border:1px solid #404550',
     'border-radius:10px', 'padding:14px 16px 0',
-    'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
+    'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
     'white-space:nowrap', 'width:300px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
     'display:flex', 'flex-direction:column',
@@ -455,8 +474,8 @@ function _ytToggleSettings(player) {
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _tabOn  = 'background:none;color:#66AAE8;border:none;border-bottom:2px solid #66AAE8;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
-  const _tabOff = 'background:none;color:#808898;border:none;border-bottom:2px solid transparent;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabOn  = 'background:none;color:#66AAE8;border:none;border-bottom:2px solid #66AAE8;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabOff = 'background:none;color:#808898;border:none;border-bottom:2px solid transparent;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
   const tabBar = document.createElement('div');
   tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid #404550;flex-shrink:0';
   const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
@@ -785,8 +804,11 @@ function _ytCreateControlBar(player, score) {
     'border-radius:7px', 'overflow:hidden',
     'background:rgba(0,0,0,.78)',
     'border:1px solid rgba(255,255,255,.14)',
-    'font-family:-apple-system,sans-serif',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
   ].join(';');
+
+  // Immersion recording status dot (click toggles auto-detect)
+  bar.appendChild(mcCreateTimerDotButton());
 
   // Score section
   const scoreEl = document.createElement('span');
@@ -814,7 +836,7 @@ function _ytCreateControlBar(player, score) {
   _ytSubBtn.addEventListener('click', async e => {
     e.stopPropagation();
     if (_loading) return;
-    if (!_ytCues) {
+    if (!_ytCues || _ytCuesVideoId !== currentVideoId()) {
       _loading = true;
       _ytSubBtn.textContent = '…';
       const videoId = currentVideoId();
@@ -823,6 +845,7 @@ function _ytCreateControlBar(player, score) {
       _ytSubBtn.textContent = '字幕';
       if (!vtt) return;
       _ytCues = parseVTTCues(vtt);
+      _ytCuesVideoId = videoId;
       if (!_ytCues.length) { _ytCues = null; return; }
       _ytEnsureOverlay(player);
       if (!_hoverEnabled) await hoverEnable(() => _ytSubOverlay);
@@ -857,6 +880,34 @@ function _ytCreateControlBar(player, score) {
   });
   bar.appendChild(_ytSettingsBtn);
 
+  // ≡ word sidebar button
+  const sbBtn = document.createElement('button');
+  sbBtn.id = 'mc-yt-sidebar-btn';
+  sbBtn.textContent = '≡';
+  sbBtn.title = 'Toggle word sidebar';
+  sbBtn.style.cssText = [
+    'padding:5px 10px', 'font-size:14px', 'color:#888',
+    'background:none', 'border:none',
+    'border-left:1px solid rgba(255,255,255,.12)',
+    'cursor:pointer', 'transition:color .15s',
+  ].join(';');
+  let _sbLoading = false;
+  sbBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (_sbLoading) return;
+    if (sidebarIsOpen()) { sidebarToggle(null); sbBtn.style.color = '#888'; return; }
+    const videoId = currentVideoId();
+    if (!videoId) return;
+    _sbLoading = true; sbBtn.textContent = '…';
+    const vtt = await fetchJaVTT(videoId).catch(() => null);
+    _sbLoading = false; sbBtn.textContent = '≡';
+    if (!vtt) return;
+    const r = await sidebarToggle(parseVTT(vtt));
+    sbBtn.style.color = r?.ok ? '#66AAE8' : '#888';
+  });
+  bar.appendChild(sbBtn);
+
+  mcApplyBarPosition(bar);
   player.appendChild(bar);
   _ytControlBar = bar;
 }
@@ -869,6 +920,7 @@ async function ytEnableHover() {
     const vtt = await fetchJaVTT(videoId);
     if (!vtt) return { ok: false, error: 'No Japanese subtitles found' };
     _ytCues = parseVTTCues(vtt);
+    _ytCuesVideoId = videoId;
     if (!_ytCues.length) return { ok: false, error: 'No subtitle cues found' };
   }
 
@@ -933,7 +985,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
     if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
     if (_ytControlBar) _ytControlBar.style.display = 'none';
-    _ytCues = null; _ytLastCueIdx = -2;
+    _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
     _ytSetSubActive(false);
     // Only fully disable hover if transcript hover is also off.
     if (!_transcriptHoverActive) hoverDisable();
@@ -1012,7 +1064,7 @@ async function _ytInitBadges() {
       badge.style.cssText = [
         'position:absolute', 'bottom:18px', 'left:8px', 'z-index:10',
         'background:rgba(0,0,0,.85)', `color:${compColor(score ?? 50)}`,
-        'font:700 13px/1 -apple-system,sans-serif',
+        'font:700 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
         'padding:5px 10px', 'border-radius:6px', 'pointer-events:none', 'letter-spacing:.3px',
       ].join(';');
       badge.textContent = score != null ? `✓ ${score}%` : '✓ Watched';
@@ -1033,6 +1085,12 @@ _ytInitBadges();
 
 // Pre-warm the tokenizer in the background so it's ready when the user clicks score.
 getTokenizer().catch(() => {});
+
+// Track immersion time while a video is actually playing and the tab is visible.
+// Only track time when the current video has confirmed Japanese captions —
+// prevents English videos that happen to have JP auto-subs from being
+// counted as Japanese immersion.
+startVideoTimeTracking(() => _ytIsJapaneseContent ? document.querySelector('video') : null, 'yt');
 
 // YouTube sets overflow:hidden on body, so body.marginRight does nothing.
 // Push ytd-app (the root custom element) instead.

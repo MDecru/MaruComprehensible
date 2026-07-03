@@ -1,6 +1,6 @@
 // cijapanese.com + local CIJ replica content script
 
-let _cijVttCache = null;
+var _cijVttCache = null;
 
 // Wait for the <track> element to be added by the page's JS, then fetch VTT.
 async function cijFetchVTT() {
@@ -290,7 +290,7 @@ function _cijToggleSettings(_player) {
     'position:fixed', 'z-index:2147483647',
     'background:rgba(22,24,28,.97)', 'border:1px solid #404550',
     'border-radius:10px', 'padding:14px 16px 0',
-    'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,sans-serif',
+    'color:#d0d4e0', 'font-size:13px', 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
     'white-space:nowrap', 'width:300px',
     'box-shadow:0 8px 24px rgba(0,0,0,.7)',
     'line-height:normal', 'box-sizing:border-box',
@@ -313,7 +313,7 @@ function _cijToggleSettings(_player) {
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
-  const _tabBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
+  const _tabBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
   const _tabOn  = `color:#66AAE8;border-bottom:2px solid #66AAE8;${_tabBase}`;
   const _tabOff = `color:#808898;border-bottom:2px solid transparent;${_tabBase}`;
   const tabBar = document.createElement('div');
@@ -335,7 +335,7 @@ function _cijToggleSettings(_player) {
   pnl.appendChild(_content);
 
   let _cur = _secs[0];
-  const _btnBase = 'flex:1;border-radius:6px;cursor:pointer;line-height:normal;font-family:-apple-system,sans-serif;box-sizing:border-box;transition:all .15s';
+  const _btnBase = 'flex:1;border-radius:6px;cursor:pointer;line-height:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;box-sizing:border-box;transition:all .15s';
   function _lbl(text) {
     const el = document.createElement('div');
     el.style.cssText = 'font-size:11px;color:#aab0bc;margin-bottom:7px;letter-spacing:.4px;text-transform:uppercase';
@@ -579,8 +579,11 @@ function _cijCreateControlBar(player, score) {
     'border-radius:7px', 'overflow:hidden',
     'background:rgba(0,0,0,.78)',
     'border:1px solid rgba(255,255,255,.14)',
-    'font-family:-apple-system,sans-serif',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
   ].join(';');
+
+  // Immersion recording status dot (click toggles auto-detect)
+  bar.appendChild(mcCreateTimerDotButton());
 
   const scoreEl = document.createElement('span');
   scoreEl.id = 'mc-cij-score';
@@ -630,6 +633,26 @@ function _cijCreateControlBar(player, score) {
   _cijSettingsBtn.addEventListener('click', e => { e.stopPropagation(); _cijToggleSettings(player); });
   bar.appendChild(_cijSettingsBtn);
 
+  // ≡ word sidebar button
+  const sbBtn = document.createElement('button');
+  sbBtn.id = 'mc-cij-sidebar-btn';
+  sbBtn.textContent = '≡';
+  sbBtn.title = 'Toggle word sidebar';
+  sbBtn.style.cssText = 'padding:9px 10px;font-size:14px;color:#888;background:none;border:none;border-left:1px solid rgba(255,255,255,.12);cursor:pointer;transition:color .15s';
+  let _sbLoading = false;
+  sbBtn.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (_sbLoading) return;
+    if (sidebarIsOpen()) { sidebarToggle(null); sbBtn.style.color = '#888'; return; }
+    _sbLoading = true; sbBtn.textContent = '…';
+    const vtt = await cijFetchVTT().catch(() => null);
+    _sbLoading = false; sbBtn.textContent = '≡';
+    if (!vtt) return;
+    const r = await sidebarToggle(parseVTT(vtt));
+    sbBtn.style.color = r?.ok ? '#66AAE8' : '#888';
+  });
+  bar.appendChild(sbBtn);
+
   // ⛶ fullscreen button
   const fsBtn = document.createElement('button');
   fsBtn.id = 'mc-cij-fs-btn';
@@ -663,6 +686,7 @@ function _cijCreateControlBar(player, score) {
     }
   });
 
+  mcApplyBarPosition(bar);
   player.appendChild(bar);
   _cijControlBar = bar;
 }
@@ -774,8 +798,13 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score on load
-scanPage();
+// Auto-score on load. cijFetchVTT() already polls for ~8s waiting on the
+// <track> element, but on a slow page that can still not be enough — retry
+// once more instead of leaving the video unscored until the user manually
+// reopens the popup (which forces a rescore).
+scanPage().then(res => {
+  if (!res) setTimeout(() => { if (!_cijVttCache) scanPage(); }, 5000);
+});
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 let _cijAutoHoverPending = false;
@@ -827,3 +856,10 @@ document.addEventListener('fullscreenchange', () => {
     }
   }
 });
+
+// Track immersion time while a video is actually playing and the tab is visible.
+// Covers both cijapanese.com and the local mdnas/synology replica (content_local.js
+// reuses the same <video> element) — tagged separately so the two show up as
+// distinct sources in the immersion breakdown instead of being merged.
+const _cijIsLocalReplica = /^(mdnas\.local|cij\.punchyface\.synology\.me)$/.test(location.hostname);
+startVideoTimeTracking(() => document.querySelector('video'), _cijIsLocalReplica ? 'local' : 'cij');

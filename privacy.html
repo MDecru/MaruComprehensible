@@ -7,7 +7,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: #f7f8fa;
     color: #2c2f33;
     line-height: 1.7;
@@ -43,7 +43,7 @@
 <div class="wrap">
   <div class="card">
     <h1>Privacy Policy</h1>
-    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Last updated: July 2026</p>
+    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Last updated: July 3, 2026</p>
 
     <div class="highlight">
       Short version: MaruComprehension stores everything locally on your device. Your API token never leaves your browser except to reach MaruMori directly. No tracking, no analytics, no ads.
@@ -58,6 +58,10 @@
       <li>Display a <strong>word sidebar</strong> listing all unknown words in the current video with JLPT level indicators</li>
       <li>Save a <strong>watch history</strong> and an <strong>unknown word frequency list</strong> so you can track progress over time</li>
       <li>Let you <strong>mark words as Known</strong> directly from a hover card, stored separately from MaruMori</li>
+      <li>Automatically track <strong>immersion time</strong> spent watching Japanese video, with a daily/streak view and a breakdown by source, plus a manual "add time" entry for sources it can't detect (e.g. a book)</li>
+      <li>Run an optional <strong>focus timer</strong> for study sessions, which can add its duration to your immersion time and play a sound or show an on-screen notice when it finishes</li>
+      <li>Add a <strong>right-click menu item</strong> to search any selected word or phrase on MaruMori's dictionary</li>
+      <li>Let you <strong>export or import all extension data</strong> as a single file, to move your setup to another device</li>
     </ul>
 
     <h2>Data stored on your device</h2>
@@ -68,28 +72,35 @@
       <li><strong>Watch history</strong> — titles, URLs, comprehension scores, and watch counts for Japanese videos you have watched</li>
       <li><strong>Unknown word frequency</strong> — words that appeared as unknown across your watched videos, with occurrence counts</li>
       <li><strong>Manually known words</strong> — words you have marked as Known from hover cards, stored separately from MaruMori</li>
+      <li><strong>Immersion tracking data</strong> — daily watch-time totals, a breakdown by source (YouTube, CIJ, Nihongo-Jikan, local player, etc.), and any manual time entries you add</li>
+      <li><strong>Focus timer settings</strong> — your last-used duration and sound/on-screen-effect preferences</li>
       <li><strong>Settings and preferences</strong> — subtitle style, hover toggle, badge visibility, and other UI preferences</li>
     </ul>
-    <p>You can clear watch history and word data at any time from the History page inside the extension. Removing the extension from Chrome deletes all stored data.</p>
+    <p>You can clear watch history, word data, and immersion tracking data at any time from within the extension. Removing the extension from Chrome deletes all stored data.</p>
+    <p>If you use the export feature, a copy of this data — including your MaruMori API token — is written to a JSON file you choose to save. That file stays on your device unless you move it yourself; treat it like you would a password, since importing it elsewhere restores full access to the data it contains.</p>
 
     <h2>Network requests</h2>
-    <p>The extension contacts only the following external services:</p>
+    <p>The extension contacts only the following external services, and only ever with your own device making the request directly:</p>
     <ul>
       <li><strong>MaruMori API</strong> (<code>public-api.marumori.io</code>) — to fetch your vocab and kanji lists using your API token. Requested only when you connect your account or manually refresh.</li>
       <li><strong>YouTube timedtext API</strong> (<code>youtube.com</code>) — to fetch Japanese subtitle tracks for the video currently open, for comprehension scoring. No account credentials are sent; only a public caption endpoint is used.</li>
       <li><strong>Jisho dictionary</strong> (<code>jisho.org</code>) — to look up word definitions when you hover over a word. Only the individual word being hovered is sent.</li>
+      <li><strong>MaruMori website</strong> (<code>marumori.io</code>) — opened in a new tab when you use the right-click "Search on MaruMori" menu item, or click a dictionary link in a hover card. This is a normal page navigation, not a background request.</li>
     </ul>
-    <p>No analytics services, crash reporters, advertising networks, or any other third-party servers are contacted.</p>
+    <p>No analytics services, crash reporters, advertising networks, or any other third-party servers are contacted. If you've configured the extension to work with a self-hosted local video server (e.g. on your own home network), it's contacted the same way any page you open in your browser would be — the extension doesn't reach out to it on its own.</p>
 
     <h2>Data sharing</h2>
     <p>No data is sold, shared, or transmitted to any party other than the services listed above. Those requests exist solely to provide the extension's features and contain no personally identifiable information beyond what you explicitly provide (your API token).</p>
 
     <h2>Permissions explained</h2>
     <ul>
-      <li><strong>storage</strong> — saves your API token, vocabulary cache, watch history, and preferences locally on your device</li>
+      <li><strong>storage</strong> — saves your API token, vocabulary cache, watch history, immersion tracking data, and preferences locally on your device</li>
       <li><strong>activeTab</strong> — reads the current tab's URL so the popup can show the correct comprehension score for the page you are on</li>
-      <li><strong>scripting</strong> — injects the subtitle coloring and hover card logic into supported video pages; also used to fetch YouTube caption files from within the page context (required because YouTube rejects requests from extension origins)</li>
-      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports: Comprehensible Japanese, Nihongo-Jikan, YouTube, MaruMori API, and Jisho</li>
+      <li><strong>scripting</strong> — injects the subtitle coloring and hover card logic into supported video pages; fetches YouTube caption files from within the page context (required because YouTube rejects requests from extension origins); and shows the focus timer's sound/on-screen effect on the page you're viewing when a session ends</li>
+      <li><strong>alarms</strong> — keeps the focus timer counting down accurately in the background, even while the popup is closed</li>
+      <li><strong>notifications</strong> — shows a system notification when the focus timer finishes, if an on-page effect couldn't be shown</li>
+      <li><strong>contextMenus</strong> — adds the "Search on MaruMori" item to the right-click menu</li>
+      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports: Comprehensible Japanese, Nihongo-Jikan, YouTube, MaruMori (site and API), Jisho, and — if you've set it up — your own self-hosted local video server</li>
     </ul>
 
     <h2>Disclaimer</h2>

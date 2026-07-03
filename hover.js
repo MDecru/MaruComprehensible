@@ -1,18 +1,18 @@
 // Hover mode — tokenizes transcript text into clickable word spans.
 // Depends on: common.js (getTokenizer, getVocab, MM_CONTENT_POS, hasKanji)
 
-const HOVER_JLPT_COLORS = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0' };
-const HOVER_JLPT_LABELS = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5' };
+var HOVER_JLPT_COLORS = { 5:'#ED7989', 4:'#FDC281', 3:'#72CE9D', 2:'#66AAE8', 1:'#7E69F0' };
+var HOVER_JLPT_LABELS = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5' };
 
-let _hoverEnabled    = false;
-let _hoverJlptMap    = null;
-let _hoverVocab      = null;
-let _hoverTip        = null;
-let _hoverPinned     = null;
-let _hoverStyle      = null;
-let _hoverIsLight    = false;
-let _lastTipDataset  = null;
-let _lastTipDef      = undefined;
+var _hoverEnabled    = false;
+var _hoverJlptMap    = null;
+var _hoverVocab      = null;
+var _hoverTip        = null;
+var _hoverPinned     = null;
+var _hoverStyle      = null;
+var _hoverIsLight    = false;
+var _lastTipDataset  = null;
+var _lastTipDef      = undefined;
 
 // ── Init / teardown ──────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ function _ensureHoverUI() {
       /* ── Dark theme (default) ── */
       #jp-hover-tip { position:fixed; z-index:2147483647; background:#232425; border:1px solid #363A3B;
         color:#c8d0e0; border-radius:14px; font-size:13px; line-height:1.4; width:260px;
-        box-shadow:0 12px 40px rgba(0,0,0,.9); font-family:-apple-system,'Helvetica Neue',sans-serif;
+        box-shadow:0 12px 40px rgba(0,0,0,.9); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
         pointer-events:none; display:none; overflow:hidden; }
       #jp-hover-tip.pinned { pointer-events:auto; }
       .jht-head { display:flex; align-items:center; gap:8px; padding:10px 12px 8px;
@@ -63,7 +63,7 @@ function _ensureHoverUI() {
       .jht-mm    { background:#FDC281; border-color:#FDC281; }
       .jht-set-known { background:none; border:1px solid rgba(237,121,137,.4); color:#ED7989;
         font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; cursor:pointer;
-        transition:background .12s; font-family:-apple-system,'Helvetica Neue',sans-serif; flex-shrink:0; }
+        transition:background .12s; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; flex-shrink:0; }
       .jht-set-known:hover { background:rgba(237,121,137,.12); }
       .jht-defs { padding:5px 12px 6px; border-bottom:1px solid #363A3B; }
       .jht-gloss { color:#dde2ee; font-size:13px; list-style:decimal; margin:0; padding-left:15px; }
@@ -512,7 +512,7 @@ function _hoverPosition(el) {
 // ── Event handlers ───────────────────────────────────────────────────────────
 
 function _hoverOver(e) {
-  if (_hoverPinned) return;
+  if (_hoverPinned || !_hoverTip) return;
   if (e.target.closest('#jp-hover-tip')) return; // mouse moved into tooltip, keep it
   const tok = e.target.closest('.jp-tok');
   if (!tok) { _hoverTip.style.display = 'none'; return; }
@@ -527,7 +527,8 @@ function _hoverOver(e) {
   if (full) {
     _wireHoverTipButtons();
     _fetchDef(tok.dataset.basic || tok.dataset.word).then(def => {
-      if (_hoverTip.style.display === 'none' || _lastTipDataset !== tok.dataset) return;
+      // _hoverTip may be gone if hover mode was disabled while the fetch was in flight
+      if (!_hoverTip || _hoverTip.style.display === 'none' || _lastTipDataset !== tok.dataset) return;
       _lastTipDef = def;
       _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, def);
       _hoverPosition(tok);
@@ -537,13 +538,14 @@ function _hoverOver(e) {
 }
 
 function _hoverOut(e) {
-  if (_hoverPinned) return;
+  if (_hoverPinned || !_hoverTip) return;
   if (e.relatedTarget?.closest?.('.jp-tok')) return;
   if (e.relatedTarget?.closest?.('#jp-hover-tip')) return; // going into tooltip
   _hoverTip.style.display = 'none';
 }
 
 function _hoverClick(e) {
+  if (!_hoverTip) return;
   const tok = e.target.closest('.jp-tok');
   if (tok) {
     e.stopPropagation();
@@ -567,7 +569,7 @@ function _hoverClick(e) {
     // Fetch definition then re-render in place
     const lookupWord = tok.dataset.basic || tok.dataset.word;
     _fetchDef(lookupWord).then(def => {
-      if (_hoverPinned !== tok) return; // user moved on
+      if (!_hoverTip || _hoverPinned !== tok) return; // user moved on / hover disabled
       _lastTipDef = def;
       _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, def);
       _hoverPosition(tok);
