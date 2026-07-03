@@ -176,8 +176,11 @@ function _chromeGet(keys) {
   });
 }
 
-// Extract the item string from old (string) or new ({item, level, status}) format.
-function _vocabItem(v) { return typeof v === 'string' ? v : (v?.item || ''); }
+// Extract the item string, stripping prefix/suffix markers (〜様 → 様, 再〜 → 再).
+function _vocabItem(v) {
+  const s = typeof v === 'string' ? v : (v?.item || '');
+  return s.replace(/^〜|〜$/g, '');
+}
 
 function _vocabIsApprentice(v) {
   // Only new-API object-format items can be apprentice.
@@ -213,7 +216,7 @@ function getApprenticeVocab() {
     for (const arr of [d.mm_vocab || [], d.mm_kanji || []]) {
       for (const v of arr) {
         // Uses same logic as _vocabIsApprentice
-        if (_vocabIsApprentice(v)) set.add(v.item);
+        if (_vocabIsApprentice(v)) set.add(_vocabItem(v));
       }
     }
     return set;
@@ -227,8 +230,9 @@ function getWordStatusMap() {
     for (const arr of [d.mm_vocab || [], d.mm_kanji || []]) {
       for (const v of arr) {
         if (typeof v === 'object' && v.item) {
-          const cur = map.get(v.item);
-          if (!cur || v.status === 2 || v.status === 'known') map.set(v.item, { level: v.level, status: v.status });
+          const key = _vocabItem(v);
+          const cur = map.get(key);
+          if (!cur || v.status === 2 || v.status === 'known') map.set(key, { level: v.level, status: v.status });
         }
       }
     }

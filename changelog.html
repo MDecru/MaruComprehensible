@@ -101,6 +101,7 @@ li:last-child { border-bottom: none; }
     <li><span class="ct fix">Fix</span> Hover fluorescence (word highlight on mouseover) made more visible with thicker outline and glow</li>
     <li><span class="ct fix">Fix</span> All top-level <code>const</code>/<code>let</code> declarations in shared content scripts converted to <code>var</code> to prevent redeclaration errors on multi-inject</li>
     <li><span class="ct fix">Fix</span> All <code>chrome.*</code> API calls now guarded with <code>chrome.runtime?.id</code> checks to prevent "Extension context invalidated" errors after reload</li>
+    <li><span class="ct fix">Fix</span> Prefix/suffix markers (<code>〜様</code>, <code>再〜</code>) in MaruMori vocab now stripped so words match correctly against tokenized text</li>
     <li><span class="ct ui">UI</span> CIJ Library website updated with the same API changes, apprentice coloring, level badges, and simplified tooltip labels</li>
   </ul>
 </div>
