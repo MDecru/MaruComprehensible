@@ -560,6 +560,18 @@ function _ytToggleSettings(player) {
     'max-height:min(520px,calc(90vh - 60px))', 'overflow:hidden',
   ].join(';');
 
+  // ── Header ─────────────────────────────────────────────────
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0';
+  const hdrTitle = document.createElement('span');
+  hdrTitle.style.cssText = 'font-size:12px;font-weight:700;color:#d0d4e0;letter-spacing:.3px;text-transform:uppercase';
+  hdrTitle.textContent = 'Subtitle settings';
+  const hdrClose = document.createElement('button');
+  hdrClose.textContent = '✕';
+  hdrClose.style.cssText = 'background:none;border:none;color:#888;font-size:14px;cursor:pointer;padding:0 0 0 12px;line-height:1';
+  hdrClose.addEventListener('click', e => { e.stopPropagation(); pnl.style.display = 'none'; });
+  hdr.appendChild(hdrTitle); hdr.appendChild(hdrClose); pnl.appendChild(hdr);
+
   // ── Tab bar ───────────────────────────────────────────────
   const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
   let _activeTab = 0;
