@@ -147,10 +147,10 @@ async function hoverEnable(findContainer) {
     } catch { _hoverJlptMap = {}; }
   }
 
-  // Bunpro JLPT vocab list (word → level, proper source)
+  // Comprehensive JLPT vocab lookup (361k keys: Bunpro + kanji-derived + readings)
   if (!_hoverJlptVocab) {
     try {
-      const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab.json'));
+      const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab_lookup.json'));
       _hoverJlptVocab = await r.json();
     } catch { _hoverJlptVocab = {}; }
   }

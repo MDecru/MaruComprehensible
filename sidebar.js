@@ -114,12 +114,12 @@ async function _sbLoadJlptMap() {
   } catch { return {}; }
 }
 
-// Bunpro JLPT vocab list (word → level number 1-5)
+// Comprehensive JLPT vocab lookup (Bunpro + kanji-derived + readings, 361k keys)
 var _sbJlptVocab = null;
 async function _sbLoadJlptVocab() {
   if (_sbJlptVocab) return _sbJlptVocab;
   try {
-    const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab.json'));
+    const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab_lookup.json'));
     _sbJlptVocab = await r.json();
     return _sbJlptVocab;
   } catch { _sbJlptVocab = {}; return {}; }
