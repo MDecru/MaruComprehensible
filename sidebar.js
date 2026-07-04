@@ -448,7 +448,7 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
       <button class="sb-vtab${_sbViewMode === 'words' ? ' active' : ''}" data-view="words">Words</button>
       <button class="sb-vtab${_sbViewMode === 'kanji' ? ' active' : ''}" data-view="kanji">Kanji</button>
       <button class="sb-vtab${_sbViewMode === 'grammar' ? ' active' : ''}" data-view="grammar">Grammar</button>
-      <span id="jp-sb-controls" style="display:${_sbViewMode === 'grammar' ? 'none' : ''};margin-left:auto;display:flex;gap:4px;align-items:center">
+      <span id="jp-sb-controls" style="display:${_sbViewMode === 'grammar' ? 'none' : 'flex'};margin-left:auto;gap:4px;align-items:center">
         <button class="sb-ftab active" data-filter="unknown">Unknown</button>
         <button class="sb-ftab" data-filter="">All</button>
         <button class="sb-ftab" data-filter="known">Known</button>
@@ -480,7 +480,8 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
   el.querySelector('#jp-sb-cls').addEventListener('click', _sidebarClose);
 
   // Filter tabs
-  el.querySelector('#jp-sb-controls').addEventListener('click', e => {
+  const controlsEl = el.querySelector('#jp-sb-controls');
+  if (controlsEl) controlsEl.addEventListener('click', e => {
     const tab = e.target.closest('.sb-ftab');
     if (!tab || tab.id === 'jp-sb-sort') return;
     el.querySelectorAll('#jp-sb-controls .sb-ftab[data-filter]').forEach(t => t.classList.remove('active'));
@@ -503,7 +504,8 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
     const isGrammar = _sbViewMode === 'grammar';
     const isKanji   = _sbViewMode === 'kanji';
     el.querySelector('#jp-sb-ttl').textContent = isGrammar ? 'Grammar' : isKanji ? 'Kanji' : 'Words';
-    el.querySelector('#jp-sb-controls').style.display = isGrammar ? 'none' : '';
+    const ctrl = el.querySelector('#jp-sb-controls');
+    if (ctrl) ctrl.style.display = isGrammar ? 'none' : 'flex';
 
     if (isGrammar) {
       el.querySelector('#jp-sb-body').innerHTML = _sbBuildGrammarSections(_sbLastGrammarGroups);
