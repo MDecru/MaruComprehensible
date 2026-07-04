@@ -60,13 +60,15 @@ body.light-theme {
   --mm-lv1-4: #ED7989;
   --mm-lv5-6: #FDC281;
   --mm-lv7:   #72CE9D;
-  --mm-lv8-9: #7E69F0;
+  --mm-lv8:   #66AAE8;
+  --mm-lv9:   #7E69F0;
 }
 body.light-theme {
   --mm-lv1-4: #ED7989;
   --mm-lv5-6: #e8a010;
   --mm-lv7:   #3a9e72;
-  --mm-lv8-9: #7E69F0;
+  --mm-lv8:   #1976d2;
+  --mm-lv9:   #7E69F0;
 }
 
 /* ── Card size variants ──────────────────────────────────── */
@@ -79,16 +81,6 @@ body.sz-lg { --kc-cols: 48px; --kc-font: 34px; --kc-gap: 5px; --kc-radius: 7px; 
 body.bw-light .kanji-card { font-weight: 400; }
 body.bw-med   .kanji-card { font-weight: 600; }
 body.bw-bold  .kanji-card { font-weight: 800; }
-
-/* ── Invert: outline style — transparent bg, colored border+text ── */
-body.invert .kanji-card { background: transparent; color: var(--text); }
-body.invert .kanji-card.mm-lv-1-4 { border-color: var(--mm-lv1-4); color: var(--mm-lv1-4); }
-body.invert .kanji-card.mm-lv-5-6 { border-color: var(--mm-lv5-6); color: var(--mm-lv5-6); }
-body.invert .kanji-card.mm-lv-7   { border-color: var(--mm-lv7);   color: var(--mm-lv7);   }
-body.invert .kanji-card.mm-lv-8,
-body.invert .kanji-card.mm-lv-9   { border-color: var(--mm-lv8-9); color: var(--mm-lv8-9); }
-body.invert .kanji-card.mm-unknown { border-color: var(--border); }
-body.light-theme.invert .kanji-card.mm-lv-5-6 { color: #e8a010; }
 
 body {
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -218,14 +210,25 @@ body.light-theme .kanji-card:hover {
 }
 
 /* MM level solid colors */
-.kanji-card.mm-lv-1-4 { background: var(--mm-lv1-4); border-color: var(--mm-lv1-4); color: #fff; }
-.kanji-card.mm-lv-5-6 { background: var(--mm-lv5-6); border-color: var(--mm-lv5-6); color: #fff; }
-.kanji-card.mm-lv-7   { background: var(--mm-lv7);   border-color: var(--mm-lv7);   color: #fff; }
-.kanji-card.mm-lv-8,
-.kanji-card.mm-lv-9   { background: var(--mm-lv8-9); border-color: var(--mm-lv8-9); color: #fff; }
-/* light-theme: keep text black on lighter colored cards */
-body.light-theme .kanji-card.mm-lv-5-6 { color: #3a2f0a; }
-body.light-theme .kanji-card.mm-lv-7   { color: #fff; }
+/* Solid fill with subtle depth via inset shadow */
+.kanji-card.mm-lv-1-4 { background: var(--mm-lv1-4); border-color: var(--mm-lv1-4); color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 3px rgba(0,0,0,.1); }
+.kanji-card.mm-lv-5-6 { background: var(--mm-lv5-6); border-color: var(--mm-lv5-6); color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.25), inset 0 -2px 3px rgba(0,0,0,.08); }
+.kanji-card.mm-lv-7   { background: var(--mm-lv7);   border-color: var(--mm-lv7);   color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 3px rgba(0,0,0,.1); }
+.kanji-card.mm-lv-8   { background: var(--mm-lv8);   border-color: var(--mm-lv8);   color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 3px rgba(0,0,0,.1); }
+.kanji-card.mm-lv-9   { background: var(--mm-lv9);   border-color: var(--mm-lv9);   color: #111; box-shadow: 0 1px 3px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 3px rgba(0,0,0,.1); }
+/* ── Invert: outline style (must come AFTER solid fills to win specificity) ── */
+body.invert .kanji-card { background: transparent; color: var(--text); }
+body.invert .kanji-card.mm-lv-1-4 { border-color: var(--mm-lv1-4); color: var(--mm-lv1-4); }
+body.invert .kanji-card.mm-lv-5-6 { border-color: var(--mm-lv5-6); color: var(--mm-lv5-6); }
+body.invert .kanji-card.mm-lv-7   { border-color: var(--mm-lv7);   color: var(--mm-lv7);   }
+body.invert .kanji-card.mm-lv-8   { border-color: var(--mm-lv8);   color: var(--mm-lv8);   }
+body.invert .kanji-card.mm-lv-9   { border-color: var(--mm-lv9);   color: var(--mm-lv9);   }
+body.invert .kanji-card.mm-unknown { border-color: var(--border); }
+body.light-theme.invert .kanji-card.mm-lv-1-4 { color: #ED7989; }
+body.light-theme.invert .kanji-card.mm-lv-5-6 { color: #e8a010; }
+body.light-theme.invert .kanji-card.mm-lv-7   { color: #3a9e72; }
+body.light-theme.invert .kanji-card.mm-lv-8   { color: #1976d2; }
+body.light-theme.invert .kanji-card.mm-lv-9   { color: #7E69F0; }
 
 /* ── Hover tooltip (matches hover.js #jp-hover-tip) ────────── */
 #kanji-tooltip {
