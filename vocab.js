@@ -15,11 +15,15 @@ async function loadData() {
     jlptLookup = await resp.json();
   } catch (e) { console.error('Failed to load JLPT lookup:', e); }
 
-  // Count total words per level from the comprehensive lookup
-  for (var w in jlptLookup) {
-    var lv = 'N' + jlptLookup[w];
-    jlptTotalByLevel[lv] = (jlptTotalByLevel[lv] || 0) + 1;
-  }
+  // Use Bunpro counts for accurate per-level totals
+  try {
+    var resp2 = await fetch('data/jlpt_vocab.json');
+    jlptBunproOnly = await resp2.json();
+    for (var w in jlptBunproOnly) {
+      var lv = 'N' + jlptBunproOnly[w];
+      jlptTotalByLevel[lv] = (jlptTotalByLevel[lv] || 0) + 1;
+    }
+  } catch (e) { console.error('Failed to load Bunpro list:', e); }
 
   try {
     var stored = await chrome.storage.local.get(['mm_vocab', 'mm_extra_vocab']);
