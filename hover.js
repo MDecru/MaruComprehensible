@@ -359,24 +359,6 @@ function _hoverProcessContainer(container, tokenizer) {
       apprentice: _hoverShowApprentice && (_hoverApprentice.has(basic) || _hoverApprentice.has(surface)),
       status:  _hoverWordStatus.get(basic) || _hoverWordStatus.get(surface) || null,
     });
-    // Debug
-    if (basic.indexOf('勉強') !== -1 || surface.indexOf('勉強') !== -1) {
-      // Char-level trace
-      var chars = [];
-      for (var ci = 0; ci < basic.length; ci++) {
-        var ch = basic[ci];
-        chars.push(ch + '(U+' + ch.charCodeAt(0).toString(16).toUpperCase() + ',kanji:' + /[一-龯㐀-䶿]/.test(ch) + ',inSet:' + (_hoverKanjiSet ? _hoverKanjiSet.has(ch) : '?' ) + ')');
-      }
-      console.log('DEBUG 勉強 chars:', chars);
-      console.log('DEBUG 勉強:', JSON.stringify({
-        surface, basic, pos: tok.pos,
-        direct: _hoverVocab.has(basic),
-        surfK: _hoverVocab.has(surface),
-        allKanji: _allKanjiKnown(basic),
-        stemB: _stemKnown(basic, _hoverVocab),
-        stemS: _stemKnown(surface, _hoverVocab)
-      }));
-    }
   }
 
   for (let i = toWrap.length - 1; i >= 0; i--) {
@@ -401,7 +383,6 @@ function _hoverProcessContainer(container, tokenizer) {
         : w.apprentice
           ? (_hoverIsLight ? '#2d8a5e' : '#72CE9D')
           : (_hoverIsLight ? '#b82d3e' : '#ED7989');
-      if (w.basic.indexOf('勉強') !== -1) console.log('DEBUG span color:', w.surface, 'known='+w.known, 'apprentice='+w.apprentice, 'color='+span.style.color);
 
       // extractContents handles ruby-boundary ranges — ruby markup stays inside span
       span.appendChild(range.extractContents());
