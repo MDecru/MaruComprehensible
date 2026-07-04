@@ -903,28 +903,51 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: receive transcript data bridged from MAIN world via CustomEvent
-function _autoScoreWithText(text) {
-  if (!text || !text.trim()) return;
-  _apiTranscriptText = text;
-  getTokenizer().then(function() {
-    return scoreVTT(text);
-  }).then(function(res) {
-    if (res?.score != null) {
-      var video = document.querySelector('video');
-      var player = _cijGetPlayer();
-      if (player) {
-        if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
-        _cijCreateControlBar(player, res.score);
-      } else if (video) {
-        showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
-      }
+// Auto-score: poll for subtitle text rendered by the CIJ player overlay.
+// The new CIJ site renders captions into a DOM overlay once the transcript API
+// responds — we collect all unique cue texts and score when we have enough.
+(function autoScoreFromOverlay() {
+  var scored = false;
+  var seenTexts = new Set();
+  var pollTimer = null;
+  function tryScore() {
+    if (scored) { clearInterval(pollTimer); return; }
+    // CIJ renders subtitles in an overlay element
+    var cues = document.querySelectorAll('.cue-text, [class*="subtitle"], [class*="caption"], [class*="cue"]');
+    if (!cues.length) return;
+    for (var i = 0; i < cues.length; i++) {
+      var t = cues[i].textContent.trim();
+      if (t) seenTexts.add(t);
     }
-  }).catch(function() {});
-}
-document.addEventListener('mc-transcript', function(e) { _autoScoreWithText(e.detail); });
-// Check if event already fired before our listener was registered
-if (document._mcTranscript) _autoScoreWithText(document._mcTranscript);
+    // Also check for any text inside a subtitle overlay container
+    var overlay = document.querySelector('[class*="subtitle" i], [class*="caption" i]');
+    if (overlay) {
+      var fullText = overlay.textContent.trim();
+      if (fullText) seenTexts.add(fullText);
+    }
+    if (seenTexts.size < 5) return; // wait for enough cues
+    var text = Array.from(seenTexts).join('\n');
+    scored = true;
+    clearInterval(pollTimer);
+    _apiTranscriptText = text;
+    getTokenizer().then(function() {
+      return scoreVTT(text);
+    }).then(function(res) {
+      if (res?.score != null) {
+        var video = document.querySelector('video');
+        var player = _cijGetPlayer();
+        if (player) {
+          if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
+          _cijCreateControlBar(player, res.score);
+        } else if (video) {
+          showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
+        }
+      }
+    }).catch(function() {});
+  }
+  pollTimer = setInterval(tryScore, 1000);
+  tryScore();
+})();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;
