@@ -1,7 +1,36 @@
 // cijapanese.com + local CIJ replica content script
 
 var _cijVttCache = null;
-var _apiTranscriptText = null;
+
+// The CIJ site resumes/pauses the video some time (observed ~250ms) after any
+// click, seemingly as a side effect of its own UI reacting to DOM changes —
+// not something a single stopPropagation() or one-shot timeout can catch.
+// Instead, guard a short window after any click inside our own UI: remember
+// the play state at mousedown, and if the video's own play/pause event fires
+// during the guard window with a different state, immediately revert it.
+var _cijGuardWasPaused = null;
+var _cijGuardUntil = 0;
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest?.('#mc-cij-bar, #mc-cij-settings, #jp-sidebar')) return;
+  const v = document.querySelector('video');
+  if (!v) return;
+  _cijGuardWasPaused = v.paused;
+  _cijGuardUntil = Date.now() + 1200;
+}, true);
+(function _cijGuardPlaybackToggle() {
+  const v = document.querySelector('video');
+  if (!v) { setTimeout(_cijGuardPlaybackToggle, 300); return; }
+  const guard = () => {
+    if (_cijGuardWasPaused === null || Date.now() > _cijGuardUntil) return;
+    if (v.paused !== _cijGuardWasPaused) {
+      const want = _cijGuardWasPaused;
+      _cijGuardWasPaused = null; // avoid reacting to our own corrective call
+      want ? v.pause() : v.play().catch(() => {});
+    }
+  };
+  v.addEventListener('play', guard);
+  v.addEventListener('pause', guard);
+})();
 
 // Wait for the <track> element to be added by the page's JS, then fetch VTT.
 async function cijFetchVTT() {
@@ -879,24 +908,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   if (msg.action !== 'rescore') return;
   _cijVttCache = null;
-  var p = scanPage().then(function(res) {
-    if (res) return res;
-    if (_apiTranscriptText) return scoreVTT(_apiTranscriptText);
-    // Last resort: scrape subtitle text including Shadow DOM
-    var texts = [];
-    (function walk(root) {
-      root.querySelectorAll('*').forEach(function(el) {
-        if (el.shadowRoot) walk(el.shadowRoot);
-        if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
-          var t = el.textContent.trim();
-          if (t.length > 1 && t.length < 200) texts.push(t);
-        }
-      });
-    })(document);
-    if (texts.length) return scoreVTT(texts.join('\n'));
-    return null;
-  });
-  p.then(function(res) {
+  scanPage().then(function(res) {
     reply(res !== null
       ? { score: res.score, freqKnown: res.freqKnown, freqTotal: res.freqTotal, uniqueKnown: res.uniqueKnown, uniqueTotal: res.uniqueTotal, kanjiKnown: res.kanjiKnown, kanjiTotal: res.kanjiTotal }
       : { error: 'No Japanese subtitles found' });
@@ -915,43 +927,16 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: poll for Japanese subtitle text, traversing into Shadow DOM.
-(function autoScorePoll() {
-  var scored = false;
-  var seenTexts = new Set();
-  function collectTexts(root) {
-    root.querySelectorAll('*').forEach(function(el) {
-      if (el.shadowRoot) collectTexts(el.shadowRoot);
-      if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
-        var t = el.textContent.trim();
-        if (t.length > 1 && t.length < 200) seenTexts.add(t);
-      }
-    });
-  }
-  var pollTimer = setInterval(function() {
-    if (scored) { clearInterval(pollTimer); return; }
-    collectTexts(document);
-    if (seenTexts.size < 10) return;
-    var text = Array.from(seenTexts).join('\n');
-    scored = true;
-    clearInterval(pollTimer);
-    _apiTranscriptText = text;
-    getTokenizer().then(function() {
-      return scoreVTT(text);
-    }).then(function(res) {
-      if (res?.score != null) {
-        var video = document.querySelector('video');
-        var player = _cijGetPlayer();
-        if (player) {
-          if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
-          _cijCreateControlBar(player, res.score);
-        } else if (video) {
-          showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
-        }
-      }
-    }).catch(function() {});
-  }, 2000);
-})();
+// Auto-score: scanPage() already waits for the real <track> VTT (cijFetchVTT
+// polls up to 8s for it) and builds the control bar from it — just call it on
+// load. Retry a few times in case the site is still wiring up the transcript.
+(function tryAutoScore(attempt) {
+  scanPage().then(res => {
+    if (!res && attempt < 4) setTimeout(() => tryAutoScore(attempt + 1), 5000);
+  }).catch(() => {
+    if (attempt < 4) setTimeout(() => tryAutoScore(attempt + 1), 5000);
+  });
+})(1);
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;

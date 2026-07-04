@@ -590,7 +590,7 @@ async function init() {
     _doPreload();
   });
 
-  const SUPPORTED_HOSTS = ['cijapanese.com', 'nihongo-jikan.com', 'www.nihongo-jikan.com', 'www.youtube.com', 'mdnas.local', 'cij.punchyface.synology.me'];
+  const SUPPORTED_HOSTS = ['cijapanese.com', 'www.cijapanese.com', 'nihongo-jikan.com', 'www.nihongo-jikan.com', 'www.youtube.com', 'mdnas.local', 'cij.punchyface.synology.me'];
 
   async function doScore(tab, { silent = false } = {}) {
     const card = document.getElementById('score-block');
