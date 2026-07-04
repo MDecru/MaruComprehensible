@@ -897,33 +897,9 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: watch for the <track> element to appear, then score.
-(function autoScoreObserve() {
-  var done = false;
-  var timer = null;
-  function tryScore() {
-    if (done) return;
-    var v = document.querySelector('video');
-    if (!v) return;
-    var trk = v.querySelector('track[src]');
-    if (!trk || !trk.src) return;
-    done = true;
-    if (timer) clearTimeout(timer);
-    console.log('CIJ auto-score: track found, scoring...');
-    getTokenizer().then(function() {
-      console.log('CIJ auto-score: tokenizer ready, calling scanPage');
-      return scanPage();
-    }).then(function(res) {
-      console.log('CIJ auto-score: result', res ? res.score : 'null');
-    }).catch(function(e) {
-      console.log('CIJ auto-score: error', e);
-    });
-  }
-  tryScore();
-  timer = setInterval(tryScore, 2000);
-  var obs = new MutationObserver(tryScore);
-  if (document.body) obs.observe(document.body, { childList: true, subtree: true });
-})();
+// The new CIJ website serves transcripts via API (/api/v1/transcript) rather than
+// <track> elements. Auto-scoring is not supported yet for this architecture.
+// Open the popup to trigger manual scoring.
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;
