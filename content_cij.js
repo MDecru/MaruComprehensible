@@ -903,48 +903,29 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: intercept the /api/v1/transcript API call and score its content.
-(function interceptTranscriptAPI() {
-  var _fetch = window.fetch;
-  var scored = false;
-  window.fetch = function(url, opts) {
-    var p = _fetch.apply(this, arguments);
-    if (!scored && typeof url === 'string' && url.includes('/api/v1/transcript')) {
-      p.then(function(r) {
-        return r.clone().text().then(function(text) {
-          try {
-            var data = JSON.parse(text);
-            // Extract text from transcript API response — may be { cues: [{text,...},...] }
-            var transcriptText = '';
-            if (data.cues) {
-              transcriptText = data.cues.map(function(c) { return c.text || ''; }).join(' ');
-            } else if (data.transcript) {
-              transcriptText = data.transcript;
-            } else if (typeof data === 'string') {
-              transcriptText = data;
-            }
-            if (!transcriptText.trim()) return;
-            // Cache the text for rescore fallback and score immediately
-            _apiTranscriptText = transcriptText;
-            scored = true;
-            getTokenizer().then(function() { return scoreVTT(transcriptText); }).then(function(res) {
-              if (res?.score != null) {
-                var video = document.querySelector('video');
-                var player = _cijGetPlayer();
-                if (player) {
-                  if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
-                  _cijCreateControlBar(player, res.score);
-                } else if (video) {
-                  showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
-                }
-              }
-            }).catch(function() {});
-          } catch(e) {}
-        });
-      }).catch(function() {});
-    }
-    return p;
-  };
+// Auto-score: poll for transcript data bridged from MAIN world via
+// content_cij_main.js's fetch interceptor (stored as data-mc-transcript attr).
+(function pollTranscript() {
+  var text = document.documentElement.getAttribute('data-mc-transcript');
+  if (text) {
+    _apiTranscriptText = text;
+    getTokenizer().then(function() {
+      return scoreVTT(text);
+    }).then(function(res) {
+      if (res?.score != null) {
+        var video = document.querySelector('video');
+        var player = _cijGetPlayer();
+        if (player) {
+          if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
+          _cijCreateControlBar(player, res.score);
+        } else if (video) {
+          showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
+        }
+      }
+    }).catch(function() {});
+    return;
+  }
+  setTimeout(pollTranscript, 1000);
 })();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
