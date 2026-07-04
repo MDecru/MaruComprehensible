@@ -882,14 +882,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   var p = scanPage().then(function(res) {
     if (res) return res;
     if (_apiTranscriptText) return scoreVTT(_apiTranscriptText);
-    // Last resort: scrape subtitle text from the page DOM
+    // Last resort: scrape subtitle text including Shadow DOM
     var texts = [];
-    document.querySelectorAll('*').forEach(function(el) {
-      if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
-        var t = el.textContent.trim();
-        if (t.length > 1 && t.length < 200) texts.push(t);
-      }
-    });
+    (function walk(root) {
+      root.querySelectorAll('*').forEach(function(el) {
+        if (el.shadowRoot) walk(el.shadowRoot);
+        if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
+          var t = el.textContent.trim();
+          if (t.length > 1 && t.length < 200) texts.push(t);
+        }
+      });
+    })(document);
     if (texts.length) return scoreVTT(texts.join('\n'));
     return null;
   });
@@ -912,19 +915,22 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: poll for Japanese subtitle text anywhere in the DOM.
+// Auto-score: poll for Japanese subtitle text, traversing into Shadow DOM.
 (function autoScorePoll() {
   var scored = false;
   var seenTexts = new Set();
-  var pollTimer = setInterval(function() {
-    if (scored) { clearInterval(pollTimer); return; }
-    // Find all leaf text nodes containing Japanese
-    document.querySelectorAll('*').forEach(function(el) {
+  function collectTexts(root) {
+    root.querySelectorAll('*').forEach(function(el) {
+      if (el.shadowRoot) collectTexts(el.shadowRoot);
       if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
         var t = el.textContent.trim();
         if (t.length > 1 && t.length < 200) seenTexts.add(t);
       }
     });
+  }
+  var pollTimer = setInterval(function() {
+    if (scored) { clearInterval(pollTimer); return; }
+    collectTexts(document);
     if (seenTexts.size < 10) return;
     var text = Array.from(seenTexts).join('\n');
     scored = true;
