@@ -388,15 +388,18 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
     #jp-sb-cls{margin-left:auto;background:none;border:none;color:${T.closeColor};
       font-size:18px;cursor:pointer;line-height:1;padding:0 2px}
     #jp-sb-cls:hover{color:${T.closeHover}}
-    #jp-sb-view{display:flex;align-items:center;gap:4px;width:100%}
-    #jp-sb-controls{display:flex;align-items:center;gap:4px;width:100%;flex-wrap:wrap}
-    #jp-sb-filter{display:flex;gap:4px;flex:1}
-    #jp-sb-sort{margin-left:auto}
-    .sb-vtab,.sb-ftab,.sb-sort{background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.2);
+    #jp-sb-view{display:flex;align-items:center;gap:4px;width:100%;flex-wrap:wrap}
+    #jp-sb-controls{display:flex;align-items:center;gap:4px;margin-left:auto}
+    .sb-vtab{background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.2);
       border-radius:12px;color:${T.muted};font-size:11px;font-weight:600;
       padding:3px 11px;cursor:pointer;transition:all .12s}
-    .sb-vtab:hover,.sb-ftab:hover,.sb-sort:hover{background:rgba(128,128,128,.14);color:${T.body}}
-    .sb-vtab.active,.sb-ftab.active,.sb-sort.active{background:${T.ftabBg};border-color:${T.ftabBg};color:${T.ftabColor}}
+    .sb-vtab:hover{background:rgba(128,128,128,.14);color:${T.body}}
+    .sb-vtab.active{background:${T.ftabBg};border-color:${T.ftabBg};color:${T.ftabColor}}
+    .sb-ftab{background:rgba(128,128,128,.08);border:1px solid rgba(128,128,128,.2);
+      border-radius:12px;color:${T.muted};font-size:10.5px;font-weight:600;
+      padding:2px 8px;cursor:pointer;transition:all .12s}
+    .sb-ftab:hover{background:rgba(128,128,128,.14);color:${T.body}}
+    .sb-ftab.active{background:${T.ftabBg};border-color:${T.ftabBg};color:${T.ftabColor}}
     .sb-sec{border-top:1px solid ${T.border}}
     .sb-sec.sb-collapsed .sb-ws{display:none}
     .sb-sh{display:flex;align-items:center;gap:8px;padding:9px 14px 5px;cursor:pointer;
