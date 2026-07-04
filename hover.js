@@ -240,6 +240,9 @@ async function hoverEnable(findContainer) {
   document.addEventListener('mouseout',   _hoverOut,   { passive: true, capture: true });
   document.addEventListener('click',      _hoverClick, true);
   document.addEventListener('keydown',    _hoverKey,   true);
+  document.addEventListener('mousedown',  _hoverDragStart, true);
+  document.addEventListener('mousemove',  _hoverDragMove, { passive: true });
+  document.addEventListener('mouseup',    _hoverDragEnd);
 
   _hoverEnabled = true;
   return { ok: true };
@@ -787,13 +790,11 @@ function _hoverClick(e) {
 }
 
 function _hoverDragStart(e) {
-  console.log('DRAG start:', e.button, 'pinned:', !!_hoverPinned, 'tip:', !!_hoverTip, 'head:', !!e.target.closest('.jht-head'));
   if (!_hoverPinned || !_hoverTip || e.button !== 0) return;
   if (!e.target.closest('.jht-head')) return;
   _hoverDragging = true;
   _hoverDragX = e.clientX - _hoverTip.offsetLeft;
   _hoverDragY = e.clientY - _hoverTip.offsetTop;
-  console.log('DRAG begin at', _hoverDragX, _hoverDragY);
 }
 
 function _hoverDragMove(e) {
@@ -809,7 +810,6 @@ function _hoverDragMove(e) {
 }
 
 function _hoverDragEnd(e) {
-  console.log('DRAG end, wasDragging:', _hoverDragging);
   _hoverDragging = false;
 }
 
