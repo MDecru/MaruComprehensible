@@ -87,6 +87,22 @@ h1 { font-size: 22px; font-weight: 800; color: var(--text); }
 .level-header .count { font-size: 12px; color: var(--dim); }
 .level-header .pct { font-size: 12px; color: var(--dim); margin-left: auto; }
 
+/* ── Progress rings ──────────────────────────────────────── */
+.rings-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; justify-content: center; }
+.ring-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ring-item .ring-lbl { font-size: 10px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; }
+.ring-item .ring-pct { font-size: 14px; font-weight: 800; color: var(--text); }
+.ring-item .ring-sub { font-size: 10px; color: var(--dim); }
+.ring-svg-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.ring-svg-wrap svg { width: 72px; height: 72px; transform: rotate(-90deg); }
+.ring-inner {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; line-height: 1.2;
+}
+.ring-big { width: 96px; height: 96px; }
+.ring-big svg { width: 96px; height: 96px; }
+.ring-big .ring-pct { font-size: 20px; }
+
 /* ── Stacked bar ──────────────────────────────────────────── */
 .bar-wrap { margin-bottom: 4px; }
 .bar {
@@ -149,6 +165,8 @@ body.light-theme .bar-tip { background: #fff; border-color: #d0d7e2; color: #3a3
   </div>
 
   <div class="summary-row" id="summary-row"></div>
+
+  <div class="rings-row" id="rings-row"></div>
 
   <div style="font-size:11px;color:var(--dim);margin-bottom:14px;line-height:1.5;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
     Word classifications are derived from Bunpro JLPT lists and kanji-level analysis — they do not reflect official MaruMori levels. JLPT word lists are not standardized and vary between sources.

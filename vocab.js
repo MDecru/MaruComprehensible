@@ -94,6 +94,44 @@ function buildPage() {
   document.getElementById('result-subtitle').textContent =
     total + ' words, ' + classified + ' classified across ' + JLPT_ORDER.length + ' JLPT levels';
 
+  // ── Progress rings ──
+  var allBunpro = 0, allUser = 0;
+  for (var li = 0; li < JLPT_ORDER.length; li++) {
+    allBunpro += (jlptTotalByLevel[JLPT_ORDER[li]] || 0);
+    allUser += (groups[JLPT_ORDER[li]] || []).length;
+  }
+
+  function ringSvg(pct, color, size) {
+    var r = size === 'big' ? 40 : 30;
+    var sw = size === 'big' ? 6 : 5;
+    var circ = 2 * Math.PI * r;
+    var dash = pct > 0 ? (pct / 100 * circ).toFixed(1) : 0;
+    return '<svg viewBox="0 0 '+(r*2+sw*2)+' '+(r*2+sw*2)+'">'+
+      '<circle cx="'+(r+sw)+'" cy="'+(r+sw)+'" r="'+r+'" fill="none" stroke="var(--border)" stroke-width="'+sw+'"/>'+
+      '<circle cx="'+(r+sw)+'" cy="'+(r+sw)+'" r="'+r+'" fill="none" stroke="'+color+
+        '" stroke-width="'+sw+'" stroke-linecap="round" stroke-dasharray="'+dash+' '+circ+'" style="transition:stroke-dasharray .5s"/>'+
+    '</svg>';
+  }
+
+  function ringHtml(level, color, userCt, totalCt, big) {
+    var pct = totalCt ? Math.min(100, (userCt/totalCt*100).toFixed(0)) : 0;
+    var cls = big ? ' ring-big' : '';
+    return '<div class="ring-item">'+
+      '<div class="ring-svg-wrap'+cls+'">'+ringSvg(pct, color, big?'big':'')+
+      '<div class="ring-inner"><span class="ring-pct">'+pct+'%</span></div></div>'+
+      '<span class="ring-lbl">'+level+'</span>'+
+      '<span class="ring-sub">'+userCt+'/'+totalCt+'</span>'+
+    '</div>';
+  }
+
+  var ringsHtml = ringHtml('All', '#72CE9D', allUser, allBunpro, true);
+  for (var li = 0; li < JLPT_ORDER.length; li++) {
+    var lv = JLPT_ORDER[li];
+    var colors = { N5:'#ED7989', N4:'#FDC281', N3:'#72CE9D', N2:'#66AAE8', N1:'#7E69F0' };
+    ringsHtml += ringHtml(lv, colors[lv], (groups[lv]||[]).length, jlptTotalByLevel[lv]||0, false);
+  }
+  document.getElementById('rings-row').innerHTML = ringsHtml;
+
   // ── Per-level bars ──
   var html = '';
   for (var li = 0; li < JLPT_ORDER.length; li++) {
