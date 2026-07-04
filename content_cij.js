@@ -397,14 +397,14 @@ function _cijToggleSettings(_player) {
   hdr.appendChild(hdrTitle); hdr.appendChild(hdrClose); pnl.appendChild(hdr);
 
   // ── Tab bar ───────────────────────────────────────────────
-  const _secs = ['Style', 'Layout', 'Playback'].map(() => document.createElement('div'));
+  const _secs = ['Style', 'Layout', 'Playback', 'Parsing'].map(() => document.createElement('div'));
   let _activeTab = 0;
   const _tabBase = 'background:none;border:none;border-radius:0;padding:7px 0;flex:1;cursor:pointer;font-size:11px;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;line-height:normal;box-sizing:border-box;margin-bottom:-1px;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,border-color .15s';
   const _tabOn  = `color:#66AAE8;border-bottom:2px solid #66AAE8;${_tabBase}`;
   const _tabOff = `color:#808898;border-bottom:2px solid transparent;${_tabBase}`;
   const tabBar = document.createElement('div');
   tabBar.style.cssText = 'display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid #404550;flex-shrink:0';
-  const _tabBtns = ['Style', 'Layout', 'Playback'].map((label, i) => {
+  const _tabBtns = ['Style', 'Layout', 'Playback', 'Parsing'].map((label, i) => {
     const btn = document.createElement('button');
     btn.textContent = label; btn.style.cssText = i === 0 ? _tabOn : _tabOff;
     btn.addEventListener('click', e => {
@@ -547,41 +547,6 @@ function _cijToggleSettings(_player) {
   otSlider.addEventListener('input', e => { e.stopPropagation(); _cijOutlineThickness = +otSlider.value; otVal.textContent = `${_cijOutlineThickness}px`; const w = _cijSubOverlay?.querySelector('span'); if (w ) { const t = _cijOutlineThickness; w.style.webkitTextStroke = `${t}px #000`; w.style.paintOrder = 'stroke fill'; } _cijLastCueIdx = -2; _cijSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _cijOtSection.appendChild(otRow); _cur.appendChild(_cijOtSection);
 
-  // ── Furigana ──────────────────────────────────────────────
-  _lbl('Furigana');
-  const fgRow = document.createElement('div');
-  fgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
-  fgRow.appendChild(_mkSw(_cijFurigana, v => { _cijFurigana = v; _cijLastCueIdx = -2; _cijSaveSettings(); }));
-  const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_cijFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
-  const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
-  fgOpSl.addEventListener('click', e => e.stopPropagation());
-  fgOpSl.addEventListener('input', e => {
-    e.stopPropagation(); _cijFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`;
-    _cijSubOverlay?.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity); _cijSaveSettings();
-  });
-  fgRow.append(fgOpSl, fgOpVal); _cur.appendChild(fgRow);
-
-  // ── Highlight SRS Level 1-4 ────────────────────────────────
-  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
-  _swRow('Highlight SRS Level 1-4', _apInit, 14, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
-    _cijRecolorOverlay();
-  });
-  const apprHint = document.createElement('div');
-  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
-  apprHint.textContent = 'Distinct color for SRS pipeline words';
-  _cur.appendChild(apprHint);
-
-  // ── Enable grammar detection ────────────────────────────────
-  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
-  _swRow('Enable grammar detection', _conjInit, 14, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
-  });
-  const conjHint = document.createElement('div');
-  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
-  conjHint.textContent = 'Show conjugation and particle info on hover';
-  _cur.appendChild(conjHint);
-
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
 
@@ -660,11 +625,38 @@ function _cijToggleSettings(_player) {
   apHint.textContent = 'Pauses at the end of each subtitle cue';
   _cur.appendChild(apHint);
 
-  _swRow('Unknown words only', _cijUnknownOnly, 4, v => { _cijUnknownOnly = v; _cijRecolorOverlay(); _cijSaveSettings(); });
+  // ═══ Parsing tab ════════════════════════════════════════
+  _cur = _secs[3];
+
+  _lbl('Furigana');
+  const fgRow = document.createElement('div');
+  fgRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px';
+  fgRow.appendChild(_mkSw(_cijFurigana, v => { _cijFurigana = v; _cijLastCueIdx = -2; _cijSaveSettings(); }));
+  const fgOpSl = document.createElement('input'); fgOpSl.type = 'range'; fgOpSl.min = '10'; fgOpSl.max = '100'; fgOpSl.step = '5'; fgOpSl.value = Math.round(_cijFuriganaOpacity * 100); fgOpSl.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const fgOpVal = document.createElement('span'); fgOpVal.style.cssText = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right'; fgOpVal.textContent = `${fgOpSl.value}%`;
+  fgOpSl.addEventListener('click', e => e.stopPropagation());
+  fgOpSl.addEventListener('input', e => { e.stopPropagation(); _cijFuriganaOpacity = fgOpSl.value / 100; fgOpVal.textContent = `${fgOpSl.value}%`; _cijSubOverlay?.style.setProperty('--mc-rt-opacity', _cijFuriganaOpacity); _cijSaveSettings(); });
+  fgRow.append(fgOpSl, fgOpVal); _cur.appendChild(fgRow);
+
+  _swRow('Unknown words only', _cijUnknownOnly, 0, v => { _cijUnknownOnly = v; _cijRecolorOverlay(); _cijSaveSettings(); });
   const uoHint = document.createElement('div');
-  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
+
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apInit, 0, v => { if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v }); _cijRecolorOverlay(); });
+  const apprHint = document.createElement('div');
+  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px;margin-bottom:14px';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _cur.appendChild(apprHint);
+
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 0, v => { if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v }); });
+  const conjHint = document.createElement('div');
+  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _cur.appendChild(conjHint);
 
   document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
