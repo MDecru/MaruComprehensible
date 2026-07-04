@@ -8,7 +8,7 @@ let mmVocab = [];      // array of {item, level, status}
 let mmExtraVocab = [];
 
 async function loadData() {
-  // Load pre-computed JLPT vocab mapping (212k words from kanji analysis)
+  // Load Bunpro JLPT vocab mapping (7,407 words from official JLPT lists)
   try {
     var resp = await fetch('data/jlpt_vocab.json');
     jlptVocab = await resp.json();

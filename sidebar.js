@@ -28,9 +28,10 @@ async function sidebarToggle(text) {
   try { tokenizer = await getTokenizer(); }
   catch { return { ok: false, error: 'Tokenizer not ready — pre-load first' }; }
 
-  const [vocab, jlptMap, { light_theme }, kanjiKnownSet] = await Promise.all([
+  const [vocab, jlptMap, jlptVocab, { light_theme }, kanjiKnownSet] = await Promise.all([
     getVocab(),
     _sbLoadJlptMap(),
+    _sbLoadJlptVocab(),
     new Promise(r => chrome.storage.local.get('light_theme', r)),
     getKanji(),
   ]);
@@ -45,12 +46,8 @@ async function sidebarToggle(text) {
 
     const known = vocab.has(w) || vocab.has(tok.surface_form);
     if (!seen.has(w)) {
-      // Hardest kanji level determines word level (1=N1 hardest, 5=N5 easiest)
-      let level = 0;
-      for (const ch of w) {
-        const l = jlptMap[ch];
-        if (l && (level === 0 || l < level)) level = l;
-      }
+      // Bunpro JLPT vocab list, fallback to hardest kanji level
+      const level = _sbWordJlpt(w, jlptMap, jlptVocab);
       seen.set(w, { basic: w, reading: _katToHira(tok.reading || ''), level, known, count: 0 });
     }
     seen.get(w).count++;
@@ -115,6 +112,29 @@ async function _sbLoadJlptMap() {
     _hoverJlptMap = map;
     return map;
   } catch { return {}; }
+}
+
+// Bunpro JLPT vocab list (word → level number 1-5)
+var _sbJlptVocab = null;
+async function _sbLoadJlptVocab() {
+  if (_sbJlptVocab) return _sbJlptVocab;
+  try {
+    const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab.json'));
+    _sbJlptVocab = await r.json();
+    return _sbJlptVocab;
+  } catch { _sbJlptVocab = {}; return {}; }
+}
+
+function _sbWordJlpt(w, jlptMap, jlptVocab) {
+  // First try Bunpro JLPT vocab list (proper source)
+  if (jlptVocab[w]) return jlptVocab[w];
+  // Fallback: hardest kanji level
+  let level = 0;
+  for (var i = 0; i < w.length; i++) {
+    var l = jlptMap[w[i]];
+    if (l && (level === 0 || l < level)) level = l;
+  }
+  return level;
 }
 
 var _SB_LABEL = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5', 0:'Other' };

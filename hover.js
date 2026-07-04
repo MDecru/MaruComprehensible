@@ -6,6 +6,7 @@ var HOVER_JLPT_LABELS = { 1:'N1', 2:'N2', 3:'N3', 4:'N4', 5:'N5' };
 
 var _hoverEnabled       = false;
 var _hoverJlptMap       = null;
+var _hoverJlptVocab     = null;
 var _hoverVocab         = null;
 var _hoverApprentice    = new Set();  // words at SRS level 1-4
 var _hoverWordStatus    = new Map();  // word → {level, status}
@@ -144,6 +145,14 @@ async function hoverEnable(findContainer) {
       for (const [lvl, ks] of Object.entries(data))
         for (const k of ks) _hoverJlptMap[k] = +lvl;
     } catch { _hoverJlptMap = {}; }
+  }
+
+  // Bunpro JLPT vocab list (word → level, proper source)
+  if (!_hoverJlptVocab) {
+    try {
+      const r = await fetch(chrome.runtime.getURL('data/jlpt_vocab.json'));
+      _hoverJlptVocab = await r.json();
+    } catch { _hoverJlptVocab = {}; }
   }
 
   _hoverVocab = await getVocab();
@@ -303,11 +312,13 @@ function _hoverProcessContainer(container, tokenizer) {
     if (!MM_CONTENT_POS.has(tok.pos) || NUMERAL_RE.test(surface)) continue;
 
     const basic = tok.basic_form || surface;
-    // Determine JLPT level from hardest kanji in the word
-    let level = 0;
-    for (const ch of basic) {
-      const l = _hoverJlptMap?.[ch];
-      if (l && (level === 0 || l < level)) level = l;
+    // Determine JLPT level: Bunpro vocab list first, fallback to hardest kanji
+    let level = _hoverJlptVocab?.[basic] || 0;
+    if (!level) {
+      for (const ch of basic) {
+        const l = _hoverJlptMap?.[ch];
+        if (l && (level === 0 || l < level)) level = l;
+      }
     }
     toWrap.push({
       sNode: posMap[start].node,   sOff: posMap[start].offset,
