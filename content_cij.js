@@ -1,6 +1,7 @@
 // cijapanese.com + local CIJ replica content script
 
 var _cijVttCache = null;
+var _apiTranscriptText = null;
 
 // Wait for the <track> element to be added by the page's JS, then fetch VTT.
 async function cijFetchVTT() {
@@ -878,11 +879,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   if (msg.action !== 'rescore') return;
   _cijVttCache = null;
-  scanPage()
-    .then(res => reply(res !== null
+  var p = scanPage().then(function(res) {
+    if (res) return res;
+    if (_apiTranscriptText) return scoreVTT(_apiTranscriptText);
+    return null;
+  });
+  p.then(function(res) {
+    reply(res !== null
       ? { score: res.score, freqKnown: res.freqKnown, freqTotal: res.freqTotal, uniqueKnown: res.uniqueKnown, uniqueTotal: res.uniqueTotal, kanjiKnown: res.kanjiKnown, kanjiTotal: res.kanjiTotal }
-      : { error: 'No Japanese subtitles found' }))
-    .catch(e => reply({ error: e.message }));
+      : { error: 'No Japanese subtitles found' });
+  }).catch(function(e) { reply({ error: e.message }); });
   return true;
 });
 
@@ -897,9 +903,49 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// The new CIJ website serves transcripts via API (/api/v1/transcript) rather than
-// <track> elements. Auto-scoring is not supported yet for this architecture.
-// Open the popup to trigger manual scoring.
+// Auto-score: intercept the /api/v1/transcript API call and score its content.
+(function interceptTranscriptAPI() {
+  var _fetch = window.fetch;
+  var scored = false;
+  window.fetch = function(url, opts) {
+    var p = _fetch.apply(this, arguments);
+    if (!scored && typeof url === 'string' && url.includes('/api/v1/transcript')) {
+      p.then(function(r) {
+        return r.clone().text().then(function(text) {
+          try {
+            var data = JSON.parse(text);
+            // Extract text from transcript API response — may be { cues: [{text,...},...] }
+            var transcriptText = '';
+            if (data.cues) {
+              transcriptText = data.cues.map(function(c) { return c.text || ''; }).join(' ');
+            } else if (data.transcript) {
+              transcriptText = data.transcript;
+            } else if (typeof data === 'string') {
+              transcriptText = data;
+            }
+            if (!transcriptText.trim()) return;
+            // Cache the text for rescore fallback and score immediately
+            _apiTranscriptText = transcriptText;
+            scored = true;
+            getTokenizer().then(function() { return scoreVTT(transcriptText); }).then(function(res) {
+              if (res?.score != null) {
+                var video = document.querySelector('video');
+                var player = _cijGetPlayer();
+                if (player) {
+                  if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
+                  _cijCreateControlBar(player, res.score);
+                } else if (video) {
+                  showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
+                }
+              }
+            }).catch(function() {});
+          } catch(e) {}
+        });
+      }).catch(function() {});
+    }
+    return p;
+  };
+})();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;
