@@ -359,6 +359,20 @@ function _hoverProcessContainer(container, tokenizer) {
       apprentice: _hoverShowApprentice && (_hoverApprentice.has(basic) || _hoverApprentice.has(surface)),
       status:  _hoverWordStatus.get(basic) || _hoverWordStatus.get(surface) || null,
     });
+    // Debug
+    if (basic.indexOf('勉強') !== -1 || surface.indexOf('勉強') !== -1) {
+      console.log('DEBUG 勉強:', JSON.stringify({
+        surface, basic, pos: tok.pos,
+        direct: _hoverVocab.has(basic),
+        surfK: _hoverVocab.has(surface),
+        allKanji: _allKanjiKnown(basic),
+        stemB: _stemKnown(basic, _hoverVocab),
+        stemS: _stemKnown(surface, _hoverVocab),
+        kanjiSz: _hoverKanjiSet ? _hoverKanjiSet.size : 0,
+        m: _hoverKanjiSet ? _hoverKanjiSet.has('勉') : '?',
+        q: _hoverKanjiSet ? _hoverKanjiSet.has('強') : '?'
+      }));
+    }
   }
 
   for (let i = toWrap.length - 1; i >= 0; i--) {
