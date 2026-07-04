@@ -12,9 +12,14 @@ var _hoverKanjiSet      = null;
 var _hoverApprentice    = new Set();  // words at SRS level 1-4
 var _hoverWordStatus    = new Map();  // word → {level, status}
 var _hoverShowApprentice = false;     // toggle for apprentice highlighting
+var _hoverConjHints      = false;     // toggle for conjugation/particle form hints
+var _hoverTab            = 'dict';    // active tab in pinned card: 'dict' | 'grammar'
 var _hoverTip        = null;
 var _hoverPinned     = null;
 var _hoverStyle      = null;
+var _hoverDragging   = false;
+var _hoverDragX      = 0;
+var _hoverDragY      = 0;
 var _hoverIsLight    = false;
 var _lastTipDataset  = null;
 var _lastTipDef      = undefined;
@@ -55,7 +60,12 @@ function _ensureHoverUI() {
     _hoverStyle.textContent = `
       .jp-tok { border-radius:2px; cursor:pointer; transition:background .1s; }
       .jp-tok:hover { background:rgba(114,206,157,.28) !important; outline:2px solid rgba(114,206,157,.55); box-shadow:0 0 6px rgba(114,206,157,.25); border-radius:3px; }
-      .jp-tok.jp-tok-sel { background:rgba(114,206,157,.22) !important; outline:2px solid rgba(114,206,157,.6); }
+      .jp-tok-sel { background:rgba(114,206,157,.22) !important; outline:2px solid rgba(114,206,157,.6); }
+      /* Highlighter-marker for the actual grammar particle (も/か/だけ/です…), not
+         the whole content word it's attached to. box-shadow (not background) so
+         it doesn't fight the subtitle's own black backdrop box. */
+      .jp-gram-mark { border-radius:2px; cursor:pointer; transition:box-shadow .1s; }
+      .jp-gram-mark:hover { box-shadow:inset 0 -0.34em 0 rgba(229,72,77,.6); }
 
       /* ── Dark theme (default) ── */
       #jp-hover-tip { position:fixed; z-index:2147483647; background:#232425; border:1px solid #363A3B;
@@ -63,6 +73,8 @@ function _ensureHoverUI() {
         box-shadow:0 12px 40px rgba(0,0,0,.9); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
         pointer-events:none; display:none; overflow:hidden; }
       #jp-hover-tip.pinned { pointer-events:auto; }
+      #jp-hover-tip.pinned .jht-head { cursor:grab; }
+      #jp-hover-tip.pinned .jht-head:active { cursor:grabbing; }
       .jht-head { display:flex; align-items:center; gap:8px; padding:10px 12px 8px;
         border-bottom:1px solid #363A3B; min-width:0; }
       .jht-word { font-size:20px; font-weight:700; color:#fff; letter-spacing:.02em;
@@ -70,7 +82,13 @@ function _ensureHoverUI() {
       .jht-right { display:flex; align-items:center; gap:6px; margin-left:auto; flex-shrink:0; }
       .jht-close { background:none; border:none; color:#555; font-size:16px; line-height:1; cursor:pointer; padding:0 2px; }
       .jht-close:hover { color:#fff; }
-      .jht-reading { font-size:12px; color:#66AAE8; padding:5px 12px 2px; }
+      .jht-reading-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:5px 12px 2px; }
+      .jht-reading { font-size:12px; color:#66AAE8; flex-shrink:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .jht-conj { display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end; margin-left:auto; }
+      .jht-conj-tag { font-size:10.5px; font-weight:700; color:#ffb0b0; background:rgba(229,72,77,.28);
+        border:1px solid rgba(229,72,77,.55); border-radius:9px; padding:2px 8px; white-space:nowrap; cursor:help; }
+      .jht-conj-tag.jht-conj-link { cursor:pointer; text-decoration:none; }
+      .jht-conj-tag.jht-conj-link:hover { filter:brightness(1.15); }
       .jht-mmlv { font-size:10px; font-weight:700; padding:2px 6px; border-radius:5px; }
       .jht-mmlv.lv1,.jht-mmlv.lv2,.jht-mmlv.lv3,.jht-mmlv.lv4 { background:rgba(114,206,157,.2); color:#72CE9D; }
       .jht-mmlv.lv5,.jht-mmlv.lv6,.jht-mmlv.lv7,.jht-mmlv.lv8,.jht-mmlv.lv9 { background:rgba(102,170,232,.2); color:#66AAE8; }
@@ -108,6 +126,17 @@ function _ensureHoverUI() {
         display:inline; white-space:nowrap; }
       .jht-loading  { font-size:11px; color:#555; font-style:italic; padding:2px 0; }
       .jht-no-entry { font-size:12px; color:#8890aa; padding:6px 0; }
+      .jht-modebar { display:flex; gap:6px; padding:8px 12px; }
+      .jht-modebtn { flex:1; border:none; border-radius:14px; padding:6px 0; font-size:12px;
+        font-weight:700; color:#fff; cursor:pointer; opacity:.5; transition:opacity .15s,filter .15s;
+        font-family:inherit; }
+      .jht-modebtn:hover { opacity:.8; }
+      .jht-modebtn.active { opacity:1; }
+      .jht-modebtn-dict { background:#72CE9D; }
+      .jht-modebtn-gram { background:#E5484D; }
+      .jht-grammar { padding:8px 12px; border-bottom:1px solid #363A3B; display:flex; flex-direction:column; gap:8px; }
+      .jht-gitem { display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+      .jht-gitem-desc { font-size:12px; color:#c8d0e0; line-height:1.4; }
 
       /* ── Light theme ── */
       #jp-hover-tip.jht-light { background:#ffffff; border-color:#66AAE8; color:#3a3f47;
@@ -129,8 +158,11 @@ function _ensureHoverUI() {
       #jp-hover-tip.jht-light .jht-defs { border-bottom-color:#e0e4f0; }
       #jp-hover-tip.jht-light .jht-gloss { color:#3a3f47; }
       #jp-hover-tip.jht-light .jht-pos { color:#66748a; background:rgba(0,0,0,.06); }
+      #jp-hover-tip.jht-light .jht-conj-tag { color:#c0262b; background:rgba(229,72,77,.14); border-color:rgba(229,72,77,.4); }
       #jp-hover-tip.jht-light .jht-loading,
       #jp-hover-tip.jht-light .jht-no-entry { color:#8890aa; }
+      #jp-hover-tip.jht-light .jht-grammar { border-bottom-color:#e0e4f0; }
+      #jp-hover-tip.jht-light .jht-gitem-desc { color:#3a3f47; }
     `;
     document.head.appendChild(_hoverStyle);
     // Read initial theme
@@ -150,7 +182,7 @@ function _ensureHoverUI() {
     // Hide full-hover (non-pinned) card when mouse leaves the tooltip
     _hoverTip.addEventListener('mouseleave', e => {
       if (_hoverPinned) return;
-      if (e.relatedTarget?.closest?.('.jp-tok')) return;
+      if (e.relatedTarget?.closest?.('.jp-tok, .jp-gram-mark')) return;
       _hoverTip.style.display = 'none';
     });
   }
@@ -188,8 +220,9 @@ async function hoverEnable(findContainer) {
   try { _hoverApprentice = await getApprenticeVocab(); } catch {}
   try {
     _hoverWordStatus = await getWordStatusMap();
-    chrome.storage.local.get('mc_show_apprentice', ({ mc_show_apprentice }) => {
+    chrome.storage.local.get(['mc_show_apprentice', 'mc_conj_hints'], ({ mc_show_apprentice, mc_conj_hints }) => {
       _hoverShowApprentice = !!mc_show_apprentice;
+      _hoverConjHints = !!mc_conj_hints;
     });
   } catch {}
 
@@ -222,6 +255,9 @@ function hoverActivate() {
   document.addEventListener('mouseout',   _hoverOut,   { passive: true, capture: true });
   document.addEventListener('click',      _hoverClick, true);
   document.addEventListener('keydown',    _hoverKey,   true);
+  document.addEventListener('mousedown',  _hoverDragStart, true);
+  document.addEventListener('mousemove',  _hoverDragMove, { passive: true });
+  document.addEventListener('mouseup',    _hoverDragEnd);
   _hoverEnabled = true;
   getVocab().then(v => { _hoverVocab = v; }).catch(() => {});
   getApprenticeVocab().then(s => { _hoverApprentice = s; }).catch(() => {});
@@ -328,8 +364,12 @@ function _hoverProcessContainer(container, tokenizer) {
 
   const tokens = buildMergedTokens(tokenizer.tokenize(text), _hoverVocab);
 
-  // Collect wraps in forward order, apply in REVERSE so later DOM changes
-  // don't invalidate earlier node references.
+  // Collect wraps in forward (left-to-right) order, apply in REVERSE — DOM
+  // range extraction can split a shared text node, which would invalidate the
+  // node/offset references of anything to its right if applied out of order.
+  // Grammar-marker particles (も/か/だけ/です…) are pushed into the SAME array
+  // (kind:'mark') interleaved in text order, rather than a separate list, so
+  // that reverse-order invariant still holds across both kinds together.
   const toWrap = [];
   let pos = 0;
 
@@ -338,7 +378,26 @@ function _hoverProcessContainer(container, tokenizer) {
     const start = pos, end = pos + surface.length;
     pos = end;
     if (end > posMap.length) break;
-    if (!MM_CONTENT_POS.has(tok.pos) || NUMERAL_RE.test(surface)) continue;
+    // MM_TAGGABLE_POS (not MM_CONTENT_POS) so discourse connectors like そして
+    // still get a hoverable span for their grammar tag, without affecting the
+    // separate score%/known-word-count math in common.js.
+    if (!MM_TAGGABLE_POS.has(tok.pos) || NUMERAL_RE.test(surface)) {
+      // Grammar-marker particle: no known-word coloring of its own, just a
+      // highlight-on-hover span so the mark lands on the actual particle
+      // instead of underlining the whole content word it's attached to.
+      // Hovering it opens the connected word's own hover card (via markTarget)
+      // rather than a separate tooltip for the particle itself.
+      if (_hoverConjHints && tok.markConj?.length) {
+        const t = tok.markTarget;
+        toWrap.push({
+          kind: 'mark',
+          sNode: posMap[start].node, sOff: posMap[start].offset,
+          eNode: posMap[end-1].node, eOff: posMap[end-1].offset + 1,
+          target: t ? { word: t.surface_form, basic: t.basic_form, pos: t.pos, reading: t.reading, conj: t.conj } : null,
+        });
+      }
+      continue;
+    }
 
     const basic = tok.basic_form || surface;
     // Determine JLPT level: Bunpro vocab list first, fallback to hardest kanji
@@ -350,11 +409,13 @@ function _hoverProcessContainer(container, tokenizer) {
       }
     }
     toWrap.push({
+      kind: 'word',
       sNode: posMap[start].node,   sOff: posMap[start].offset,
       eNode: posMap[end-1].node,   eOff: posMap[end-1].offset + 1,
       surface, basic, level,
       pos:     tok.pos,
       reading: tok.reading || '',
+      conj:    tok.conj || [],
       known:   _hoverVocab.has(basic) || _hoverVocab.has(surface) || _allKanjiKnown(basic) || _stemKnown(basic, _hoverVocab) || _stemKnown(surface, _hoverVocab),
       apprentice: _hoverShowApprentice && (_hoverApprentice.has(basic) || _hoverApprentice.has(surface)),
       status:  _hoverWordStatus.get(basic) || _hoverWordStatus.get(surface) || null,
@@ -369,20 +430,37 @@ function _hoverProcessContainer(container, tokenizer) {
       range.setEnd(w.eNode, w.eOff);
 
       const span = document.createElement('span');
-      span.className       = 'jp-tok';
-      span.dataset.word    = w.surface;
-      span.dataset.basic   = w.basic;
-      span.dataset.pos     = w.pos;
-      span.dataset.reading = w.reading;
-      if (w.status) {
-        span.dataset.mmLevel  = w.status.level ?? '';
-        span.dataset.mmStatus = w.status.status ?? '';
+
+      if (w.kind === 'mark') {
+        // Grammar-marker particle: highlight-on-hover only, no coloring of its
+        // own. If it's linked to a content word, hovering/clicking it opens
+        // that word's normal hover card (see _hoverOver/_hoverClick) instead
+        // of a separate tooltip for the particle itself.
+        span.className = 'jp-gram-mark';
+        if (w.target) {
+          span.dataset.word    = w.target.word;
+          span.dataset.basic   = w.target.basic;
+          span.dataset.pos     = w.target.pos;
+          span.dataset.reading = w.target.reading;
+          if (w.target.conj?.length) span.dataset.conj = w.target.conj.join('|');
+        }
+      } else {
+        span.className       = 'jp-tok';
+        span.dataset.word    = w.surface;
+        span.dataset.basic   = w.basic;
+        span.dataset.pos     = w.pos;
+        span.dataset.reading = w.reading;
+        if (w.conj.length) span.dataset.conj = w.conj.join('|');
+        if (w.status) {
+          span.dataset.mmLevel  = w.status.level ?? '';
+          span.dataset.mmStatus = w.status.status ?? '';
+        }
+        span.style.color     = w.known
+          ? (_hoverIsLight ? '#1a5fa8' : '#66AAE8')
+          : w.apprentice
+            ? (_hoverIsLight ? '#2d8a5e' : '#72CE9D')
+            : (_hoverIsLight ? '#b82d3e' : '#ED7989');
       }
-      span.style.color     = w.known
-        ? (_hoverIsLight ? '#1a5fa8' : '#66AAE8')
-        : w.apprentice
-          ? (_hoverIsLight ? '#2d8a5e' : '#72CE9D')
-          : (_hoverIsLight ? '#b82d3e' : '#ED7989');
 
       // extractContents handles ruby-boundary ranges — ruby markup stays inside span
       span.appendChild(range.extractContents());
@@ -438,6 +516,16 @@ function hoverApplyFurigana(container) {
 
 function _wireHoverTipButtons() {
   _hoverTip.querySelector('.jht-close')?.addEventListener('click', _hoverHide);
+  _hoverTip.querySelectorAll('.jht-modebtn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _hoverTab = btn.dataset.tab;
+      if (_lastTipDataset) {
+        _hoverTip.innerHTML = _hoverBuildTip(_lastTipDataset, true, _lastTipDef);
+        _wireHoverTipButtons();
+      }
+    });
+  });
   _hoverTip.querySelector('.jht-set-known')?.addEventListener('click', async e => {
     e.stopPropagation();
     const basic = e.currentTarget.dataset.basic || e.currentTarget.dataset.word;
@@ -492,8 +580,40 @@ function _hoverBuildTip(dataset, pinned, defResult) {
 
   // Reading line: prefer Jisho reading (hiragana), fallback to kuromoji
   const displayReading = defResult?.reading || kReading;
-  const readingHtml = (displayReading && displayReading !== word)
-    ? `<div class="jht-reading">${_esc(displayReading)}</div>` : '';
+  const readingText = (displayReading && displayReading !== word) ? _esc(displayReading) : '';
+
+  // Conjugation/particle form hints (verb/adjective conjugation, noun case role)
+  const conjTags = (_hoverConjHints && dataset.conj) ? dataset.conj.split('|').filter(Boolean) : [];
+  const hasGrammar = conjTags.length > 0;
+
+  // Quick (unpinned) hover: small glance chips, no tabs (nothing to click while unpinned).
+  // Pinned: tags move into the Grammar tab below, with room for a full explanation each.
+  const conjChipsHtml = (!pinned && hasGrammar)
+    ? `<div class="jht-conj">${conjTags.map(t => `<span class="jht-conj-tag">${_esc(t)}</span>`).join('')}</div>`
+    : '';
+
+  const readingHtml = (readingText || conjChipsHtml)
+    ? `<div class="jht-reading-row"><span class="jht-reading">${readingText}</span>${conjChipsHtml}</div>`
+    : '';
+
+  const showTabs = pinned && hasGrammar;
+  const activeTab = showTabs ? _hoverTab : 'dict';
+  const tabsHtml = showTabs
+    ? `<div class="jht-modebar">
+        <button class="jht-modebtn jht-modebtn-dict${activeTab === 'dict' ? ' active' : ''}" data-tab="dict">Translation</button>
+        <button class="jht-modebtn jht-modebtn-gram${activeTab === 'grammar' ? ' active' : ''}" data-tab="grammar">Grammar</button>
+      </div>`
+    : '';
+
+  const grammarHtml = `<div class="jht-grammar">${conjTags.map(t => {
+    const mmQuery = CONJ_LABEL_TO_SURFACE[t] || t;
+    const mmUrl = `https://marumori.io/grammar?q=${encodeURIComponent(mmQuery)}`;
+    return `
+    <div class="jht-gitem">
+      <a class="jht-conj-tag jht-conj-link" href="${mmUrl}" target="_blank" title="Look up on MaruMori">${_esc(t)}</a>
+      <span class="jht-gitem-desc">${_esc(CONJ_TAG_INFO[t] || '')}</span>
+    </div>`;
+  }).join('')}</div>`;
 
   // Definitions (from Jisho, or loading placeholder)
   let defHtml = '';
@@ -528,6 +648,8 @@ function _hoverBuildTip(dataset, pinned, defResult) {
         </a>`;
       }).join('')}</div>` : '';
 
+  const bodyHtml = (showTabs && activeTab === 'grammar') ? grammarHtml : (defHtml + kanjiHtml);
+
   const displayWord = basic !== word ? basic : word;
   const setKnownBtn = (pinned && !known && pos)
     ? `<button class="jht-set-known" data-basic="${_esc(basic)}" data-word="${_esc(word)}">+ Set as Known</button>`
@@ -538,7 +660,7 @@ function _hoverBuildTip(dataset, pinned, defResult) {
   </div>`;
   const footerHtml = `<div class="jht-footer">${setKnownBtn}${linksHtml}</div>`;
 
-  return headHtml + readingHtml + defHtml + kanjiHtml + footerHtml;
+  return headHtml + readingHtml + tabsHtml + bodyHtml + footerHtml;
 }
 
 function _esc(s) {
@@ -594,10 +716,11 @@ function _hoverPosition(el) {
 function _hoverOver(e) {
   if (_hoverPinned || !_hoverTip) return;
   if (e.target.closest('#jp-hover-tip')) return; // mouse moved into tooltip, keep it
-  const tok = e.target.closest('.jp-tok');
-  if (!tok) { _hoverTip.style.display = 'none'; return; }
+  const tok = e.target.closest('.jp-tok, .jp-gram-mark');
+  if (!tok || !tok.dataset.word) { _hoverTip.style.display = 'none'; return; }
 
   const full = !!tok.closest('[data-mc-full-hover]');
+  if (_lastTipDataset !== tok.dataset) _hoverTab = tok.classList.contains('jp-gram-mark') ? 'grammar' : 'dict';
   _lastTipDataset = tok.dataset; _lastTipDef = undefined;
   _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, full, full ? undefined : null);
   _hoverTip.style.display = 'block';
@@ -619,20 +742,23 @@ function _hoverOver(e) {
 
 function _hoverOut(e) {
   if (_hoverPinned || !_hoverTip) return;
-  if (e.relatedTarget?.closest?.('.jp-tok')) return;
+  if (e.relatedTarget?.closest?.('.jp-tok, .jp-gram-mark')) return;
   if (e.relatedTarget?.closest?.('#jp-hover-tip')) return; // going into tooltip
   _hoverTip.style.display = 'none';
 }
 
 function _hoverClick(e) {
   if (!_hoverTip) return;
-  const tok = e.target.closest('.jp-tok');
-  if (tok) {
+  const tok = e.target.closest('.jp-tok, .jp-gram-mark');
+  if (tok && tok.dataset.word) {
     e.stopPropagation();
     if (_hoverPinned === tok) { _hoverHide(); return; }
     if (_hoverPinned) _hoverPinned.classList.remove('jp-tok-sel');
 
-    // Show immediately with loading placeholder for definitions
+    // Show immediately with loading placeholder for definitions. Clicking the
+    // grammar-marker particle itself (も/か/です…) opens straight to the
+    // Grammar pane instead of defaulting to Dict.
+    _hoverTab = tok.classList.contains('jp-gram-mark') ? 'grammar' : 'dict';
     _lastTipDataset = tok.dataset; _lastTipDef = undefined;
     _hoverTip.innerHTML = _hoverBuildTip(tok.dataset, true, undefined);
     _hoverTip.style.display = 'block';
@@ -658,6 +784,32 @@ function _hoverClick(e) {
     return;
   }
   if (_hoverPinned && !e.target.closest('#jp-hover-tip')) _hoverHide();
+}
+
+function _hoverDragStart(e) {
+  if (!_hoverPinned || !_hoverTip || e.button !== 0) return;
+  if (!e.target.closest('.jht-head')) return; // only drag from header
+  e.preventDefault();
+  _hoverDragging = true;
+  _hoverDragX = e.clientX - _hoverTip.offsetLeft;
+  _hoverDragY = e.clientY - _hoverTip.offsetTop;
+}
+
+function _hoverDragMove(e) {
+  if (!_hoverDragging) return;
+  var x = e.clientX - _hoverDragX;
+  var y = e.clientY - _hoverDragY;
+  // Keep within viewport
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if (x + _hoverTip.offsetWidth  > window.innerWidth)  x = window.innerWidth  - _hoverTip.offsetWidth;
+  if (y + _hoverTip.offsetHeight > window.innerHeight) y = window.innerHeight - _hoverTip.offsetHeight;
+  _hoverTip.style.left = x + 'px';
+  _hoverTip.style.top  = y + 'px';
+}
+
+function _hoverDragEnd(e) {
+  _hoverDragging = false;
 }
 
 function _hoverKey(e) {
@@ -693,6 +845,7 @@ async function hoverShowWord(wordData, anchorEl) {
     reading: wordData.reading || '',
   };
 
+  _hoverTab = 'dict';
   _lastTipDataset = dataset; _lastTipDef = undefined;
   _hoverTip.innerHTML = _hoverBuildTip(dataset, true, undefined);
   _hoverTip.style.display = 'block';
@@ -764,5 +917,8 @@ try { chrome.storage.onChanged.addListener((changes, area) => {
   }
   if (changes.mc_show_apprentice) {
     _hoverShowApprentice = !!changes.mc_show_apprentice.newValue;
+  }
+  if (changes.mc_conj_hints) {
+    _hoverConjHints = !!changes.mc_conj_hints.newValue;
   }
 }); } catch {}
