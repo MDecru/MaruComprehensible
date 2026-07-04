@@ -43,6 +43,12 @@
 
   let _cijTimer = null;
   _inject();
-  new MutationObserver(() => { clearTimeout(_cijTimer); _cijTimer = setTimeout(_inject, 250); })
-    .observe(document.body, { childList: true, subtree: true });
+  // This content script matches the whole cijapanese.com origin, so it also runs on
+  // non-HTML responses (sitemap.xml, JSON endpoints, etc.) that Chrome's built-in
+  // viewer renders without a <body> — guard against that instead of crashing.
+  const observer = new MutationObserver(() => { clearTimeout(_cijTimer); _cijTimer = setTimeout(_inject, 250); });
+  if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  else document.addEventListener('DOMContentLoaded', () => {
+    if (document.body) observer.observe(document.body, { childList: true, subtree: true });
+  }, { once: true });
 })();

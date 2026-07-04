@@ -31,9 +31,9 @@
   const detail = document.getElementById('detail');
   if (detail) {
     detail.style.transition = 'right .2s ease';
-    new MutationObserver(() => {
+    mcObserveBody(() => {
       const open = !!document.getElementById('jp-sidebar');
       detail.style.right = open ? '260px' : '';
-    }).observe(document.body, { childList: true });
+    }, { childList: true });
   }
 })();

@@ -13,16 +13,21 @@ var _sbLastGroups = null;
 function sbRegisterPush(pushFn, popFn) { _sbPushFn = pushFn; _sbPopFn = popFn; }
 var _sbSortMode = 'jlpt';   // 'jlpt' | 'freq'
 var _sbActiveFilter = 'unknown';
-var _sbViewMode = 'words';  // 'words' | 'kanji'
+var _sbViewMode = 'words';  // 'words' | 'kanji' | 'grammar'
 var _sbLastKanjiGroups = null;
+var _sbLastGrammarGroups = null;
 
 function sidebarIsOpen() { return _sidebarEl !== null; }
 
-async function sidebarToggle(text) {
+// Accepts either a plain transcript string (no per-line timing, e.g. NJK scraped
+// pages) or an array of timed cues from mcParseVTTCues (e.g. YouTube/CIJ/player —
+// lets grammar-point examples link back to the moment they occur in the video).
+async function sidebarToggle(input) {
   if (_sidebarEl) { _sidebarClose(); return { ok: true, closed: true }; }
   // Dismiss any pinned hover tooltip so it doesn't overlap the sidebar
   if (typeof _hoverHide === 'function') _hoverHide();
-  if (!text?.trim()) return { ok: false, error: 'No text available' };
+  const cues = Array.isArray(input) ? input : (input?.trim() ? [{ start: null, text: input }] : null);
+  if (!cues || !cues.length) return { ok: false, error: 'No text available' };
 
   let tokenizer;
   try { tokenizer = await getTokenizer(); }
@@ -35,12 +40,26 @@ async function sidebarToggle(text) {
     new Promise(r => chrome.storage.local.get('light_theme', r)),
     getKanji(),
   ]);
-  const tokens = buildMergedTokens(tokenizer.tokenize(text), vocab);
 
-  // Collect all unique content words (known and unknown)
+  // Tokenize per cue (rather than one big joined blob) so each token can carry
+  // the cue's start time — the rare compound that straddles a cue boundary
+  // won't merge, which is an acceptable trade for accurate timestamps.
+  const tokens = [];
+  const tokenTime = []; // parallel array: cue start ms (or null) for tokens[i]
+  for (const cue of cues) {
+    if (!cue.text?.trim()) continue;
+    for (const tok of buildMergedTokens(tokenizer.tokenize(cue.text), vocab)) {
+      tokens.push(tok);
+      tokenTime.push(cue.start ?? null);
+    }
+  }
+
+  // Collect all unique content words (known and unknown). Uses MM_TAGGABLE_POS
+  // (not MM_CONTENT_POS) so discourse connectors like そして show up here too —
+  // doesn't touch the separate score%/known-word-count math in common.js.
   const seen = new Map();
   for (const tok of tokens) {
-    if (!MM_CONTENT_POS.has(tok.pos)) continue;
+    if (!MM_TAGGABLE_POS.has(tok.pos)) continue;
     const w = tok.basic_form || tok.surface_form;
     if (!hasKanji(w) && [...w].length < 2) continue;
 
@@ -81,7 +100,33 @@ async function sidebarToggle(text) {
   const kanjiGroups = { 5: [], 4: [], 3: [], 2: [], 1: [], 0: [] };
   for (const entry of kanjiSeen.values()) kanjiGroups[entry.level].push(entry);
 
-  _sidebarInject(groups, kanjiGroups, !!light_theme);
+  // Collect grammar points (conjugation forms + particle roles) tagged during merge.
+  // Each example keeps the timestamp (ms) of the cue it came from, if any, so the
+  // sidebar can seek the video there on click.
+  const grammarSeen = new Map(); // tag → { tag, desc, count, examples: [{surface, time}] }
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (!tok.conj || !tok.conj.length) continue;
+    const time = tokenTime[i];
+    for (const tag of tok.conj) {
+      if (!grammarSeen.has(tag)) grammarSeen.set(tag, { tag, desc: CONJ_TAG_INFO[tag] || '', count: 0, examples: [] });
+      const g = grammarSeen.get(tag);
+      g.count++;
+      if (g.examples.length < 6 && !g.examples.some(e => e.surface === tok.surface_form)) {
+        g.examples.push({ surface: tok.surface_form, time });
+      }
+    }
+  }
+  const grammarGroups = { conj: [], particle: [], connector: [] };
+  for (const g of grammarSeen.values()) {
+    const bucket = CONJ_DISCOURSE_LABELS.has(g.tag) ? 'connector' : CONJ_PARTICLE_LABELS.has(g.tag) ? 'particle' : 'conj';
+    grammarGroups[bucket].push(g);
+  }
+  grammarGroups.conj.sort((a, b) => b.count - a.count);
+  grammarGroups.particle.sort((a, b) => b.count - a.count);
+  grammarGroups.connector.sort((a, b) => b.count - a.count);
+
+  _sidebarInject(groups, kanjiGroups, grammarGroups, !!light_theme);
   return { ok: true };
 }
 
@@ -229,9 +274,61 @@ function _sbBuildSections(groups, isLight, sortMode) {
   return html || empty;
 }
 
-function _sidebarInject(groups, kanjiGroups, isLight = false) {
+function _sbFmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function _sbGrammarItemHtml(g) {
+  const exHtml = g.examples.length
+    ? `<div class="sb-gram-ex">${g.examples.map(e => {
+        const clickable = e.time != null;
+        const cls   = clickable ? 'sb-gram-ex-item sb-gram-ex-link' : 'sb-gram-ex-item';
+        const attrs = clickable ? ` data-time="${e.time}" title="Jump to ${_sbFmtTime(e.time)}"` : '';
+        return `<span class="${cls}"${attrs}>${_sbEsc(e.surface)}</span>`;
+      }).join('<span class="sb-gram-ex-sep">、</span>')}</div>`
+    : '';
+  const mmUrl = `https://marumori.io/grammar?q=${encodeURIComponent(CONJ_LABEL_TO_SURFACE[g.tag] || g.tag)}`;
+  return `<div class="sb-gram">
+    <div class="sb-gram-top">
+      <a class="sb-gram-tag" href="${mmUrl}" target="_blank" title="Look up on MaruMori">${_sbEsc(g.tag)}</a>
+      <span class="sb-x">×${g.count}</span>
+    </div>
+    <div class="sb-gram-desc">${_sbEsc(g.desc)}</div>
+    ${exHtml}
+  </div>`;
+}
+
+function _sbGrammarTotal(g) {
+  return (g.conj?.length || 0) + (g.particle?.length || 0) + (g.connector?.length || 0);
+}
+
+function _sbGrammarSectionHtml(label, color, items, unit) {
+  if (!items.length) return '';
+  return `<div class="sb-sec">
+    <div class="sb-sh">
+      <span class="sb-badge" style="color:#fff;background:${color};border:none">${label}</span>
+      <span class="sb-n sb-n-all">${items.length} ${unit}${items.length !== 1 ? 's' : ''}</span>
+      <button class="sb-tog" title="Collapse section">−</button>
+    </div>
+    <div class="sb-ws">${items.map(_sbGrammarItemHtml).join('')}</div>
+  </div>`;
+}
+
+function _sbBuildGrammarSections(grammarGroups) {
+  const empty = '<div style="padding:28px 14px;color:#4a5068;font-size:12px;text-align:center">No grammar points detected</div>';
+  const { conj = [], particle = [], connector = [] } = grammarGroups || {};
+  if (!conj.length && !particle.length && !connector.length) return empty;
+
+  return _sbGrammarSectionHtml('Conjugation', '#7E69F0', conj, 'form')
+    + _sbGrammarSectionHtml('Particle roles', '#66AAE8', particle, 'role')
+    + _sbGrammarSectionHtml('Connectors', '#72CE9D', connector, 'connector');
+}
+
+function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
   _sbLastGroups = groups;
   _sbLastKanjiGroups = kanjiGroups;
+  _sbLastGrammarGroups = grammarGroups || { conj: [], particle: [], connector: [] };
   _sidebarClose();
 
   // Theme tokens
@@ -271,6 +368,7 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
   const allKanji = Object.values(kanjiGroups).flat();
   const kanjiUnk = allKanji.filter(k => !k.known).length;
   const kanjiKnw = allKanji.filter(k =>  k.known).length;
+  const grammarCount = _sbGrammarTotal(_sbLastGrammarGroups);
 
   const el = document.createElement('div');
   el.id = 'jp-sidebar';
@@ -319,6 +417,17 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
       background:rgba(102,170,232,.2);color:#66AAE8}
     .sb-r{font-size:11px;color:${T.reading}}
     .sb-x{margin-left:auto;font-size:10px;color:${T.dim}}
+    .sb-gram{padding:8px 14px;border-top:1px solid ${T.border}}
+    .sb-gram:first-child{border-top:none}
+    .sb-gram-top{display:flex;align-items:center;gap:6px}
+    .sb-gram-tag{font-size:11px;font-weight:700;color:#fff;background:#E5484D;border:none;
+      border-radius:9px;padding:2px 8px;text-decoration:none;cursor:pointer}
+    .sb-gram-tag:hover{filter:brightness(1.1)}
+    .sb-gram-desc{font-size:12px;color:${T.body};line-height:1.4;margin-top:5px}
+    .sb-gram-ex{font-size:12px;color:${T.muted};margin-top:4px;line-height:1.5}
+    .sb-gram-ex-sep{color:${T.dim}}
+    .sb-gram-ex-link{color:${T.reading};cursor:pointer;border-bottom:1px dotted currentColor}
+    .sb-gram-ex-link:hover{color:${isLight ? '#1a5fa8' : '#8ec3f2'}}
     #jp-sidebar.filter-unknown .sb-known{display:none}
     #jp-sidebar.filter-known  .sb-unknown{display:none}
     #jp-sidebar.filter-unknown .sb-sec[data-unk="0"],
@@ -330,15 +439,17 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
       <button id="jp-sb-cls">×</button>
     </div>
     <div id="jp-sb-stats">
-      <span id="jp-sb-tot">${unknownCount} unknown · ${knownCount} known</span>
-      <span id="jp-sb-kanjitot">${kanjiUnk} kanji unknown · ${kanjiKnw} known</span>
+      <span id="jp-sb-tot" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">${unknownCount} unknown · ${knownCount} known</span>
+      <span id="jp-sb-kanjitot" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">${kanjiUnk} kanji unknown · ${kanjiKnw} known</span>
+      <span id="jp-sb-gramtot" style="display:${_sbViewMode === 'grammar' ? '' : 'none'}">${grammarCount} grammar point${grammarCount !== 1 ? 's' : ''} detected</span>
     </div>
     <div id="jp-sb-view">
       <button class="sb-vtab${_sbViewMode === 'words' ? ' active' : ''}" data-view="words">Words</button>
       <button class="sb-vtab${_sbViewMode === 'kanji' ? ' active' : ''}" data-view="kanji">Kanji</button>
-      <button class="sb-sort${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort" style="margin-left:auto">⇅ Freq</button>
+      <button class="sb-vtab${_sbViewMode === 'grammar' ? ' active' : ''}" data-view="grammar">Grammar</button>
+      <button class="sb-sort${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort" style="margin-left:auto;display:${_sbViewMode === 'grammar' ? 'none' : ''}">⇅ Freq</button>
     </div>
-    <div id="jp-sb-controls">
+    <div id="jp-sb-controls" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">
       <div id="jp-sb-filter">
         <button class="sb-ftab active" data-filter="unknown">Unknown</button>
         <button class="sb-ftab" data-filter="">All</button>
@@ -346,7 +457,10 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
       </div>
     </div>
   </div>
-  <div id="jp-sb-body">${_sbBuildSections(_sbViewMode === 'kanji' ? kanjiGroups : groups, isLight, _sbSortMode)}</div>`;
+  <div id="jp-sb-body">${
+    _sbViewMode === 'grammar' ? _sbBuildGrammarSections(grammarGroups)
+    : _sbBuildSections(_sbViewMode === 'kanji' ? kanjiGroups : groups, isLight, _sbSortMode)
+  }</div>`;
 
   // Push page content left so sidebar doesn't overlay it
   if (_sbPushFn) {
@@ -379,21 +493,34 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
     _sbUpdateSectionCounts(el, f);
   });
 
-  // View toggle (Words / Kanji)
+  // View toggle (Words / Kanji / Grammar)
   el.querySelector('#jp-sb-view').addEventListener('click', e => {
     const vtab = e.target.closest('.sb-vtab');
-    if (vtab) {
-      el.querySelectorAll('.sb-vtab').forEach(t => t.classList.remove('active'));
-      vtab.classList.add('active');
-      _sbViewMode = vtab.dataset.view;
-      const activeGroups = _sbViewMode === 'kanji' ? _sbLastKanjiGroups : _sbLastGroups;
-      el.querySelector('#jp-sb-body').innerHTML = _sbBuildSections(activeGroups, isLight, _sbSortMode);
-      _sbUpdateSectionCounts(el, _sbActiveFilter);
-      const allW = Object.values(activeGroups).flat();
-      const unk = allW.filter(w => !w.known).length;
-      const knw = allW.filter(w =>  w.known).length;
-      el.querySelector('#jp-sb-tot').textContent = `${unk} unknown · ${knw} known`;
+    if (!vtab) return;
+    el.querySelectorAll('.sb-vtab').forEach(t => t.classList.remove('active'));
+    vtab.classList.add('active');
+    _sbViewMode = vtab.dataset.view;
+
+    const isGrammar = _sbViewMode === 'grammar';
+    el.querySelector('#jp-sb-controls').style.display = isGrammar ? 'none' : '';
+    el.querySelector('#jp-sb-sort').style.display = isGrammar ? 'none' : '';
+    el.querySelector('#jp-sb-tot').style.display = isGrammar ? 'none' : '';
+    el.querySelector('#jp-sb-kanjitot').style.display = isGrammar ? 'none' : '';
+    el.querySelector('#jp-sb-gramtot').style.display = isGrammar ? '' : 'none';
+
+    if (isGrammar) {
+      el.querySelector('#jp-sb-body').innerHTML = _sbBuildGrammarSections(_sbLastGrammarGroups);
+      const n = _sbGrammarTotal(_sbLastGrammarGroups);
+      el.querySelector('#jp-sb-gramtot').textContent = `${n} grammar point${n !== 1 ? 's' : ''} detected`;
+      return;
     }
+    const activeGroups = _sbViewMode === 'kanji' ? _sbLastKanjiGroups : _sbLastGroups;
+    el.querySelector('#jp-sb-body').innerHTML = _sbBuildSections(activeGroups, isLight, _sbSortMode);
+    _sbUpdateSectionCounts(el, _sbActiveFilter);
+    const allW = Object.values(activeGroups).flat();
+    const unk = allW.filter(w => !w.known).length;
+    const knw = allW.filter(w =>  w.known).length;
+    el.querySelector('#jp-sb-tot').textContent = `${unk} unknown · ${knw} known`;
   });
 
   // Sort toggle
@@ -423,19 +550,29 @@ function _sidebarInject(groups, kanjiGroups, isLight = false) {
     if (!word) return;
     hoverShowWord({ basic: word.dataset.basic, reading: word.dataset.reading }, word);
   });
+
+  // Grammar example clicks — seek the video to where that example occurs
+  el.addEventListener('click', e => {
+    const ex = e.target.closest('.sb-gram-ex-link');
+    if (!ex) return;
+    const t = +ex.dataset.time;
+    const video = document.querySelector('video');
+    if (video && !isNaN(t)) video.currentTime = t / 1000;
+  });
 }
 
 function _sbUpdateSectionCounts(el, filter) {
   for (const sec of el.querySelectorAll('.sb-sec')) {
-    sec.querySelector('.sb-n-unk').style.display = filter === 'unknown' ? '' : 'none';
-    sec.querySelector('.sb-n-knw').style.display = filter === 'known'   ? '' : 'none';
-    sec.querySelector('.sb-n-all').style.display = filter === ''        ? '' : 'none';
+    const unk = sec.querySelector('.sb-n-unk'), knw = sec.querySelector('.sb-n-knw'), all = sec.querySelector('.sb-n-all');
+    if (unk) unk.style.display = filter === 'unknown' ? '' : 'none';
+    if (knw) knw.style.display = filter === 'known'   ? '' : 'none';
+    if (all) all.style.display = (filter === '' || !unk) ? '' : 'none';
   }
 }
 
 // Re-inject with new theme when the popup toggle changes
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && 'light_theme' in changes && _sidebarEl && _sbLastGroups) {
-    _sidebarInject(_sbLastGroups, _sbLastKanjiGroups || { 5:[], 4:[], 3:[], 2:[], 1:[], 0:[] }, !!changes.light_theme.newValue);
+    _sidebarInject(_sbLastGroups, _sbLastKanjiGroups || { 5:[], 4:[], 3:[], 2:[], 1:[], 0:[] }, _sbLastGrammarGroups || { conj: [], particle: [], connector: [] }, !!changes.light_theme.newValue);
   }
 });

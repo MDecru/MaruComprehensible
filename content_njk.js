@@ -279,10 +279,13 @@ if (_njkHasPlayer) {
           .then(r => { if (r?.ok) _njkAutoHoverPending = false; })
           .catch(() => {});
       }
-      _observer.observe(document.body, { childList: true, subtree: true });
+      if (document.body) _observer.observe(document.body, { childList: true, subtree: true });
     }, 1200);
   });
-  _observer.observe(document.body, { childList: true, subtree: true });
+  if (document.body) _observer.observe(document.body, { childList: true, subtree: true });
+  else document.addEventListener('DOMContentLoaded', () => {
+    if (document.body) _observer.observe(document.body, { childList: true, subtree: true });
+  }, { once: true });
 
   getTokenizer().catch(() => {});
 
