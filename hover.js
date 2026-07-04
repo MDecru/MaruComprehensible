@@ -220,10 +220,8 @@ async function hoverEnable(findContainer) {
   try { _hoverApprentice = await getApprenticeVocab(); } catch {}
   try {
     _hoverWordStatus = await getWordStatusMap();
-    chrome.storage.local.get(['mc_show_apprentice', 'mc_conj_hints'], ({ mc_show_apprentice, mc_conj_hints }) => {
-      _hoverShowApprentice = !!mc_show_apprentice;
-      _hoverConjHints = !!mc_conj_hints;
-    });
+    _hoverShowApprentice = false;
+    _hoverConjHints = false;
   } catch {}
 
   // Find the transcript container

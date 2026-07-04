@@ -965,13 +965,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (_lastScoreArgs) setScore(..._lastScoreArgs);
   });
 
-  const apprenticeToggle = document.getElementById('apprentice-toggle');
-  chrome.storage.local.get('mc_show_apprentice', ({ mc_show_apprentice }) => {
-    apprenticeToggle.checked = !!mc_show_apprentice;
-  });
-  apprenticeToggle.addEventListener('change', () => {
-    chrome.storage.local.set({ mc_show_apprentice: apprenticeToggle.checked });
-  });
 
   init();
 });
