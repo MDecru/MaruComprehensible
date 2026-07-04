@@ -177,6 +177,16 @@ body.light-theme .view-toggle.active { color: #1976d2; border-color: #1976d2; }
 .mm-bar-seg.lv7   { background: #72CE9D; }
 .mm-bar-seg.lv8-9 { background: #7E69F0; }
 .mm-bar-seg.unkn  { background: var(--border); }
+.mm-bar-wrap { position: relative; display: block; }
+.mm-bar-tip {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #232425; border: 1px solid #363A3B; color: #c8d0e0;
+  padding: 6px 10px; border-radius: 8px; font-size: 11px; line-height: 1.6;
+  white-space: nowrap; z-index: 10; pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+body.light-theme .mm-bar-tip { background: #fff; border-color: #d0d7e2; color: #3a3f47; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.mm-bar-wrap:hover .mm-bar-tip { display: block; }
 
 /* ── Kanji grid ───────────────────────────────────────────── */
 .kanji-grid {

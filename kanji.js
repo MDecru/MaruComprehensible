@@ -189,12 +189,20 @@ function buildBar(c) {
   var t = c.lv1_4+c.lv5_6+c.lv7+c.lv8+c.lv9+c.unkn;
   if (!t) return '';
   var h = '';
-  if (c.lv1_4) h += '<span class="mm-bar-seg lv1-4" style="width:'+(c.lv1_4/t*100).toFixed(1)+'%" title="Lv1-4: '+c.lv1_4+'"></span>';
-  if (c.lv5_6) h += '<span class="mm-bar-seg lv5-6" style="width:'+(c.lv5_6/t*100).toFixed(1)+'%" title="Lv5-6: '+c.lv5_6+'"></span>';
-  if (c.lv7)   h += '<span class="mm-bar-seg lv7"   style="width:'+(c.lv7  /t*100).toFixed(1)+'%" title="Lv7: '+c.lv7+'"></span>';
-  if (c.lv8+c.lv9) h += '<span class="mm-bar-seg lv8-9" style="width:'+((c.lv8+c.lv9)/t*100).toFixed(1)+'%" title="Lv8-9: '+(c.lv8+c.lv9)+'"></span>';
-  if (c.unkn)  h += '<span class="mm-bar-seg unkn"  style="width:'+(c.unkn /t*100).toFixed(1)+'%" title="Unknown: '+c.unkn+'"></span>';
-  return '<span class="mm-bar">'+h+'</span>';
+  if (c.lv1_4) h += '<span class="mm-bar-seg lv1-4" style="width:'+(c.lv1_4/t*100).toFixed(1)+'%"></span>';
+  if (c.lv5_6) h += '<span class="mm-bar-seg lv5-6" style="width:'+(c.lv5_6/t*100).toFixed(1)+'%"></span>';
+  if (c.lv7)   h += '<span class="mm-bar-seg lv7"   style="width:'+(c.lv7  /t*100).toFixed(1)+'%"></span>';
+  if (c.lv8+c.lv9) h += '<span class="mm-bar-seg lv8-9" style="width:'+((c.lv8+c.lv9)/t*100).toFixed(1)+'%"></span>';
+  if (c.unkn)  h += '<span class="mm-bar-seg unkn"  style="width:'+(c.unkn /t*100).toFixed(1)+'%"></span>';
+  var tip = '<span class="mm-bar-tip">'+
+    (c.lv1_4?'<b style=color:#ED7989>●</b> Lv1-4: '+c.lv1_4+'<br>':'')+
+    (c.lv5_6?'<b style=color:#FDC281>●</b> Lv5-6: '+c.lv5_6+'<br>':'')+
+    (c.lv7?'<b style=color:#72CE9D>●</b> Lv7: '+c.lv7+'<br>':'')+
+    (c.lv8?'<b style=color:#66AAE8>●</b> Lv8: '+c.lv8+'<br>':'')+
+    (c.lv9?'<b style=color:#7E69F0>●</b> Lv9: '+c.lv9+'<br>':'')+
+    (c.unkn?'<b style=color:var(--dim)>●</b> Unknown: '+c.unkn:'')+
+  '</span>';
+  return '<span class="mm-bar-wrap">'+tip+'<span class="mm-bar">'+h+'</span></span>';
 }
 
 function buildPage() {
