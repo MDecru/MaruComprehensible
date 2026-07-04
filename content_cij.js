@@ -898,24 +898,31 @@ document.addEventListener('mc-word-marked-known', () => {
 });
 
 // Auto-score: watch for the <track> element to appear, then score.
-// Uses MutationObserver so we catch it as soon as CIJ injects it.
 (function autoScoreObserve() {
   var done = false;
   var timer = null;
   function tryScore() {
     if (done) return;
     var v = document.querySelector('video');
-    if (!v || !v.querySelector('track[src]')) return;
+    if (!v) return;
+    var trk = v.querySelector('track[src]');
+    if (!trk || !trk.src) return;
     done = true;
     if (timer) clearTimeout(timer);
-    getTokenizer().then(() => scanPage()).catch(() => {});
+    console.log('CIJ auto-score: track found, scoring...');
+    getTokenizer().then(function() {
+      console.log('CIJ auto-score: tokenizer ready, calling scanPage');
+      return scanPage();
+    }).then(function(res) {
+      console.log('CIJ auto-score: result', res ? res.score : 'null');
+    }).catch(function(e) {
+      console.log('CIJ auto-score: error', e);
+    });
   }
-  // Poll in case the video was already in the DOM before our observer started
   tryScore();
-  timer = setInterval(tryScore, 3000);
-  // Also observe DOM changes
+  timer = setInterval(tryScore, 2000);
   var obs = new MutationObserver(tryScore);
-  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  if (document.body) obs.observe(document.body, { childList: true, subtree: true });
 })();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
