@@ -897,16 +897,25 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score on load with retries. The tokenizer may not be ready yet,
-// and the <track> element may not be in the DOM yet — keep retrying.
-(async function autoScoreLoop() {
-  for (let attempt = 0; attempt < 6; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 4000));
-    // Make sure the tokenizer is preloaded before scoring
-    try { await getTokenizer(); } catch { continue; }
-    const res = await scanPage();
-    if (res) return;
+// Auto-score: watch for the <track> element to appear, then score.
+// Uses MutationObserver so we catch it as soon as CIJ injects it.
+(function autoScoreObserve() {
+  var done = false;
+  var timer = null;
+  function tryScore() {
+    if (done) return;
+    var v = document.querySelector('video');
+    if (!v || !v.querySelector('track[src]')) return;
+    done = true;
+    if (timer) clearTimeout(timer);
+    getTokenizer().then(() => scanPage()).catch(() => {});
   }
+  // Poll in case the video was already in the DOM before our observer started
+  tryScore();
+  timer = setInterval(tryScore, 3000);
+  // Also observe DOM changes
+  var obs = new MutationObserver(tryScore);
+  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
 })();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
