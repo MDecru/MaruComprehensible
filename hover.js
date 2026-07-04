@@ -125,7 +125,7 @@ function _ensureHoverUI() {
         padding:1px 5px; margin-left:6px; font-style:italic; vertical-align:middle;
         display:inline; white-space:nowrap; }
       .jht-loading  { font-size:11px; color:#555; font-style:italic; padding:2px 0; }
-      .jht-no-entry { font-size:12px; color:#8890aa; padding:6px 0; }
+      .jht-no-entry { font-size:12px; color:#8890aa; padding-top:6px; padding-bottom:6px; }
       .jht-modebar { display:flex; gap:6px; padding:8px 12px; }
       .jht-modebtn { flex:1; border:none; border-radius:14px; padding:6px 0; font-size:12px;
         font-weight:700; color:#fff; cursor:pointer; opacity:.5; transition:opacity .15s,filter .15s;
@@ -134,9 +134,9 @@ function _ensureHoverUI() {
       .jht-modebtn.active { opacity:1; }
       .jht-modebtn-dict { background:#72CE9D; }
       .jht-modebtn-gram { background:#E5484D; }
-      .jht-grammar { padding:8px 12px; border-bottom:1px solid #363A3B; display:flex; flex-direction:column; gap:8px; }
-      .jht-gitem { display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
-      .jht-gitem-desc { font-size:12px; color:#c8d0e0; line-height:1.4; }
+      .jht-grammar { padding:5px 12px 6px; border-bottom:1px solid #363A3B; display:flex; flex-direction:column; gap:6px; }
+      .jht-gitem { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+      .jht-gitem-desc { font-size:13px; color:#dde2ee; line-height:1.4; }
 
       /* ── Light theme ── */
       #jp-hover-tip.jht-light { background:#ffffff; border-color:#66AAE8; color:#3a3f47;

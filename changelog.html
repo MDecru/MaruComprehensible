@@ -140,6 +140,13 @@ li:last-child { border-bottom: none; }
     <li><span class="ct feat">Feature</span> <b>Stacked MM knowledge bars</b> — each JLPT level section header shows a full-width stacked bar of your known/learning/unknown kanji proportions with tooltip counts on each segment</li>
     <li><span class="ct ui">UI</span> Kanji page follows the extension's light/dark theme in real time — toggle the theme in the popup and the kanji page updates instantly</li>
     <li><span class="ct ui">UI</span> Kanji hovercards match the extension's tooltip design: dark card with green accent, reading line, numbered gloss list, and solid Jisho/MaruMori link buttons</li>
+    <li><span class="ct feat">Feature</span> <b>Grammar parser improvements</b> — 24 new entries across conjugation, particle, auxiliary, and sentence-final maps; coverage improved from 8,192 to 5,583 gaps (99.1%) across 738 VTT transcripts; synced to browser extension for richer hover tooltips</li>
+    <li><span class="ct feat">Feature</span> <b>Draggable hover tooltips</b> — pinned tooltips can now be grabbed by their header bar and repositioned anywhere within the viewport</li>
+    <li><span class="ct feat">Feature</span> <b>Stem-aware known-word detection</b> — compounds like 勉強する are now correctly marked as known when the stem (勉強) is in your vocab; covers する-verbs, な-adjectives, and ている forms</li>
+    <li><span class="ct ui">UI</span> Grammar tooltip now shows word order correctly as "word + particle" (今日 + も), with the particle's own surface form in the header instead of only the attached content word</li>
+    <li><span class="ct ui">UI</span> Translation and Grammar tabs in hover tooltips now share consistent font sizes and spacing</li>
+    <li><span class="ct fix">Fix</span> "No definition found" text no longer loses its left/right padding due to CSS specificity conflict</li>
+    <li><span class="ct fix">Fix</span> Hover tooltip lifted 22px above words to clear furigana ruby text</li>
   </ul>
 </div>
 
