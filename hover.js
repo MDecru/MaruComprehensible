@@ -788,8 +788,8 @@ function _hoverClick(e) {
 
 function _hoverDragStart(e) {
   if (!_hoverPinned || !_hoverTip || e.button !== 0) return;
-  if (!e.target.closest('.jht-head')) return; // only drag from header
-  e.preventDefault();
+  if (!e.target.closest('.jht-head')) return;
+  // Don't cancel the event — let clicks through to buttons in the head
   _hoverDragging = true;
   _hoverDragX = e.clientX - _hoverTip.offsetLeft;
   _hoverDragY = e.clientY - _hoverTip.offsetTop;
