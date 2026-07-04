@@ -844,6 +844,10 @@ async function init() {
     histListEl.innerHTML = '<div id="hist-empty">No history yet</div>';
   });
 
+  document.getElementById('kanji-stat-card').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('kanji.html') });
+    window.close();
+  });
   document.getElementById('changelog-btn').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('changelog.html') });
     window.close();

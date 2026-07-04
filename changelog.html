@@ -132,6 +132,12 @@ li:last-child { border-bottom: none; }
     <li><span class="ct fix">Fix</span> All <code>chrome.*</code> API calls now guarded with <code>chrome.runtime?.id</code> checks to prevent "Extension context invalidated" errors after reload</li>
     <li><span class="ct fix">Fix</span> Prefix/suffix markers (<code>〜様</code>, <code>再〜</code>) in MaruMori vocab now stripped so words match correctly against tokenized text</li>
     <li><span class="ct ui">UI</span> CIJ Library website updated with the same API changes, apprentice coloring, level badges, and simplified tooltip labels</li>
+    <li><span class="ct feat">Feature</span> <b>Kanji browsing page</b> — click the Kanji stat card in the popup to open a full kanji reference; browse by JLPT level (N5→N1) or switch to a sorted matrix view with all ~2,200 kanji in one grid</li>
+    <li><span class="ct feat">Feature</span> <b>Kanji card coloring</b> — cards are solid-colored by MaruMori SRS tier matching the extension's score colors: pink (&lt;50%), amber (50–70%), green (70–95%), purple (95%+) for level 9+ and known items; click any card to pin a tooltip with reading, meaning, JLPT level, and links to Jisho &amp; MaruMori</li>
+    <li><span class="ct feat">Feature</span> <b>Kanji matrix sorting</b> — sort the all-kanji grid by MM level, stroke count, JLPT level, or ID (あ→ん); four-stage card size selector (XS–LG) and three boldness levels (Light/Medium/Bold); invert toggle switches between solid fills and outline-only cards</li>
+    <li><span class="ct feat">Feature</span> <b>Stacked MM knowledge bars</b> — each JLPT level section header shows a full-width stacked bar of your known/learning/unknown kanji proportions with tooltip counts on each segment</li>
+    <li><span class="ct ui">UI</span> Kanji page follows the extension's light/dark theme in real time — toggle the theme in the popup and the kanji page updates instantly</li>
+    <li><span class="ct ui">UI</span> Kanji hovercards match the extension's tooltip design: dark card with green accent, reading line, numbered gloss list, and solid Jisho/MaruMori link buttons</li>
   </ul>
 </div>
 
