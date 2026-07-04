@@ -396,6 +396,7 @@ function _hoverProcessContainer(container, tokenizer) {
           kind: 'mark',
           sNode: posMap[start].node, sOff: posMap[start].offset,
           eNode: posMap[end-1].node, eOff: posMap[end-1].offset + 1,
+          surface: surface,
           target: t ? { word: t.surface_form, basic: t.basic_form, pos: t.pos, reading: t.reading, conj: t.conj } : null,
         });
       }
@@ -440,6 +441,8 @@ function _hoverProcessContainer(container, tokenizer) {
         // that word's normal hover card (see _hoverOver/_hoverClick) instead
         // of a separate tooltip for the particle itself.
         span.className = 'jp-gram-mark';
+        // Store the particle's own text so the tooltip can show "particle → word"
+        span.dataset.particle = w.surface || '';
         if (w.target) {
           span.dataset.word    = w.target.word;
           span.dataset.basic   = w.target.basic;
@@ -579,7 +582,9 @@ function _hoverBuildTip(dataset, pinned, defResult) {
     : '';
 
   const closeBtn = pinned ? `<button class="jht-close" title="Close">×</button>` : '';
-  const headHtml = `<div class="jht-head"><span class="jht-word">${_esc(word)}</span><div class="jht-right">${mmBadge}${statusHtml}${closeBtn}</div></div>`;
+  const particle = dataset.particle || '';
+  const headWord = particle ? `${_esc(particle)} <span style="font-size:13px;color:#8890aa;font-weight:400">→</span> ${_esc(word)}` : _esc(word);
+  const headHtml = `<div class="jht-head"><span class="jht-word">${headWord}</span><div class="jht-right">${mmBadge}${statusHtml}${closeBtn}</div></div>`;
 
   // Reading line: prefer Jisho reading (hiragana), fallback to kuromoji
   const displayReading = defResult?.reading || kReading;
@@ -608,7 +613,7 @@ function _hoverBuildTip(dataset, pinned, defResult) {
       </div>`
     : '';
 
-  const grammarHtml = `<div class="jht-grammar">${conjTags.map(t => {
+  const grammarHtml = `<div class="jht-grammar">${particle ? `<div style="font-size:11px;color:#8890aa;margin-bottom:2px">Attached to: <b style="color:var(--text, #c8d0e0)">${_esc(particle)}</b> → ${_esc(word)}</div>` : ''}${conjTags.map(t => {
     const mmQuery = CONJ_LABEL_TO_SURFACE[t] || t;
     const mmUrl = `https://marumori.io/grammar?q=${encodeURIComponent(mmQuery)}`;
     return `
