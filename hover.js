@@ -401,6 +401,7 @@ function _hoverProcessContainer(container, tokenizer) {
         : w.apprentice
           ? (_hoverIsLight ? '#2d8a5e' : '#72CE9D')
           : (_hoverIsLight ? '#b82d3e' : '#ED7989');
+      if (w.basic.indexOf('勉強') !== -1) console.log('DEBUG span color:', w.surface, 'known='+w.known, 'apprentice='+w.apprentice, 'color='+span.style.color);
 
       // extractContents handles ruby-boundary ranges — ruby markup stays inside span
       span.appendChild(range.extractContents());
