@@ -210,7 +210,8 @@ function _cijRecolorOverlay() {
 
   for (const span of (_cijSubOverlay?.querySelectorAll('.jp-tok') || [])) {
     const word = span.dataset.basic || span.dataset.word;
-    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
+    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word)
+      || _allKanjiKnown(span.dataset.basic) || _stemKnown(span.dataset.basic, _hoverVocab) || _stemKnown(span.dataset.word, _hoverVocab);
     const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
     const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
 
@@ -341,7 +342,9 @@ function _cijStartTimeSync() {
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (_cijSubOverlay?.querySelectorAll('.jp-tok') || []))
-        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word)
+          && !_allKanjiKnown(s.dataset.basic) && !_stemKnown(s.dataset.basic, _hoverVocab) && !_stemKnown(s.dataset.word, _hoverVocab)
+          && s.dataset.basic) unknowns.push(s.dataset.basic);
       if (unknowns.length) trackUnknownWords(unknowns);
     }
   };
@@ -642,9 +645,9 @@ function _cijToggleSettings(_player) {
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
-  // ── Apprentice highlighting ────────────────────────────────
-  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
-  _swRow('Apprentice highlighting', _apInit, 4, v => {
+  // ── Highlight SRS Level 1-4 ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apInit, 4, v => {
     if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
     _cijRecolorOverlay();
   });
@@ -652,6 +655,16 @@ function _cijToggleSettings(_player) {
   apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   apprHint.textContent = 'Distinct color for SRS pipeline words';
   _cur.appendChild(apprHint);
+
+  // ── Enable grammar detection ────────────────────────────────
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
+  });
+  const conjHint = document.createElement('div');
+  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _cur.appendChild(conjHint);
 
   document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
@@ -742,7 +755,7 @@ function _cijCreateControlBar(player, score) {
     const vtt = await cijFetchVTT().catch(() => null);
     _sbLoading = false; sbBtn.textContent = '≡';
     if (!vtt) return;
-    const r = await sidebarToggle(parseVTT(vtt));
+    const r = await sidebarToggle(mcParseVTTCues(vtt));
     sbBtn.style.color = r?.ok ? '#66AAE8' : '#888';
   });
   bar.appendChild(sbBtn);
@@ -835,7 +848,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.action === 'openSidebar') {
     cijFetchVTT().then(vtt => {
       if (!vtt) { reply({ ok: false, error: 'No subtitles found' }); return; }
-      return sidebarToggle(parseVTT(vtt)).then(reply);
+      return sidebarToggle(mcParseVTTCues(vtt)).then(reply);
     }).catch(e => reply({ ok: false, error: e.message }));
     return true;
   }
@@ -902,7 +915,7 @@ scanPage().then(res => {
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;
-new MutationObserver(() => {
+mcObserveBody(() => {
   if (_transcriptHoverActive) {
     const container = cijFindTranscriptElement();
     if (container) hoverRetokenize(container);
@@ -912,7 +925,7 @@ new MutationObserver(() => {
       .then(r => { if (r?.ok) _cijAutoHoverPending = false; })
       .catch(() => {});
   }
-}).observe(document.body, { childList: true, subtree: true });
+}, { childList: true, subtree: true });
 
 getTokenizer().catch(() => {});
 

@@ -166,7 +166,9 @@ function _startTimeSync() {
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (subOverlay?.querySelectorAll('.jp-tok') || []))
-        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word)
+          && !_allKanjiKnown(s.dataset.basic) && !_stemKnown(s.dataset.basic, _hoverVocab) && !_stemKnown(s.dataset.word, _hoverVocab)
+          && s.dataset.basic) unknowns.push(s.dataset.basic);
       if (unknowns.length) trackUnknownWords(unknowns);
     }
   };
@@ -202,7 +204,8 @@ function _recolorOverlay() {
   const _pFuriNeedSpace = _unknownOnly && _furigana;
 
   for (const span of subOverlay.querySelectorAll('.jp-tok')) {
-    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
+    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word)
+      || _allKanjiKnown(span.dataset.basic) || _stemKnown(span.dataset.basic, _hoverVocab) || _stemKnown(span.dataset.word, _hoverVocab);
     const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
     const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
 
@@ -413,7 +416,7 @@ subBtn.addEventListener('click', async () => {
 
 sidebarBtn.addEventListener('click', () => {
   if (!_vtt) { alert('No subtitle file loaded yet.'); return; }
-  sidebarToggle(parseVTT(_vtt));
+  sidebarToggle(mcParseVTTCues(_vtt));
 });
 
 // ── Settings panel ────────────────────────────────────────────────────────────
@@ -668,9 +671,9 @@ function _buildSettingsPanel() {
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _curPnl.appendChild(uoHint);
 
-  // ── Apprentice highlighting ────────────────────────────────
-  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
-  _swRow('Apprentice highlighting', _apInit, 4, v => {
+  // ── Highlight SRS Level 1-4 ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apInit, 4, v => {
     if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
     _recolorOverlay();
   });
@@ -678,6 +681,16 @@ function _buildSettingsPanel() {
   apprHint.className = 'pnl-hint';
   apprHint.textContent = 'Distinct color for SRS pipeline words';
   _curPnl.appendChild(apprHint);
+
+  // ── Enable grammar detection ────────────────────────────────
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
+  });
+  const conjHint = document.createElement('div');
+  conjHint.className = 'pnl-hint';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _curPnl.appendChild(conjHint);
 }
 
 // ── Fullscreen ────────────────────────────────────────────────────────────────
@@ -736,7 +749,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }
   if (msg.action === 'openSidebar') {
     if (!_vtt) { reply({ ok: false, error: 'No subtitle loaded' }); return; }
-    sidebarToggle(parseVTT(_vtt))
+    sidebarToggle(mcParseVTTCues(_vtt))
       .then(r => reply(r))
       .catch(e => reply({ ok: false, error: e.message }));
     return true;

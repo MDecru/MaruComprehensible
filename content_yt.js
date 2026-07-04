@@ -1,7 +1,11 @@
 // YouTube content script — auto-injected on youtube.com
 
 let _lastVideoId = null;
-let _scoring = false;
+// Bumped every time scoreVideo() commits to a new videoId. Async work
+// (fetch/tokenize) checks this before touching the DOM so a slow fetch for
+// a video the user has already navigated away from can't paint its stale
+// score/subtitles onto the (reused) player chrome for the new video.
+let _ytScoreToken = 0;
 // videoIds where the first caption fetch found nothing — we retry each once
 // automatically before giving up, since YouTube's caption metadata isn't
 // always ready the moment the page/SPA-navigation settles.
@@ -224,15 +228,19 @@ async function fetchJaVTT(videoId) {
 async function scoreVideo() {
   const videoId = currentVideoId();
   if (!videoId || !location.pathname.startsWith('/watch')) return;
-  if (_scoring) return;
+  // Reset immediately on video change even if a fetch for the previous
+  // video is still in flight — otherwise that stale fetch (gated below by
+  // _ytScoreToken) would be the only thing standing between the user and
+  // a leftover score/subtitle overlay from the video they just left.
   if (videoId !== _lastVideoId) _ytResetForNewVideo();
   if (videoId === _lastVideoId) return;
 
-  _scoring = true;
   _lastVideoId = videoId;
+  const token = ++_ytScoreToken;
 
   try {
     const vtt = await fetchJaVTT(videoId);
+    if (token !== _ytScoreToken) return; // superseded by a later navigation
     if (!vtt && !_ytRetriedVideos.has(videoId)) {
       // Captions/track data can still be settling right after navigation —
       // retry once before giving up, instead of silently staying unscored
@@ -244,6 +252,7 @@ async function scoreVideo() {
     }
     if (vtt && _ytFoundManualJaTrack) _ytIsJapaneseContent = true;
     const res = vtt ? await scoreVTT(vtt) : null;
+    if (token !== _ytScoreToken) return; // superseded by a later navigation
     if (res?.score != null) {
       const title = document.querySelector('h1.ytd-video-primary-info-renderer, #above-the-fold #title h1, ytd-video-primary-info-renderer h1')?.textContent?.trim()
         || document.title.replace(/ - YouTube.*/, '').trim();
@@ -267,8 +276,6 @@ async function scoreVideo() {
     }
   } catch {
     // scoring failed silently
-  } finally {
-    _scoring = false;
   }
 }
 
@@ -405,7 +412,8 @@ function _ytRecolorOverlay() {
 
   for (const span of (_ytSubOverlay?.querySelectorAll('.jp-tok') || [])) {
     const word = span.dataset.basic || span.dataset.word;
-    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word);
+    const known = _hoverVocab.has(span.dataset.basic) || _hoverVocab.has(span.dataset.word)
+      || _allKanjiKnown(span.dataset.basic) || _stemKnown(span.dataset.basic, _hoverVocab) || _stemKnown(span.dataset.word, _hoverVocab);
     const isAppr = showAppr && (apprentice.has(span.dataset.basic) || apprentice.has(span.dataset.word));
     const ruby = span.parentElement?.tagName === 'RUBY' ? span.parentElement : null;
 
@@ -833,9 +841,9 @@ function _ytToggleSettings(player) {
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
 
-  // ── Apprentice highlighting ────────────────────────────────
-  const _apprInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : false;
-  _swRow('Apprentice highlighting', _apprInit, 4, v => {
+  // ── Highlight SRS Level 1-4 ────────────────────────────────
+  const _apprInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apprInit, 4, v => {
     if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
     _ytRecolorOverlay();
   });
@@ -843,6 +851,16 @@ function _ytToggleSettings(player) {
   apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   apprHint.textContent = 'Distinct color for SRS pipeline words';
   _cur.appendChild(apprHint);
+
+  // ── Enable grammar detection ────────────────────────────────
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 4, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
+  });
+  const conjHint = document.createElement('div');
+  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _cur.appendChild(conjHint);
 
   player.appendChild(pnl);
   _ytSettingsPnl = pnl;
@@ -893,7 +911,9 @@ function _ytStartTimeSync() {
     if (_hoverVocab) {
       const unknowns = [];
       for (const s of (_ytSubOverlay?.querySelectorAll('.jp-tok') || []))
-        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word) && s.dataset.basic) unknowns.push(s.dataset.basic);
+        if (!_hoverVocab.has(s.dataset.basic) && !_hoverVocab.has(s.dataset.word)
+          && !_allKanjiKnown(s.dataset.basic) && !_stemKnown(s.dataset.basic, _hoverVocab) && !_stemKnown(s.dataset.word, _hoverVocab)
+          && s.dataset.basic) unknowns.push(s.dataset.basic);
       if (unknowns.length) trackUnknownWords(unknowns);
     }
   };
@@ -1016,7 +1036,7 @@ function _ytCreateControlBar(player, score) {
     const vtt = await fetchJaVTT(videoId).catch(() => null);
     _sbLoading = false; sbBtn.textContent = '≡';
     if (!vtt) return;
-    const r = await sidebarToggle(parseVTT(vtt));
+    const r = await sidebarToggle(mcParseVTTCues(vtt));
     sbBtn.style.color = r?.ok ? '#66AAE8' : '#888';
   });
   bar.appendChild(sbBtn);
@@ -1084,7 +1104,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     }
     fetchJaVTT(videoId).then(vtt => {
       if (!vtt) { reply({ ok: false, error: 'No Japanese subtitles found' }); return; }
-      return sidebarToggle(parseVTT(vtt)).then(reply);
+      return sidebarToggle(mcParseVTTCues(vtt)).then(reply);
     }).catch(e => reply({ ok: false, error: e.message }));
     return true;
   }
