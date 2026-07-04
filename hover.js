@@ -583,7 +583,7 @@ function _hoverBuildTip(dataset, pinned, defResult) {
 
   const closeBtn = pinned ? `<button class="jht-close" title="Close">×</button>` : '';
   const particle = dataset.particle || '';
-  const headWord = particle ? `${_esc(particle)} <span style="font-size:13px;color:#8890aa;font-weight:400">→</span> ${_esc(word)}` : _esc(word);
+  const headWord = particle ? `${_esc(word)} <span style="font-size:13px;color:#8890aa;font-weight:400">+</span> ${_esc(particle)}` : _esc(word);
   const headHtml = `<div class="jht-head"><span class="jht-word">${headWord}</span><div class="jht-right">${mmBadge}${statusHtml}${closeBtn}</div></div>`;
 
   // Reading line: prefer Jisho reading (hiragana), fallback to kuromoji
@@ -613,7 +613,7 @@ function _hoverBuildTip(dataset, pinned, defResult) {
       </div>`
     : '';
 
-  const grammarHtml = `<div class="jht-grammar">${particle ? `<div style="font-size:11px;color:#8890aa;margin-bottom:2px">Attached to: <b style="color:var(--text, #c8d0e0)">${_esc(particle)}</b> → ${_esc(word)}</div>` : ''}${conjTags.map(t => {
+  const grammarHtml = `<div class="jht-grammar">${particle ? `<div style="font-size:11px;color:#8890aa;margin-bottom:2px">Attached to: ${_esc(word)} <b style="color:var(--text, #c8d0e0)">+ ${_esc(particle)}</b></div>` : ''}${conjTags.map(t => {
     const mmQuery = CONJ_LABEL_TO_SURFACE[t] || t;
     const mmUrl = `https://marumori.io/grammar?q=${encodeURIComponent(mmQuery)}`;
     return `
