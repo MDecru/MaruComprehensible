@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vocab — MaruComprehension</title>
+<style>
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('fonts/Inter-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('fonts/Inter-600.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('fonts/Inter-700.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 800; font-display: swap;
+  src: url('fonts/Inter-800.ttf') format('truetype');
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #1a1c1d;
+  --surface: #2D3031;
+  --deep:    #232425;
+  --border:  #363A3B;
+  --text:    #f2f4fa;
+  --body:    #d8dcea;
+  --muted:   #a8b2cc;
+  --dim:     #66748a;
+  --ph:      #4a5068;
+  --hover-border: #4a5068;
+  --accent:  #72CE9D;
+}
+body.light-theme {
+  --bg:      #ffffff;
+  --surface: #f0f2f5;
+  --deep:    #e2e8f0;
+  --border:  #d0d7e2;
+  --text:    #2c2f33;
+  --body:    #3a3f47;
+  --muted:   #4a5570;
+  --dim:     #66748a;
+  --ph:      #aab4c4;
+  --hover-border: #b0b8c8;
+  --accent:  #3a9e72;
+}
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg); color: var(--body);
+  min-height: 100vh;
+}
+.page { max-width: 800px; margin: 0 auto; padding: 32px 24px 48px; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
+h1 { font-size: 22px; font-weight: 800; color: var(--text); }
+.subtitle { font-size: 13px; color: var(--dim); }
+
+/* ── Summary cards ────────────────────────────────────────── */
+.summary-row { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+.summary-card {
+  flex: 1; min-width: 120px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; text-align: center;
+}
+.summary-card .val { font-size: 28px; font-weight: 800; color: var(--text); }
+.summary-card .lbl { font-size: 11px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .5px; margin-top: 2px; }
+.summary-card.known  { border-color: #7E69F0; }
+.summary-card.known .val { color: #7E69F0; }
+.summary-card.learn  { border-color: #72CE9D; }
+.summary-card.learn .val { color: #72CE9D; }
+.summary-card.total  { border-color: #66AAE8; }
+.summary-card.total .val { color: #66AAE8; }
+
+/* ── Level sections ───────────────────────────────────────── */
+.level-section { margin-bottom: 24px; }
+.level-header {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px;
+}
+.level-header h2 { font-size: 15px; font-weight: 800; color: var(--text); }
+.level-header .count { font-size: 12px; color: var(--dim); }
+.level-header .pct { font-size: 12px; color: var(--dim); margin-left: auto; }
+
+/* ── Stacked bar ──────────────────────────────────────────── */
+.bar-wrap { margin-bottom: 4px; }
+.bar {
+  display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+  background: var(--border); width: 100%;
+}
+.bar-seg { height: 100%; transition: width .3s; }
+.bar-seg.lv1-4  { background: #ED7989; }
+.bar-seg.lv5-6  { background: #FDC281; }
+.bar-seg.lv7    { background: #72CE9D; }
+.bar-seg.lv8    { background: #66AAE8; }
+.bar-seg.lv9    { background: #7E69F0; }
+.bar-seg.unkn   { background: var(--border); }
+
+/* ── Bar tooltip ──────────────────────────────────────────── */
+.bar-wrap { position: relative; }
+.bar-tip {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #232425; border: 1px solid #363A3B; color: #c8d0e0;
+  padding: 6px 10px; border-radius: 8px; font-size: 11px; line-height: 1.6;
+  white-space: nowrap; z-index: 10; pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+}
+body.light-theme .bar-tip { background: #fff; border-color: #d0d7e2; color: #3a3f47; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.bar-wrap:hover .bar-tip { display: block; }
+
+/* ── SRS tier legend ──────────────────────────────────────── */
+.tier-legend { display: flex; gap: 6px; flex-wrap: wrap; font-size: 10px; color: var(--dim); }
+.tier-legend span { display: inline-flex; align-items: center; gap: 3px; }
+.tier-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+.td-lv1-4 { background: #ED7989; }
+.td-lv5-6 { background: #FDC281; }
+.td-lv7   { background: #72CE9D; }
+.td-lv8   { background: #66AAE8; }
+.td-lv9   { background: #7E69F0; }
+.td-unkn  { background: var(--border); }
+
+/* ── Loading / empty ──────────────────────────────────────── */
+.loading { text-align: center; padding: 60px; color: var(--dim); font-size: 14px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--dim); }
+.empty-state p { line-height: 1.7; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 20px 10px 32px; }
+  h1 { font-size: 18px; }
+  .summary-card { min-width: 90px; padding: 10px 12px; }
+  .summary-card .val { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="header">
+    <h1>📗 Vocab Overview</h1>
+    <span class="subtitle" id="result-subtitle"></span>
+  </div>
+
+  <div class="summary-row" id="summary-row"></div>
+
+  <div class="tier-legend" style="margin-bottom:20px">
+    <span><span class="tier-dot td-lv1-4"></span> Lv1-4</span>
+    <span><span class="tier-dot td-lv5-6"></span> Lv5-6</span>
+    <span><span class="tier-dot td-lv7"></span> Lv7</span>
+    <span><span class="tier-dot td-lv8"></span> Lv8</span>
+    <span><span class="tier-dot td-lv9"></span> Lv9+</span>
+    <span><span class="tier-dot td-unkn"></span> Unknown</span>
+  </div>
+
+  <div id="main-content">
+    <div class="loading" id="loading">
+      <span class="spinner"></span>Loading vocab data…
+    </div>
+  </div>
+</div>
+
+<script src="vocab.js"></script>
+</body>
+</html>

@@ -197,6 +197,25 @@
   .stat-card.kanji .lbl { color:#72CE9D; }
   .stat-card .val  { font-size:20px; font-weight:800; color:var(--text); }
 
+  /* clickable vocab stat card */
+  .stat-card.vocab.clickable {
+    cursor:pointer; position:relative; overflow:hidden;
+    transition:border-color .15s, filter .15s;
+  }
+  .stat-card.vocab.clickable::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent 0%, rgba(102,170,232,.06) 50%, transparent 100%);
+    transition:transform 0s;
+  }
+  .stat-card.vocab.clickable:hover::before {
+    transform:translateX(200%);
+    transition:transform .9s ease;
+  }
+  .stat-card.vocab.clickable:hover {
+    filter:brightness(1.08); border-color:#66AAE8;
+  }
+
   /* clickable kanji stat card */
   .stat-card.kanji.clickable {
     cursor:pointer; position:relative; overflow:hidden;
@@ -388,7 +407,7 @@
   <hr>
 
   <div class="stats">
-    <div class="stat-card vocab"><div class="lbl">Vocab</div><div class="val" id="vocab-count">—</div></div>
+    <div class="stat-card vocab clickable" id="vocab-stat-card" title="Browse vocab"><div class="lbl">Vocab</div><div class="val" id="vocab-count">—</div></div>
     <div class="stat-card kanji clickable" id="kanji-stat-card" title="Browse kanji"><div class="lbl">Kanji</div><div class="val" id="kanji-count">—</div></div>
   </div>
   <div id="tok-status">Tokenizer: not loaded</div>

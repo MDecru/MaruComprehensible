@@ -848,6 +848,10 @@ async function init() {
     chrome.tabs.create({ url: chrome.runtime.getURL('kanji.html') });
     window.close();
   });
+  document.getElementById('vocab-stat-card').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') });
+    window.close();
+  });
   document.getElementById('changelog-btn').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('changelog.html') });
     window.close();
