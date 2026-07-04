@@ -787,19 +787,19 @@ function _hoverClick(e) {
 }
 
 function _hoverDragStart(e) {
+  console.log('DRAG start:', e.button, 'pinned:', !!_hoverPinned, 'tip:', !!_hoverTip, 'head:', !!e.target.closest('.jht-head'));
   if (!_hoverPinned || !_hoverTip || e.button !== 0) return;
   if (!e.target.closest('.jht-head')) return;
-  // Don't cancel the event — let clicks through to buttons in the head
   _hoverDragging = true;
   _hoverDragX = e.clientX - _hoverTip.offsetLeft;
   _hoverDragY = e.clientY - _hoverTip.offsetTop;
+  console.log('DRAG begin at', _hoverDragX, _hoverDragY);
 }
 
 function _hoverDragMove(e) {
   if (!_hoverDragging) return;
   var x = e.clientX - _hoverDragX;
   var y = e.clientY - _hoverDragY;
-  // Keep within viewport
   if (x < 0) x = 0;
   if (y < 0) y = 0;
   if (x + _hoverTip.offsetWidth  > window.innerWidth)  x = window.innerWidth  - _hoverTip.offsetWidth;
@@ -809,6 +809,7 @@ function _hoverDragMove(e) {
 }
 
 function _hoverDragEnd(e) {
+  console.log('DRAG end, wasDragging:', _hoverDragging);
   _hoverDragging = false;
 }
 
