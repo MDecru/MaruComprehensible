@@ -44,7 +44,7 @@ async function sidebarToggle(text) {
     const w = tok.basic_form || tok.surface_form;
     if (!hasKanji(w) && [...w].length < 2) continue;
 
-    const known = vocab.has(w) || vocab.has(tok.surface_form);
+    const known = vocab.has(w) || vocab.has(tok.surface_form) || _allKanjiKnown(w, kanjiKnownSet) || _stemKnown(w, vocab) || _stemKnown(tok.surface_form, vocab);
     if (!seen.has(w)) {
       // Bunpro JLPT vocab list, fallback to hardest kanji level
       const level = _sbWordJlpt(w, jlptMap, jlptVocab);
@@ -123,6 +123,24 @@ async function _sbLoadJlptVocab() {
     _sbJlptVocab = await r.json();
     return _sbJlptVocab;
   } catch { _sbJlptVocab = {}; return {}; }
+}
+
+function _allKanjiKnown(word, kanjiSet) {
+  if (!kanjiSet || !kanjiSet.size) return false;
+  var hasKanji = false;
+  for (var i = 0; i < word.length; i++) {
+    if (/[一-龯㐀-䶿]/.test(word[i])) { hasKanji = true; if (!kanjiSet.has(word[i])) return false; }
+  }
+  return hasKanji;
+}
+function _stemKnown(word, vocab) {
+  var m = word.match(/^(.+)(する|される|させる|できる|出来る|なさる|致す|いたす)$/);
+  if (m && vocab.has(m[1])) return true;
+  m = word.match(/^(.+)(に|な|だ)$/);
+  if (m && vocab.has(m[1])) return true;
+  m = word.match(/^(.+)(ている|てる|でいる|でる)$/);
+  if (m && vocab.has(m[1])) return true;
+  return false;
 }
 
 function _sbWordJlpt(w, jlptMap, jlptVocab) {

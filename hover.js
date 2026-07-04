@@ -8,6 +8,7 @@ var _hoverEnabled       = false;
 var _hoverJlptMap       = null;
 var _hoverJlptVocab     = null;
 var _hoverVocab         = null;
+var _hoverKanjiSet      = null;
 var _hoverApprentice    = new Set();  // words at SRS level 1-4
 var _hoverWordStatus    = new Map();  // word → {level, status}
 var _hoverShowApprentice = false;     // toggle for apprentice highlighting
@@ -17,6 +18,33 @@ var _hoverStyle      = null;
 var _hoverIsLight    = false;
 var _lastTipDataset  = null;
 var _lastTipDef      = undefined;
+
+// If every kanji in a word is known, the word itself is readable
+function _allKanjiKnown(word) {
+  if (!_hoverKanjiSet || !_hoverKanjiSet.size) return false;
+  var hasKanji = false;
+  for (var i = 0; i < word.length; i++) {
+    if (/[一-龯㐀-䶿]/.test(word[i])) {
+      hasKanji = true;
+      if (!_hoverKanjiSet.has(word[i])) return false;
+    }
+  }
+  return hasKanji;
+}
+
+// Check if a compound word's stem is known (e.g. 勉強する when 勉強 is known)
+function _stemKnown(word, vocab) {
+  // する-verbs: noun+する, noun+される, noun+できる
+  var suruMatch = word.match(/^(.+)(する|される|させる|できる|出来る|なさる|致す|いたす|为る|なさる)$/);
+  if (suruMatch && vocab.has(suruMatch[1])) return true;
+  // な-adjective + に/な/だ
+  var naMatch = word.match(/^(.+)(に|な|だ)$/);
+  if (naMatch && vocab.has(naMatch[1])) return true;
+  // ている/てる form
+  var teMatch = word.match(/^(.+)(ている|てる|でいる|でる)$/);
+  if (teMatch && vocab.has(teMatch[1])) return true;
+  return false;
+}
 
 // ── Init / teardown ──────────────────────────────────────────────────────────
 
@@ -156,6 +184,7 @@ async function hoverEnable(findContainer) {
   }
 
   _hoverVocab = await getVocab();
+  try { _hoverKanjiSet = await getKanji(); } catch { _hoverKanjiSet = new Set(); }
   try { _hoverApprentice = await getApprenticeVocab(); } catch {}
   try {
     _hoverWordStatus = await getWordStatusMap();
@@ -326,7 +355,7 @@ function _hoverProcessContainer(container, tokenizer) {
       surface, basic, level,
       pos:     tok.pos,
       reading: tok.reading || '',
-      known:   _hoverVocab.has(basic) || _hoverVocab.has(surface),
+      known:   _hoverVocab.has(basic) || _hoverVocab.has(surface) || _allKanjiKnown(basic) || _stemKnown(basic, _hoverVocab) || _stemKnown(surface, _hoverVocab),
       apprentice: _hoverShowApprentice && (_hoverApprentice.has(basic) || _hoverApprentice.has(surface)),
       status:  _hoverWordStatus.get(basic) || _hoverWordStatus.get(surface) || null,
     });
