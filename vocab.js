@@ -2,27 +2,28 @@
 const JLPT_ORDER = ['N5', 'N4', 'N3', 'N2', 'N1'];
 const JLPT_COLORS = { N5: '#ef9a9a', N4: '#ffb74d', N3: '#f9a825', N2: '#4fc3f7', N1: '#81c784' };
 
-let jlptVocab = {};       // word → JLPT level number (1-5)
-let jlptByReading = {};   // reading → [{word, level}, ...]
-let jlptTotalByLevel = {}; // 'N5' → total word count in Bunpro
-let mmVocab = [];         // array of {item, level, status}
+let jlptLookup = {};       // word/reading → JLPT level (22k keys, kana+kanji+readings)
+let jlptBunproOnly = {};   // original Bunpro words → level (for accurate total counts)
+let jlptTotalByLevel = {};
+let mmVocab = [];
 let mmExtraVocab = [];
 
 async function loadData() {
+  // Load comprehensive JLPT lookup (Bunpro + readings + kanji variants, 22k keys)
   try {
-    var resp = await fetch('data/jlpt_vocab.json');
-    jlptVocab = await resp.json();
-    // Count totals per level
-    for (var w in jlptVocab) {
-      var lv = 'N' + jlptVocab[w];
+    var resp = await fetch('data/jlpt_vocab_lookup.json');
+    jlptLookup = await resp.json();
+  } catch (e) { console.error('Failed to load JLPT lookup:', e); }
+
+  // Load original Bunpro counts for accurate "total words per level" numbers
+  try {
+    var resp2 = await fetch('data/jlpt_vocab.json');
+    jlptBunproOnly = await resp2.json();
+    for (var w in jlptBunproOnly) {
+      var lv = 'N' + jlptBunproOnly[w];
       jlptTotalByLevel[lv] = (jlptTotalByLevel[lv] || 0) + 1;
     }
-  } catch (e) { console.error('Failed to load JLPT vocab:', e); }
-
-  try {
-    var resp2 = await fetch('data/jlpt_vocab_by_reading.json');
-    jlptByReading = await resp2.json();
-  } catch (e) { console.error('Failed to load reading lookup:', e); }
+  } catch (e) { console.error('Failed to load Bunpro list:', e); }
 
   try {
     var stored = await chrome.storage.local.get(['mm_vocab', 'mm_extra_vocab']);
@@ -34,13 +35,9 @@ async function loadData() {
 }
 
 function wordJlpt(word) {
-  var l = jlptVocab[word];
-  if (l) return 'N' + l;
-  if (!hasKanji(word) && jlptByReading[word]) return 'N' + jlptByReading[word][0][1];
-  return null;
+  var l = jlptLookup[word];
+  return l ? 'N' + l : null;
 }
-
-function hasKanji(s) { return /[一-龯㐀-䶿]/.test(s); }
 
 // ── SRS class ───────────────────────────────────────────────
 function getSrsClass(item) {
@@ -71,46 +68,45 @@ function buildPage() {
     if (st === 2) known++;
     else if (st === 0) learning++;
   }
-  var other = total - known - learning;
 
   document.getElementById('summary-row').innerHTML =
     '<div class="summary-card total"><div class="val">' + total.toLocaleString() + '</div><div class="lbl">Total Vocab</div></div>' +
     '<div class="summary-card known"><div class="val">' + known.toLocaleString() + '</div><div class="lbl">Known</div></div>' +
     '<div class="summary-card learn"><div class="val">' + learning.toLocaleString() + '</div><div class="lbl">Learning</div></div>';
 
-  document.getElementById('result-subtitle').textContent = total + ' words across ' + JLPT_ORDER.length + ' JLPT levels';
-
-  // ── Group user's vocab by JLPT level ──
-  var groups = {}; // 'N5' → [{item,level,status}, ...]
+  // ── Group user vocab by JLPT level ──
+  var groups = {};
   JLPT_ORDER.forEach(function(l) { groups[l] = []; });
   var uncategorized = [];
+  var classified = 0;
 
   for (var i = 0; i < allVocab.length; i++) {
     var word = typeof allVocab[i] === 'string' ? allVocab[i] : allVocab[i].item;
     var jlpt = wordJlpt(word);
     if (jlpt && groups[jlpt]) {
       groups[jlpt].push(allVocab[i]);
+      classified++;
     } else {
       uncategorized.push(allVocab[i]);
     }
   }
 
-  // ── Render per-level bars showing coverage of full JLPT level ──
+  document.getElementById('result-subtitle').textContent =
+    total + ' words, ' + classified + ' classified across ' + JLPT_ORDER.length + ' JLPT levels';
+
+  // ── Per-level bars ──
   var html = '';
   for (var li = 0; li < JLPT_ORDER.length; li++) {
     var level = JLPT_ORDER[li];
     var userWords = groups[level] || [];
-    var bunproTotal = jlptTotalByLevel[level] || 1; // total words in this JLPT level
+    var bunproTotal = jlptTotalByLevel[level] || 1;
     var userCount = userWords.length;
-    var pct = bunproTotal ? (userCount / bunproTotal * 100).toFixed(0) : 0;
+    var pct = (userCount / bunproTotal * 100).toFixed(0);
 
-    // SRS tier breakdown of user's known words in this level
     var tiers = { 'lv-1-4':0, 'lv-5-6':0, 'lv-7':0, 'lv-8':0, 'lv-9':0 };
     for (var j = 0; j < userWords.length; j++) {
       tiers[getSrsClass(userWords[j])]++;
     }
-
-    // Bar segments: SRS tiers + remainder (= words not yet learned)
     var learnedTotal = tiers['lv-1-4']+tiers['lv-5-6']+tiers['lv-7']+tiers['lv-8']+tiers['lv-9'];
     var notLearned = bunproTotal - learnedTotal;
 
