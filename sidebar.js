@@ -435,26 +435,23 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
   </style>
   <div id="jp-sb-hd">
     <div id="jp-sb-top">
-      <span id="jp-sb-ttl">Words</span>
+      <span id="jp-sb-ttl">${_sbViewMode === 'kanji' ? 'Kanji' : _sbViewMode === 'grammar' ? 'Grammar' : 'Words'}</span>
       <button id="jp-sb-cls">×</button>
     </div>
     <div id="jp-sb-stats">
       <span id="jp-sb-tot" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">${unknownCount} unknown · ${knownCount} known</span>
-      <span id="jp-sb-kanjitot" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">${kanjiUnk} kanji unknown · ${kanjiKnw} known</span>
       <span id="jp-sb-gramtot" style="display:${_sbViewMode === 'grammar' ? '' : 'none'}">${grammarCount} grammar point${grammarCount !== 1 ? 's' : ''} detected</span>
     </div>
     <div id="jp-sb-view">
       <button class="sb-vtab${_sbViewMode === 'words' ? ' active' : ''}" data-view="words">Words</button>
       <button class="sb-vtab${_sbViewMode === 'kanji' ? ' active' : ''}" data-view="kanji">Kanji</button>
       <button class="sb-vtab${_sbViewMode === 'grammar' ? ' active' : ''}" data-view="grammar">Grammar</button>
-      <button class="sb-sort${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort" style="margin-left:auto;display:${_sbViewMode === 'grammar' ? 'none' : ''}">⇅ Freq</button>
-    </div>
-    <div id="jp-sb-controls" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">
-      <div id="jp-sb-filter">
+      <span id="jp-sb-controls" style="display:${_sbViewMode === 'grammar' ? 'none' : ''};margin-left:auto;display:flex;gap:4px;align-items:center">
         <button class="sb-ftab active" data-filter="unknown">Unknown</button>
         <button class="sb-ftab" data-filter="">All</button>
         <button class="sb-ftab" data-filter="known">Known</button>
-      </div>
+        <button class="sb-sort${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort">⇅</button>
+      </span>
     </div>
   </div>
   <div id="jp-sb-body">${
@@ -502,19 +499,17 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
     _sbViewMode = vtab.dataset.view;
 
     const isGrammar = _sbViewMode === 'grammar';
+    const isKanji   = _sbViewMode === 'kanji';
+    el.querySelector('#jp-sb-ttl').textContent = isGrammar ? 'Grammar' : isKanji ? 'Kanji' : 'Words';
     el.querySelector('#jp-sb-controls').style.display = isGrammar ? 'none' : '';
-    el.querySelector('#jp-sb-sort').style.display = isGrammar ? 'none' : '';
     el.querySelector('#jp-sb-tot').style.display = isGrammar ? 'none' : '';
-    el.querySelector('#jp-sb-kanjitot').style.display = isGrammar ? 'none' : '';
     el.querySelector('#jp-sb-gramtot').style.display = isGrammar ? '' : 'none';
 
     if (isGrammar) {
       el.querySelector('#jp-sb-body').innerHTML = _sbBuildGrammarSections(_sbLastGrammarGroups);
-      const n = _sbGrammarTotal(_sbLastGrammarGroups);
-      el.querySelector('#jp-sb-gramtot').textContent = `${n} grammar point${n !== 1 ? 's' : ''} detected`;
       return;
     }
-    const activeGroups = _sbViewMode === 'kanji' ? _sbLastKanjiGroups : _sbLastGroups;
+    const activeGroups = isKanji ? _sbLastKanjiGroups : _sbLastGroups;
     el.querySelector('#jp-sb-body').innerHTML = _sbBuildSections(activeGroups, isLight, _sbSortMode);
     _sbUpdateSectionCounts(el, _sbActiveFilter);
     const allW = Object.values(activeGroups).flat();
