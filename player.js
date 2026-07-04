@@ -600,6 +600,27 @@ function _buildSettingsPanel() {
   });
   fgRow.append(fgOpSl, fgOpVal); _curPnl.appendChild(fgRow);
 
+  // ── Highlight SRS Level 1-4 ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apInit, 14, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
+    _recolorOverlay();
+  });
+  const apprHint = document.createElement('div');
+  apprHint.className = 'pnl-hint';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _curPnl.appendChild(apprHint);
+
+  // ── Enable grammar detection ────────────────────────────────
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 14, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
+  });
+  const conjHint = document.createElement('div');
+  conjHint.className = 'pnl-hint';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _curPnl.appendChild(conjHint);
+
   // ═══ Layout tab ══════════════════════════════════════════
   _curPnl = _secs[1];
 
@@ -671,26 +692,6 @@ function _buildSettingsPanel() {
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _curPnl.appendChild(uoHint);
 
-  // ── Highlight SRS Level 1-4 ────────────────────────────────
-  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
-  _swRow('Highlight SRS Level 1-4', _apInit, 4, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
-    _recolorOverlay();
-  });
-  const apprHint = document.createElement('div');
-  apprHint.className = 'pnl-hint';
-  apprHint.textContent = 'Distinct color for SRS pipeline words';
-  _curPnl.appendChild(apprHint);
-
-  // ── Enable grammar detection ────────────────────────────────
-  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
-  _swRow('Enable grammar detection', _conjInit, 4, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
-  });
-  const conjHint = document.createElement('div');
-  conjHint.className = 'pnl-hint';
-  conjHint.textContent = 'Show conjugation and particle info on hover';
-  _curPnl.appendChild(conjHint);
 }
 
 // ── Fullscreen ────────────────────────────────────────────────────────────────

@@ -561,6 +561,27 @@ function _cijToggleSettings(_player) {
   });
   fgRow.append(fgOpSl, fgOpVal); _cur.appendChild(fgRow);
 
+  // ── Highlight SRS Level 1-4 ────────────────────────────────
+  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
+  _swRow('Highlight SRS Level 1-4', _apInit, 14, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
+    _cijRecolorOverlay();
+  });
+  const apprHint = document.createElement('div');
+  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  apprHint.textContent = 'Distinct color for SRS pipeline words';
+  _cur.appendChild(apprHint);
+
+  // ── Enable grammar detection ────────────────────────────────
+  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
+  _swRow('Enable grammar detection', _conjInit, 14, v => {
+    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
+  });
+  const conjHint = document.createElement('div');
+  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
+  conjHint.textContent = 'Show conjugation and particle info on hover';
+  _cur.appendChild(conjHint);
+
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
 
@@ -644,27 +665,6 @@ function _cijToggleSettings(_player) {
   uoHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
   uoHint.textContent = 'Hides known words, shows only unknowns';
   _cur.appendChild(uoHint);
-
-  // ── Highlight SRS Level 1-4 ────────────────────────────────
-  const _apInit = (typeof _hoverShowApprentice !== 'undefined') ? _hoverShowApprentice : true;
-  _swRow('Highlight SRS Level 1-4', _apInit, 4, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_show_apprentice: v });
-    _cijRecolorOverlay();
-  });
-  const apprHint = document.createElement('div');
-  apprHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
-  apprHint.textContent = 'Distinct color for SRS pipeline words';
-  _cur.appendChild(apprHint);
-
-  // ── Enable grammar detection ────────────────────────────────
-  const _conjInit = (typeof _hoverConjHints !== 'undefined') ? _hoverConjHints : true;
-  _swRow('Enable grammar detection', _conjInit, 4, v => {
-    if (chrome.runtime?.id) chrome.storage.local.set({ mc_conj_hints: v });
-  });
-  const conjHint = document.createElement('div');
-  conjHint.style.cssText = 'font-size:11px;color:#6a7080;margin-top:-2px';
-  conjHint.textContent = 'Show conjugation and particle info on hover';
-  _cur.appendChild(conjHint);
 
   document.body.appendChild(pnl);
   _cijSettingsPnl = pnl;
