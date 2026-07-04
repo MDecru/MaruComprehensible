@@ -897,13 +897,17 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score on load. cijFetchVTT() already polls for ~8s waiting on the
-// <track> element, but on a slow page that can still not be enough — retry
-// once more instead of leaving the video unscored until the user manually
-// reopens the popup (which forces a rescore).
-scanPage().then(res => {
-  if (!res) setTimeout(() => { if (!_cijVttCache) scanPage(); }, 5000);
-});
+// Auto-score on load with retries. The tokenizer may not be ready yet,
+// and the <track> element may not be in the DOM yet — keep retrying.
+(async function autoScoreLoop() {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 4000));
+    // Make sure the tokenizer is preloaded before scoring
+    try { await getTokenizer(); } catch { continue; }
+    const res = await scanPage();
+    if (res) return;
+  }
+})();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;
@@ -919,7 +923,6 @@ mcObserveBody(() => {
   }
 }, { childList: true, subtree: true });
 
-getTokenizer().catch(() => {});
 
 chrome.storage.local.get('mc_hover_enabled', ({ mc_hover_enabled }) => {
   if (!mc_hover_enabled) return;
