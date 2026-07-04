@@ -882,6 +882,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   var p = scanPage().then(function(res) {
     if (res) return res;
     if (_apiTranscriptText) return scoreVTT(_apiTranscriptText);
+    // Last resort: scrape subtitle text from the page DOM
+    var texts = [];
+    document.querySelectorAll('*').forEach(function(el) {
+      if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
+        var t = el.textContent.trim();
+        if (t.length > 1 && t.length < 200) texts.push(t);
+      }
+    });
+    if (texts.length) return scoreVTT(texts.join('\n'));
     return null;
   });
   p.then(function(res) {
@@ -903,29 +912,20 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: poll for subtitle text rendered by the CIJ player overlay.
-// The new CIJ site renders captions into a DOM overlay once the transcript API
-// responds — we collect all unique cue texts and score when we have enough.
-(function autoScoreFromOverlay() {
+// Auto-score: poll for Japanese subtitle text anywhere in the DOM.
+(function autoScorePoll() {
   var scored = false;
   var seenTexts = new Set();
-  var pollTimer = null;
-  function tryScore() {
+  var pollTimer = setInterval(function() {
     if (scored) { clearInterval(pollTimer); return; }
-    // CIJ renders subtitles in an overlay element
-    var cues = document.querySelectorAll('.cue-text, [class*="subtitle"], [class*="caption"], [class*="cue"]');
-    if (!cues.length) return;
-    for (var i = 0; i < cues.length; i++) {
-      var t = cues[i].textContent.trim();
-      if (t) seenTexts.add(t);
-    }
-    // Also check for any text inside a subtitle overlay container
-    var overlay = document.querySelector('[class*="subtitle" i], [class*="caption" i]');
-    if (overlay) {
-      var fullText = overlay.textContent.trim();
-      if (fullText) seenTexts.add(fullText);
-    }
-    if (seenTexts.size < 5) return; // wait for enough cues
+    // Find all leaf text nodes containing Japanese
+    document.querySelectorAll('*').forEach(function(el) {
+      if (el.children.length === 0 && el.textContent && /[一-龯ぁ-んァ-ン]/.test(el.textContent)) {
+        var t = el.textContent.trim();
+        if (t.length > 1 && t.length < 200) seenTexts.add(t);
+      }
+    });
+    if (seenTexts.size < 10) return;
     var text = Array.from(seenTexts).join('\n');
     scored = true;
     clearInterval(pollTimer);
@@ -944,9 +944,7 @@ document.addEventListener('mc-word-marked-known', () => {
         }
       }
     }).catch(function() {});
-  }
-  pollTimer = setInterval(tryScore, 1000);
-  tryScore();
+  }, 2000);
 })();
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
