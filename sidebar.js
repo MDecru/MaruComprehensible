@@ -439,8 +439,7 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
       <button id="jp-sb-cls">×</button>
     </div>
     <div id="jp-sb-stats">
-      <span id="jp-sb-tot" style="display:${_sbViewMode === 'grammar' ? 'none' : ''}">${unknownCount} unknown · ${knownCount} known</span>
-      <span id="jp-sb-gramtot" style="display:${_sbViewMode === 'grammar' ? '' : 'none'}">${grammarCount} grammar point${grammarCount !== 1 ? 's' : ''} detected</span>
+      <span id="jp-sb-tot">${allWords.length} words · ${allKanji.length} kanji · ${grammarCount} grammar</span>
     </div>
     <div id="jp-sb-view">
       <button class="sb-vtab${_sbViewMode === 'words' ? ' active' : ''}" data-view="words">Words</button>
@@ -450,7 +449,7 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
         <button class="sb-ftab active" data-filter="unknown">Unknown</button>
         <button class="sb-ftab" data-filter="">All</button>
         <button class="sb-ftab" data-filter="known">Known</button>
-        <button class="sb-sort${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort">⇅</button>
+        <button class="sb-ftab${_sbSortMode === 'freq' ? ' active' : ''}" id="jp-sb-sort">⇅</button>
       </span>
     </div>
   </div>
@@ -502,8 +501,6 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
     const isKanji   = _sbViewMode === 'kanji';
     el.querySelector('#jp-sb-ttl').textContent = isGrammar ? 'Grammar' : isKanji ? 'Kanji' : 'Words';
     el.querySelector('#jp-sb-controls').style.display = isGrammar ? 'none' : '';
-    el.querySelector('#jp-sb-tot').style.display = isGrammar ? 'none' : '';
-    el.querySelector('#jp-sb-gramtot').style.display = isGrammar ? '' : 'none';
 
     if (isGrammar) {
       el.querySelector('#jp-sb-body').innerHTML = _sbBuildGrammarSections(_sbLastGrammarGroups);
@@ -512,10 +509,6 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
     const activeGroups = isKanji ? _sbLastKanjiGroups : _sbLastGroups;
     el.querySelector('#jp-sb-body').innerHTML = _sbBuildSections(activeGroups, isLight, _sbSortMode);
     _sbUpdateSectionCounts(el, _sbActiveFilter);
-    const allW = Object.values(activeGroups).flat();
-    const unk = allW.filter(w => !w.known).length;
-    const knw = allW.filter(w =>  w.known).length;
-    el.querySelector('#jp-sb-tot').textContent = `${unk} unknown · ${knw} known`;
   });
 
   // Sort toggle
