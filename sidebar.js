@@ -480,10 +480,10 @@ function _sidebarInject(groups, kanjiGroups, grammarGroups, isLight = false) {
   el.querySelector('#jp-sb-cls').addEventListener('click', _sidebarClose);
 
   // Filter tabs
-  el.querySelector('#jp-sb-filter').addEventListener('click', e => {
+  el.querySelector('#jp-sb-controls').addEventListener('click', e => {
     const tab = e.target.closest('.sb-ftab');
-    if (!tab) return;
-    el.querySelectorAll('.sb-ftab').forEach(t => t.classList.remove('active'));
+    if (!tab || tab.id === 'jp-sb-sort') return;
+    el.querySelectorAll('#jp-sb-controls .sb-ftab[data-filter]').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     const f = tab.dataset.filter;
     _sbActiveFilter = f;
