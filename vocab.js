@@ -15,15 +15,11 @@ async function loadData() {
     jlptLookup = await resp.json();
   } catch (e) { console.error('Failed to load JLPT lookup:', e); }
 
-  // Load original Bunpro counts for accurate "total words per level" numbers
-  try {
-    var resp2 = await fetch('data/jlpt_vocab.json');
-    jlptBunproOnly = await resp2.json();
-    for (var w in jlptBunproOnly) {
-      var lv = 'N' + jlptBunproOnly[w];
-      jlptTotalByLevel[lv] = (jlptTotalByLevel[lv] || 0) + 1;
-    }
-  } catch (e) { console.error('Failed to load Bunpro list:', e); }
+  // Count total words per level from the comprehensive lookup
+  for (var w in jlptLookup) {
+    var lv = 'N' + jlptLookup[w];
+    jlptTotalByLevel[lv] = (jlptTotalByLevel[lv] || 0) + 1;
+  }
 
   try {
     var stored = await chrome.storage.local.get(['mm_vocab', 'mm_extra_vocab']);
@@ -99,18 +95,19 @@ function buildPage() {
   for (var li = 0; li < JLPT_ORDER.length; li++) {
     var level = JLPT_ORDER[li];
     var userWords = groups[level] || [];
-    var bunproTotal = jlptTotalByLevel[level] || 1;
+    var levelTotal = jlptTotalByLevel[level] || 1;
     var userCount = userWords.length;
-    var pct = (userCount / bunproTotal * 100).toFixed(0);
+    var denom = Math.max(levelTotal, userCount);
+    var pct = Math.min(100, (userCount / denom * 100).toFixed(0));
 
     var tiers = { 'lv-1-4':0, 'lv-5-6':0, 'lv-7':0, 'lv-8':0, 'lv-9':0 };
     for (var j = 0; j < userWords.length; j++) {
       tiers[getSrsClass(userWords[j])]++;
     }
     var learnedTotal = tiers['lv-1-4']+tiers['lv-5-6']+tiers['lv-7']+tiers['lv-8']+tiers['lv-9'];
-    var notLearned = bunproTotal - learnedTotal;
+    var notLearned = Math.max(0, denom - learnedTotal);
 
-    function p(v) { return (v/bunproTotal*100).toFixed(1); }
+    function p(v) { return (v/denom*100).toFixed(1); }
     var barHtml = '<div class="bar">';
     if (tiers['lv-1-4']) barHtml += '<span class="bar-seg lv1-4" style="width:'+p(tiers['lv-1-4'])+'%"></span>';
     if (tiers['lv-5-6']) barHtml += '<span class="bar-seg lv5-6" style="width:'+p(tiers['lv-5-6'])+'%"></span>';
@@ -121,7 +118,7 @@ function buildPage() {
     barHtml += '</div>';
 
     var tipHtml = '<span class="bar-tip">'+
-      '<b>Level ' + level + ':</b> ' + userCount + ' / ' + bunproTotal + ' words (' + pct + '%)<br>'+
+      '<b>Level ' + level + ':</b> ' + userCount + ' / ' + denom + ' words (' + pct + '%)<br>'+
       (tiers['lv-1-4']?'<b style=color:#ED7989>●</b> Lv1-4: '+tiers['lv-1-4']+'<br>':'')+
       (tiers['lv-5-6']?'<b style=color:#FDC281>●</b> Lv5-6: '+tiers['lv-5-6']+'<br>':'')+
       (tiers['lv-7']?'<b style=color:#72CE9D>●</b> Lv7: '+tiers['lv-7']+'<br>':'')+
@@ -133,7 +130,7 @@ function buildPage() {
     html += '<div class="level-section">'+
       '<div class="level-header">'+
         '<h2>' + level + ' Level</h2>'+
-        '<span class="count">' + userCount + ' / ' + bunproTotal + ' words</span>'+
+        '<span class="count">' + userCount + ' / ' + denom + ' words</span>'+
         '<span class="pct">' + pct + '% learned</span>'+
       '</div>'+
       '<div class="bar-wrap">'+tipHtml+barHtml+'</div>'+
