@@ -903,30 +903,28 @@ document.addEventListener('mc-word-marked-known', () => {
   _cijRecolorOverlay();
 });
 
-// Auto-score: poll for transcript data bridged from MAIN world via
-// content_cij_main.js's fetch interceptor (stored as data-mc-transcript attr).
-(function pollTranscript() {
-  var text = document.documentElement.getAttribute('data-mc-transcript');
-  if (text) {
-    _apiTranscriptText = text;
-    getTokenizer().then(function() {
-      return scoreVTT(text);
-    }).then(function(res) {
-      if (res?.score != null) {
-        var video = document.querySelector('video');
-        var player = _cijGetPlayer();
-        if (player) {
-          if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
-          _cijCreateControlBar(player, res.score);
-        } else if (video) {
-          showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
-        }
+// Auto-score: receive transcript data bridged from MAIN world via CustomEvent
+function _autoScoreWithText(text) {
+  if (!text || !text.trim()) return;
+  _apiTranscriptText = text;
+  getTokenizer().then(function() {
+    return scoreVTT(text);
+  }).then(function(res) {
+    if (res?.score != null) {
+      var video = document.querySelector('video');
+      var player = _cijGetPlayer();
+      if (player) {
+        if (getComputedStyle(player).position === 'static') player.style.position = 'relative';
+        _cijCreateControlBar(player, res.score);
+      } else if (video) {
+        showBadge(video.parentElement || document.body, res.score, { top: '12px', left: '12px' });
       }
-    }).catch(function() {});
-    return;
-  }
-  setTimeout(pollTranscript, 1000);
-})();
+    }
+  }).catch(function() {});
+}
+document.addEventListener('mc-transcript', function(e) { _autoScoreWithText(e.detail); });
+// Check if event already fired before our listener was registered
+if (document._mcTranscript) _autoScoreWithText(document._mcTranscript);
 
 // Re-tokenize transcript panel when it fills in dynamically; retry auto-hover if pending
 var _cijAutoHoverPending = false;

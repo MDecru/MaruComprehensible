@@ -36,8 +36,9 @@
               transcriptText = data;
             }
             if (transcriptText.trim()) {
-              // Bridge to ISOLATED world via DOM dataset (polled by content_cij.js)
-              document.documentElement.setAttribute('data-mc-transcript', transcriptText);
+              // Bridge to ISOLATED world — store on shared document + dispatch event
+              document._mcTranscript = transcriptText;
+              document.dispatchEvent(new CustomEvent('mc-transcript', { detail: transcriptText }));
             }
           } catch (e) {}
         });
