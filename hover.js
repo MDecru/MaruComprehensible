@@ -711,7 +711,7 @@ function _hoverPosition(el) {
   const th   = _hoverTip.offsetHeight || 120;
   let x = rect.left;
   // Prefer above; fall back to below if not enough room
-  let y = rect.top - th - 8;
+  let y = rect.top - th - 22;
   if (y < 8) y = rect.bottom + 8;
   if (x + tw > window.innerWidth  - 8) x = window.innerWidth  - tw - 8;
   if (x < 8) x = 8;
