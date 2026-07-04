@@ -176,9 +176,9 @@ async function editDayTime(dayKey, currentSec) {
 }
 
 async function clearSiteTotal(site, label) {
-  if (!confirm(`Clear all tracked time for ${label}? This also removes that time from your daily totals and can't be undone.`)) return;
-  const { mc_timer_site_totals = {}, mc_timer_days = {}, mc_timer_source_days = {} } =
-    await chrome.storage.local.get(['mc_timer_site_totals', 'mc_timer_days', 'mc_timer_source_days']);
+  if (!confirm(`Clear all tracked time for ${label}? This also removes that time from your daily totals and log entries and can't be undone.`)) return;
+  const { mc_timer_site_totals = {}, mc_timer_days = {}, mc_timer_source_days = {}, mc_timer_log = [] } =
+    await chrome.storage.local.get(['mc_timer_site_totals', 'mc_timer_days', 'mc_timer_source_days', 'mc_timer_log']);
   // Also remove the same amount from the daily totals (recent days first) —
   // otherwise the gap between daily totals and per-source totals instantly
   // reappears as an "Unknown source" row for the exact amount just deleted.
@@ -192,7 +192,11 @@ async function clearSiteTotal(site, label) {
     if (mc_timer_days[day] <= 0) delete mc_timer_days[day];
     remaining -= take;
   }
-  await chrome.storage.local.set({ mc_timer_site_totals, mc_timer_days, mc_timer_source_days });
+  // Also remove matching log entries for this source type
+  const logMap = { manual: 'Manual / focus timer', yt: 'YouTube', cij: 'CIJ', local: 'Local NAS (CIJ)', njk: 'Nihongo-Jikan', player: 'Local player' };
+  const logLabel = logMap[site];
+  const filteredLog = logLabel ? mc_timer_log.filter(e => (e.source || 'Manual') !== logLabel && e.source !== site) : mc_timer_log;
+  await chrome.storage.local.set({ mc_timer_site_totals, mc_timer_days, mc_timer_source_days, mc_timer_log: filteredLog });
 }
 
 // "Unknown" isn't a real stored bucket — it's the gap between the daily
@@ -234,14 +238,21 @@ async function renderChart() {
 
   // Build stacked data per day from mc_timer_source_days
   const sourceOrder = ['yt', 'cij', 'local', 'njk', 'player', 'manual'];
-  _chartStackData = days.map(d => {
+  _chartStackData = days.map((d, i) => {
+    const dayTotalMin = perDayMin[i];
+    if (dayTotalMin <= 0) return { day: d, totalMin: 0, segments: [] };
     const segments = [];
-    let totalMin = 0;
+    let stackedMin = 0;
     for (const src of sourceOrder) {
-      const min = ((mc_timer_source_days[src] || {})[d] || 0) / 60;
-      if (min > 0) { segments.push({ source: src, min }); totalMin += min; }
+      let min = ((mc_timer_source_days[src] || {})[d] || 0) / 60;
+      // Cap segment to remaining daily total (handles stale/inconsistent data)
+      if (min > 0 && stackedMin < dayTotalMin) {
+        min = Math.min(min, dayTotalMin - stackedMin);
+        segments.push({ source: src, min });
+        stackedMin += min;
+      }
     }
-    return { day: d, totalMin, segments };
+    return { day: d, totalMin: dayTotalMin, segments };
   });
 
   const W = 640, H = 160, PAD = 8;
