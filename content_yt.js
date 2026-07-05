@@ -16,6 +16,9 @@ let _ytRetriedVideos = new Set();
 // available doesn't count as JP immersion.
 let _ytIsJapaneseContent = false;
 let _ytFoundManualJaTrack = false;
+// Set once a client-side (SPA) navigation to a different video has been
+// observed — see the fetchJaVTT step-2 comment for why this matters.
+let _ytHasSpaNavigated = false;
 
 function currentVideoId() {
   return new URLSearchParams(location.search).get('v');
@@ -185,14 +188,19 @@ async function fetchJaVTT(videoId) {
     }
   }
 
-  // 2. Parse ytInitialPlayerResponse out of inline <script> tags (hard navigation fallback).
-  const scriptUrls = [];
-  for (const s of document.querySelectorAll('script')) {
-    scriptUrls.push(..._captionUrlsFromScript(s.textContent));
-  }
-  for (const baseUrl of scriptUrls) {
-    const vtt = await _fetchVTT(`${baseUrl}&fmt=vtt`);
-    if (vtt) return vtt;
+  // 2. Parse ytInitialPlayerResponse out of inline <script> tags — only valid
+  // on the very first (hard-loaded) video. YouTube's SPA router never removes
+  // that script tag, so after any client-side navigation this would keep
+  // re-finding video A's caption URLs forever instead of video B's.
+  if (!_ytHasSpaNavigated) {
+    const scriptUrls = [];
+    for (const s of document.querySelectorAll('script')) {
+      scriptUrls.push(..._captionUrlsFromScript(s.textContent));
+    }
+    for (const baseUrl of scriptUrls) {
+      const vtt = await _fetchVTT(`${baseUrl}&fmt=vtt`);
+      if (vtt) return vtt;
+    }
   }
 
   // 3. Timedtext API — try listing available tracks first (gets the exact name parameter).
@@ -205,21 +213,31 @@ async function fetchJaVTT(videoId) {
         const langCode = attrs.match(/lang_code="([^"]*)"/)?.[1] || '';
         if (!/^ja/i.test(langCode)) continue;
         const name = attrs.match(/\bname="([^"]*)"/)?.[1] || '';
+        const kind = attrs.match(/\bkind="([^"]*)"/)?.[1] || '';
         const vtt = await _fetchVTT(
           `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${langCode}&name=${encodeURIComponent(name)}&fmt=vtt`
         );
-        if (vtt) return vtt;
+        if (vtt) {
+          if (kind !== 'asr') _ytFoundManualJaTrack = true;
+          return vtt;
+        }
       }
     }
   } catch {}
 
-  // 4. Last resort: direct timedtext guesses
-  for (const url of [
-    `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt`,
-    `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt&kind=asr`,
-  ]) {
+  // 4. Last resort: direct timedtext guesses. The first URL omits kind=asr,
+  // which YouTube only serves from a manual/human track if one exists — only
+  // the second, explicit kind=asr guess is actually auto-generated.
+  const _guesses = [
+    { url: `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt`, manual: true },
+    { url: `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt&kind=asr`, manual: false },
+  ];
+  for (const { url, manual } of _guesses) {
     const vtt = await _fetchVTT(url);
-    if (vtt) return vtt;
+    if (vtt) {
+      if (manual) _ytFoundManualJaTrack = true;
+      return vtt;
+    }
   }
 
   return null;
@@ -251,7 +269,12 @@ async function scoreVideo() {
       return;
     }
     if (vtt && _ytFoundManualJaTrack) _ytIsJapaneseContent = true;
-    const res = vtt ? await scoreVTT(vtt) : null;
+    if (!vtt) {
+      // No Japanese subtitles — show a brief banner then shrink away
+      _ytShowNoJapaneseBanner(player);
+      return;
+    }
+    const res = await scoreVTT(vtt);
     if (token !== _ytScoreToken) return; // superseded by a later navigation
     if (res?.score != null) {
       const title = document.querySelector('h1.ytd-video-primary-info-renderer, #above-the-fold #title h1, ytd-video-primary-info-renderer h1')?.textContent?.trim()
@@ -330,6 +353,7 @@ let _ytUnknownOnly      = false;
 let _ytOutlineThickness = 1;
 let _ytFurigana         = false;
 let _ytFuriganaOpacity  = 0.7;
+let _ytSubBlur          = 8;
 
 const _YT_FONT_SIZES   = [20, 28, 36, 46];
 const _YT_FONT_WEIGHTS = [{ label: 'Normal', value: 400 }, { label: 'Medium', value: 600 }, { label: 'Bold', value: 700 }];
@@ -341,7 +365,7 @@ function _ytSaveSettings() {
     fontWeight: _ytFontWeight, colorblind: _ytColorblind,
     pauseOnHover: _ytPauseOnHover,
     subPosition: _ytSubPosition, subDelay: _ytSubDelay, subStyle: _ytSubStyle, subMaxWidth: _ytSubMaxWidth, autoPause: _ytAutoPause, unknownOnly: _ytUnknownOnly,
-    outlineThickness: _ytOutlineThickness, furigana: _ytFurigana, furiganaOpacity: _ytFuriganaOpacity,
+    outlineThickness: _ytOutlineThickness, furigana: _ytFurigana, furiganaOpacity: _ytFuriganaOpacity, subBlur: _ytSubBlur,
   }}); } catch {}
 }
 
@@ -364,6 +388,7 @@ function _ytLoadSettings() {
       if (s.outlineThickness   !== undefined) _ytOutlineThickness = s.outlineThickness;
       if (s.furigana           !== undefined) _ytFurigana         = s.furigana;
       if (s.furiganaOpacity    !== undefined) _ytFuriganaOpacity  = s.furiganaOpacity;
+      if (s.subBlur            !== undefined) _ytSubBlur          = s.subBlur;
     });
   } catch {}
 }
@@ -394,20 +419,24 @@ function _ytRecolorOverlay() {
     if (_ytUnknownOnly) {
       wrap.style.background = 'transparent';
       wrap.style.webkitTextStroke = '';
+      wrap.style.backdropFilter = '';
+      wrap.style.webkitBackdropFilter = '';
     } else {
       const _t = _ytOutlineThickness;
       wrap.style.background = _ytSubStyle === 'outline' ? 'transparent'
         : `rgba(0,0,0,${_ytBgOpacity})`;
-      wrap.style.webkitTextStroke = _ytSubStyle === 'outline'
-        ? `${_t}px #000`
+      wrap.style.backdropFilter = _ytSubStyle === 'blur' ? `blur(${_ytSubBlur}px)` : '';
+      wrap.style.webkitBackdropFilter = _ytSubStyle === 'blur' ? `blur(${_ytSubBlur}px)` : '';
+      wrap.style.webkitTextStroke = _ytSubStyle === 'outline' ? `${_t}px #000`
+        : _ytSubStyle === 'blur' ? '1.2px #000'
         : '';
-      wrap.style.paintOrder = _ytSubStyle === 'outline' ? 'stroke fill' : '';
+      wrap.style.paintOrder = (_ytSubStyle === 'outline' || _ytSubStyle === 'blur') ? 'stroke fill' : '';
     }
   }
 
   const spanBg = _ytSubStyle === 'outline' ? '' : `rgba(0,0,0,${_ytBgOpacity})`;
   const _t = _ytOutlineThickness;
-  const spanShadow = _ytSubStyle === 'outline' ? `${_t}px #000` : '';
+  const spanShadow = _ytSubStyle === 'outline' ? `${_t}px #000` : _ytSubStyle === 'blur' ? '1.2px #000' : '';
   const furiNeedSpace = _ytUnknownOnly && _ytFurigana;
 
   for (const span of (_ytSubOverlay?.querySelectorAll('.jp-tok') || [])) {
@@ -545,6 +574,14 @@ function _ytResetForNewVideo() {
   // Reset score to dash while new video loads
   const scoreEl = document.getElementById('mc-yt-score');
   if (scoreEl) scoreEl.textContent = '–';
+  // Remove any stale "no Japanese subtitles" banner from previous video
+  var oldBanner = document.querySelector('.mc-no-ja-banner');
+  if (oldBanner) oldBanner.remove();
+  if (_ytControlBar) {
+    chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+      if (videoToolEnabled !== false) _ytControlBar.style.display = 'inline-flex';
+    });
+  }
   // Close sidebar so it doesn't show the previous video's transcript
   if (sidebarIsOpen()) sidebarToggle(null);
 }
@@ -696,17 +733,27 @@ function _ytToggleSettings(player) {
 
   // ── Style ─────────────────────────────────────────────────
   _pnlLabel('Style');
-  let _ytBgSection, _ytOtSection;
+  let _ytBgSection, _ytOtSection, _ytBlSection;
   const stRow = _pnlBtnRow(6, 0);
-  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }].forEach(({ label, val }) => {
+  [{ label: 'Box', val: 'box' }, { label: 'Outline', val: 'outline' }, { label: 'Blur', val: 'blur' }].forEach(({ label, val }) => {
     const btn = document.createElement('button');
     btn.dataset.st = val; btn.textContent = label;
     btn.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(val === _ytSubStyle)}`;
     btn.addEventListener('click', e => {
       e.stopPropagation(); _ytSubStyle = val;
       stRow.querySelectorAll('[data-st]').forEach(b => { b.style.cssText = `flex:1;padding:5px 0;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;${_pnlActiveStyle(b.dataset.st === _ytSubStyle)}`; });
-      _ytBgSection.style.display = val === 'box' ? 'block' : 'none';
+      _ytBgSection.style.display = (val === 'box' || val === 'blur') ? 'block' : 'none';
       _ytOtSection.style.display = val === 'outline' ? 'block' : 'none';
+      _ytBlSection.style.display = val === 'blur' ? 'block' : 'none';
+      const w = _ytSubOverlay?.querySelector('span');
+      if (w) {
+        const _t = _ytOutlineThickness;
+        w.style.background = val === 'outline' ? 'transparent' : `rgba(0,0,0,${_ytBgOpacity})`;
+        w.style.backdropFilter = val === 'blur' ? `blur(${_ytSubBlur}px)` : '';
+        w.style.webkitBackdropFilter = val === 'blur' ? `blur(${_ytSubBlur}px)` : '';
+        w.style.webkitTextStroke = val === 'outline' ? `${_t}px #000` : val === 'blur' ? '1.2px #000' : '';
+        w.style.paintOrder = (val === 'outline' || val === 'blur') ? 'stroke fill' : '';
+      }
       _ytLastCueIdx = -2; _ytSaveSettings();
     });
     stRow.appendChild(btn);
@@ -717,7 +764,7 @@ function _ytToggleSettings(player) {
   const _sVal = 'font-size:12px;color:#66AAE8;min-width:34px;text-align:right';
 
   _ytBgSection = document.createElement('div');
-  _ytBgSection.style.display = _ytSubStyle === 'box' ? 'block' : 'none';
+  _ytBgSection.style.display = (_ytSubStyle === 'box' || _ytSubStyle === 'blur') ? 'block' : 'none';
   const bgLblEl = document.createElement('div'); bgLblEl.style.cssText = _sLbl; bgLblEl.textContent = 'Background opacity'; _ytBgSection.appendChild(bgLblEl);
   const bgRow = document.createElement('div'); bgRow.style.cssText = _sRow;
   const slider = document.createElement('input'); slider.type = 'range'; slider.min = '0'; slider.max = '100'; slider.value = Math.round(_ytBgOpacity * 100); slider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
@@ -735,6 +782,21 @@ function _ytToggleSettings(player) {
   otSlider.addEventListener('click', e => e.stopPropagation());
   otSlider.addEventListener('input', e => { e.stopPropagation(); _ytOutlineThickness = +otSlider.value; otVal.textContent = `${_ytOutlineThickness}px`; const w = _ytSubOverlay?.querySelector('span'); if (w && _ytSubStyle === 'outline') { const t = _ytOutlineThickness; w.style.webkitTextStroke = `${t}px #000`; w.style.paintOrder = 'stroke fill'; } _ytLastCueIdx = -2; _ytSaveSettings(); });
   otRow.appendChild(otSlider); otRow.appendChild(otVal); _ytOtSection.appendChild(otRow); _cur.appendChild(_ytOtSection);
+
+  _ytBlSection = document.createElement('div');
+  _ytBlSection.style.display = _ytSubStyle === 'blur' ? 'block' : 'none';
+  const blLblEl = document.createElement('div'); blLblEl.style.cssText = _sLbl; blLblEl.textContent = 'Blur intensity'; _ytBlSection.appendChild(blLblEl);
+  const blRow = document.createElement('div'); blRow.style.cssText = _sRow;
+  const blSlider = document.createElement('input'); blSlider.type = 'range'; blSlider.min = '0'; blSlider.max = '20'; blSlider.value = _ytSubBlur; blSlider.style.cssText = 'flex:1;cursor:pointer;accent-color:#66AAE8';
+  const blVal = document.createElement('span'); blVal.style.cssText = _sVal; blVal.textContent = `${_ytSubBlur}px`;
+  blSlider.addEventListener('click', e => e.stopPropagation());
+  blSlider.addEventListener('input', e => {
+    e.stopPropagation(); _ytSubBlur = +blSlider.value; blVal.textContent = `${_ytSubBlur}px`;
+    const w = _ytSubOverlay?.querySelector('span');
+    if (w && _ytSubStyle === 'blur') { w.style.backdropFilter = `blur(${_ytSubBlur}px)`; w.style.webkitBackdropFilter = `blur(${_ytSubBlur}px)`; }
+    _ytSaveSettings();
+  });
+  blRow.appendChild(blSlider); blRow.appendChild(blVal); _ytBlSection.appendChild(blRow); _cur.appendChild(_ytBlSection);
 
   // ═══ Layout tab ══════════════════════════════════════════
   _cur = _secs[1];
@@ -892,10 +954,12 @@ function _ytStartTimeSync() {
     const _ytT = _ytOutlineThickness;
     const _wrapBg = _ytSubStyle === 'outline'
       ? `background:transparent;-webkit-text-stroke: ${_ytT}px #000; paint-order: stroke fill`
+      : _ytSubStyle === 'blur'
+      ? `background:rgba(0,0,0,${_ytBgOpacity});backdrop-filter:blur(${_ytSubBlur}px);-webkit-backdrop-filter:blur(${_ytSubBlur}px);-webkit-text-stroke:1.2px #000;paint-order:stroke fill`
       : `background:rgba(0,0,0,${_ytBgOpacity})`;
     wrap.style.cssText = [
       _wrapBg, 'color:#fff',
-      'padding:5px 18px', 'border-radius:6px', 'display:inline-block',
+      'padding:5px 18px 2px', 'border-radius:6px', 'display:inline-block',
       `font-size:${_ytFontSize}px`, `font-weight:${_ytFontWeight}`,
       `line-height:${_ytFurigana ? '2.4' : '1.6'}`,
       `max-width:${_ytSubMaxWidth}%`,
@@ -922,11 +986,58 @@ function _ytStartTimeSync() {
   return () => video.removeEventListener('timeupdate', handler);
 }
 
+// Show a brief "No Japanese Subtitles Detected" banner where the control bar sits.
+function _ytShowNoJapaneseBanner(player) {
+  if (!player) return;
+  // Remove any previous banner
+  var old = player.querySelector('.mc-no-ja-banner');
+  if (old) old.remove();
+  // If the user has hidden the bar themselves, respect that
+  if (_ytControlBar && _ytControlBar.style.display === 'none') return;
+
+  var banner = document.createElement('div');
+  banner.className = 'mc-no-ja-banner';
+  var logoUrl = chrome.runtime.getURL('icons/marumori_logo.png');
+  banner.innerHTML = '<img src="' + logoUrl + '" style="width:16px;height:16px;vertical-align:middle;margin-right:6px">' +
+    '<span style="vertical-align:middle">No Japanese Subtitles Detected</span>';
+  banner.style.cssText = [
+    'position:absolute', 'top:8px', 'left:50%', 'transform:translateX(-50%)',
+    'z-index:9997', 'background:rgba(35,36,37,.92)', 'color:#c8d0e0',
+    'border:1px solid #363A3B', 'border-radius:10px',
+    'padding:8px 14px', 'font-size:12px', 'font-weight:600',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    'white-space:nowrap', 'pointer-events:none',
+    'animation:mc-banner-in .3s ease-out, mc-banner-out .4s ease-in 2.6s forwards',
+  ].join(';');
+  player.appendChild(banner);
+  // Clean up after animation
+  setTimeout(function() { if (banner.parentNode) banner.remove(); }, 3200);
+}
+
+// Inject the banner keyframes once
+(function() {
+  if (document.getElementById('mc-banner-keyframes')) return;
+  var style = document.createElement('style');
+  style.id = 'mc-banner-keyframes';
+  style.textContent = [
+    '@keyframes mc-banner-in {',
+    '  from { opacity:0; transform:translateX(-50%) translateY(-8px); }',
+    '  to   { opacity:1; transform:translateX(-50%) translateY(0); }',
+    '}',
+    '@keyframes mc-banner-out {',
+    '  from { opacity:1; transform:translateX(-50%) scale(1); }',
+    '  to   { opacity:0; transform:translateX(-50%) scale(0.8); }',
+    '}',
+  ].join('');
+  document.head.appendChild(style);
+})();
+
 // Create the unified [%|字幕|⚙] bar; or just update the score if already created.
 function _ytCreateControlBar(player, score) {
   if (_ytControlBar) {
     const el = document.getElementById('mc-yt-score');
     if (el && score !== null) el.textContent = `${score}%`;
+    _ytControlBar.style.display = 'inline-flex';
     return;
   }
 
@@ -1071,6 +1182,30 @@ async function ytEnableHover() {
 }
 
 // Message handler for popup
+function _ytDisableVideoTool() {
+  _ytSubCleanup?.(); _ytSubCleanup = null;
+  if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
+  if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
+  if (_ytControlBar) _ytControlBar.style.display = 'none';
+  _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
+  _ytSetSubActive(false);
+  // Only fully disable hover if transcript hover is also off.
+  if (!_transcriptHoverActive) hoverDisable();
+  chrome.storage.local.set({ videoToolEnabled: false });
+}
+
+function _ytEnableVideoTool() {
+  if (_ytControlBar) { _ytControlBar.style.display = 'inline-flex'; }
+  else { const p = _ytGetPlayer(); if (p) _ytCreateControlBar(p, null); }
+  chrome.storage.local.set({ videoToolEnabled: true });
+  _lastVideoId = null; scoreVideo();
+}
+
+mcWatchHideHotkey(() => {
+  const hidden = !_ytControlBar || _ytControlBar.style.display === 'none';
+  if (hidden) _ytEnableVideoTool(); else _ytDisableVideoTool();
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.action === 'enableHover') {
     _transcriptHoverActive = true;
@@ -1115,22 +1250,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     reply({ enabled: !!_ytControlBar && _ytControlBar.style.display !== 'none' }); return;
   }
   if (msg.action === 'disableVideoTool') {
-    _ytSubCleanup?.(); _ytSubCleanup = null;
-    if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
-    if (_ytSettingsPnl) _ytSettingsPnl.style.display = 'none';
-    if (_ytControlBar) _ytControlBar.style.display = 'none';
-    _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
-    _ytSetSubActive(false);
-    // Only fully disable hover if transcript hover is also off.
-    if (!_transcriptHoverActive) hoverDisable();
-    chrome.storage.local.set({ videoToolEnabled: false });
+    _ytDisableVideoTool();
     reply({ ok: true }); return;
   }
   if (msg.action === 'enableVideoTool') {
-    if (_ytControlBar) { _ytControlBar.style.display = 'inline-flex'; }
-    else { const p = _ytGetPlayer(); if (p) _ytCreateControlBar(p, null); }
-    chrome.storage.local.set({ videoToolEnabled: true });
-    _lastVideoId = null; scoreVideo();
+    _ytEnableVideoTool();
     reply({ ok: true }); return;
   }
   if (msg.action !== 'rescore') return;
@@ -1162,6 +1286,7 @@ setTimeout(scoreVideo, 2000);
 
 // YouTube SPA navigation — fires when the new video's DOM is ready
 document.addEventListener('yt-navigate-finish', () => {
+  _ytHasSpaNavigated = true;
   _lastVideoId = null;
   setTimeout(scoreVideo, 2000);
 });
@@ -1171,6 +1296,7 @@ let _lastUrl = location.href;
 new MutationObserver(() => {
   if (location.href !== _lastUrl) {
     _lastUrl = location.href;
+    _ytHasSpaNavigated = true;
     _lastVideoId = null;
     setTimeout(scoreVideo, 2500);
   }
@@ -1227,19 +1353,35 @@ getTokenizer().catch(() => {});
 startVideoTimeTracking(() => _ytIsJapaneseContent ? document.querySelector('video') : null, 'yt');
 
 // YouTube sets overflow:hidden on body, so body.marginRight does nothing.
-// Push ytd-app (the root custom element) instead.
+// Push ytd-app (the root custom element) instead — but #masthead-container
+// (the top nav bar) is its own position:fixed;right:0 element, so it ignores
+// ytd-app's margin entirely and has to be shifted separately or it stays
+// full-width, overlapping the sidebar.
 sbRegisterPush(
   () => {
     const app = document.querySelector('ytd-app');
-    if (!app) return;
-    app.dataset.sbPrevMargin = app.style.marginRight;
-    app.style.transition = 'margin-right .2s ease';
-    app.style.marginRight = '260px';
+    if (app) {
+      app.dataset.sbPrevMargin = app.style.marginRight;
+      app.style.transition = 'margin-right .2s ease';
+      app.style.marginRight = '260px';
+    }
+    const masthead = document.querySelector('#masthead-container');
+    if (masthead) {
+      masthead.dataset.sbPrevRight = masthead.style.right;
+      masthead.style.transition = 'right .2s ease';
+      masthead.style.right = '260px';
+    }
   },
   () => {
     const app = document.querySelector('ytd-app');
-    if (!app) return;
-    app.style.marginRight = app.dataset.sbPrevMargin || '';
-    delete app.dataset.sbPrevMargin;
+    if (app) {
+      app.style.marginRight = app.dataset.sbPrevMargin || '';
+      delete app.dataset.sbPrevMargin;
+    }
+    const masthead = document.querySelector('#masthead-container');
+    if (masthead) {
+      masthead.style.right = masthead.dataset.sbPrevRight || '';
+      delete masthead.dataset.sbPrevRight;
+    }
   }
 );
