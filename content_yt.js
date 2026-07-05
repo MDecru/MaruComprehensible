@@ -23,7 +23,7 @@ function currentVideoId() {
 
 // Ask yt_bridge.js (main world) for the current video's Japanese caption track list.
 // Returns an array of {baseUrl, languageCode, kind} objects, or [] on timeout.
-function _getJaTracks() {
+function _getJaTracks(videoId) {
   return new Promise(resolve => {
     const timer = setTimeout(() => {
       document.removeEventListener('__mc_ytpr_response', handler);
@@ -35,7 +35,7 @@ function _getJaTracks() {
       try { resolve(JSON.parse(e.detail || '[]')); } catch { resolve([]); }
     };
     document.addEventListener('__mc_ytpr_response', handler);
-    document.dispatchEvent(new CustomEvent('__mc_get_ytpr'));
+    document.dispatchEvent(new CustomEvent('__mc_get_ytpr', { detail: videoId }));
   });
 }
 
@@ -57,7 +57,12 @@ function _extractJson(src, start) {
 }
 
 // Pull all Japanese caption track base URLs out of a ytInitialPlayerResponse script.
-function _captionUrlsFromScript(src) {
+// This inline script is part of the originally server-rendered page and is never
+// removed or replaced by YouTube's SPA router on later client-side navigations —
+// so on a video reached via SPA nav, it still holds the FIRST video ever loaded
+// in this tab. Guard against that by requiring the embedded videoDetails.videoId
+// to match the video we're actually trying to score.
+function _captionUrlsFromScript(src, expectedVideoId) {
   const urls = [];
   // Find every assignment: ytInitialPlayerResponse = { ... }
   const re = /ytInitialPlayerResponse\s*=\s*\{/g;
@@ -68,6 +73,7 @@ function _captionUrlsFromScript(src) {
       const jsonStr = _extractJson(src, brace);
       if (!jsonStr) continue;
       const data = JSON.parse(jsonStr);
+      if (data?.videoDetails?.videoId !== expectedVideoId) continue;
       const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
       for (const t of tracks) {
         if (/^ja/.test(t.languageCode) && t.baseUrl) {
@@ -168,7 +174,7 @@ async function fetchJaVTT(videoId) {
 
   // 1. Ask yt_bridge.js (main world) for the live caption track list.
   //    This works for both hard loads and SPA navigation.
-  const jaTracks = await _getJaTracks();
+  const jaTracks = await _getJaTracks(videoId);
   // Prefer manual over ASR
   const sorted = [
     ...jaTracks.filter(t => t.kind !== 'asr'),
@@ -188,7 +194,7 @@ async function fetchJaVTT(videoId) {
   // 2. Parse ytInitialPlayerResponse out of inline <script> tags (hard navigation fallback).
   const scriptUrls = [];
   for (const s of document.querySelectorAll('script')) {
-    scriptUrls.push(..._captionUrlsFromScript(s.textContent));
+    scriptUrls.push(..._captionUrlsFromScript(s.textContent, videoId));
   }
   for (const baseUrl of scriptUrls) {
     const vtt = await _fetchVTT(`${baseUrl}&fmt=vtt`);
@@ -260,7 +266,17 @@ async function scoreVideo() {
     }
     const player = _ytGetPlayer();
     if (player) {
-      _ytCreateControlBar(player, res?.score ?? null);
+      chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+        if (videoToolEnabled === false) {
+          if (_ytControlBar) _ytControlBar.style.display = 'none';
+          _ytHideNoSubsBanner();
+          return;
+        }
+        if (!vtt) { _ytShowNoSubsBanner(player); return; }
+        _ytHideNoSubsBanner();
+        _ytCreateControlBar(player, res?.score ?? null);
+        _ytControlBar.style.display = 'inline-flex';
+      });
       if (res?.score != null) {
         chrome.storage.local.get(['mc_history_enabled', 'mc_video_history'], ({ mc_history_enabled = true, mc_video_history = {} }) => {
           if (!mc_history_enabled) return;
@@ -270,9 +286,6 @@ async function scoreVideo() {
           if (el) el.title = `Watched ${entry.watchCount}× · Last: ${new Date(entry.lastWatched).toLocaleDateString()}`;
         });
       }
-      chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
-        if (videoToolEnabled === false && _ytControlBar) _ytControlBar.style.display = 'none';
-      });
     }
   } catch {
     // scoring failed silently
@@ -307,6 +320,8 @@ function parseVTTCues(vttText) {
 let _transcriptHoverActive = false;
 
 let _ytControlBar  = null;   // [%|字幕|⚙] unified bar element
+let _ytNoSubsBanner = null;  // "No Japanese subtitles found" banner (shown in the bar's spot instead)
+let _ytNoSubsTimers = [];    // pending timeouts driving the banner's slide-in/slide-out
 let _ytSubOverlay  = null;   // subtitle div (absolute inside player)
 let _ytSubBtn      = null;   // 字幕 button inside bar
 let _ytSettingsBtn = null;   // ⚙ button inside bar (hidden when subs off)
@@ -528,6 +543,8 @@ function _ytDestroyAll() {
   _ytSubOverlay?.remove();  _ytSubOverlay  = null;
   _ytControlBar?.remove();  _ytControlBar  = null;
   _ytSettingsPnl?.remove(); _ytSettingsPnl = null;
+  _ytNoSubsTimers.forEach(clearTimeout); _ytNoSubsTimers = [];
+  _ytNoSubsBanner?.remove(); _ytNoSubsBanner = null;
   _ytSubBtn = null; _ytSettingsBtn = null;
   _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
   _ytPausedByHover = false;
@@ -920,6 +937,71 @@ function _ytStartTimeSync() {
 
   video.addEventListener('timeupdate', handler);
   return () => video.removeEventListener('timeupdate', handler);
+}
+
+// Small non-interactive banner shown in the control bar's spot when no
+// Japanese captions could be found for the current video.
+function _ytShowNoSubsBanner(player) {
+  if (_ytControlBar) _ytControlBar.style.display = 'none';
+  _ytNoSubsTimers.forEach(clearTimeout);
+  _ytNoSubsTimers = [];
+
+  if (!_ytNoSubsBanner) {
+    const banner = document.createElement('div');
+    banner.id = 'mc-yt-no-subs';
+    banner.style.cssText = [
+      'position:absolute', 'z-index:9997',
+      'display:inline-flex', 'align-items:center', 'gap:7px',
+      'border-radius:7px', 'padding:5px 12px',
+      'background:rgba(0,0,0,.78)', 'color:#888',
+      'border:1px solid rgba(255,255,255,.14)',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+      'font-size:13px', 'font-weight:600', 'white-space:nowrap',
+      'pointer-events:none',
+      'opacity:0', 'transform:translateY(-10px)',
+      'transition:opacity .3s ease, transform .3s ease',
+    ].join(';');
+
+    const logo = document.createElement('img');
+    logo.src = chrome.runtime.getURL('icons/marumori_logo.png');
+    logo.style.cssText = 'height:16px;width:auto;display:block;flex-shrink:0';
+    banner.appendChild(logo);
+
+    const label = document.createElement('span');
+    label.textContent = 'No Japanese subtitles found';
+    banner.appendChild(label);
+
+    mcApplyBarPosition(banner);
+    player.appendChild(banner);
+    _ytNoSubsBanner = banner;
+  }
+
+  const banner = _ytNoSubsBanner;
+  banner.style.display = 'inline-flex';
+  // Force layout so the "hidden" state above is committed before flipping
+  // to "visible" below — otherwise both changes land in the same paint and
+  // the transition never plays.
+  void banner.offsetWidth;
+  banner.style.opacity = '1';
+  banner.style.transform = 'translateY(0)';
+
+  _ytNoSubsTimers.push(setTimeout(() => {
+    banner.style.opacity = '0';
+    banner.style.transform = 'translateY(-10px)';
+  }, 2700));
+  _ytNoSubsTimers.push(setTimeout(() => {
+    banner.style.display = 'none';
+  }, 3000));
+}
+
+function _ytHideNoSubsBanner() {
+  _ytNoSubsTimers.forEach(clearTimeout);
+  _ytNoSubsTimers = [];
+  if (_ytNoSubsBanner) {
+    _ytNoSubsBanner.style.display = 'none';
+    _ytNoSubsBanner.style.opacity = '0';
+    _ytNoSubsBanner.style.transform = 'translateY(-10px)';
+  }
 }
 
 // Create the unified [%|字幕|⚙] bar; or just update the score if already created.

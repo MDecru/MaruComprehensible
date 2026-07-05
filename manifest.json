@@ -74,7 +74,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dict/*.dat.gz", "data/jlpt_mapping.json"],
+      "resources": ["dict/*.dat.gz", "data/jlpt_mapping.json", "icons/marumori_logo.png"],
       "matches": [
         "https://cijapanese.com/*",
         "https://www.cijapanese.com/*",

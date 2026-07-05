@@ -1,8 +1,14 @@
 // Runs in the PAGE'S main world (world: "MAIN") so it can access page globals
 // and intercept network requests.
 
-let _cachedJaTracks = null;
-let _cachedCaptions = []; // {lang, kind, text} — filled by XHR/fetch intercept
+// YouTube prefetches player data (captions, streaming info) for sidebar/
+// related videos in the background, via a mix of fetch and XHR — a single
+// global "current video" cache gets clobbered by whichever prefetch happens
+// to resolve last, which is often a video the user never even navigates to.
+// Key everything by video ID instead, and always look up the ID we actually
+// need.
+let _jaTracksById = new Map(); // videoId -> [{baseUrl, languageCode, kind}]
+let _captionsById = new Map(); // videoId -> [{lang, kind, text}]
 
 // Extract Japanese tracks from any playerCaptionsTracklistRenderer object.
 function _jaTracksFrom(data) {
@@ -12,12 +18,32 @@ function _jaTracksFrom(data) {
     .map(t => ({ baseUrl: t.baseUrl, languageCode: t.languageCode, kind: t.kind || '' }));
 }
 
+function _rememberPlayerResponse(data) {
+  const vid = data?.videoDetails?.videoId;
+  if (!vid) return;
+  _jaTracksById.set(vid, _jaTracksFrom(data));
+}
+
+function _rememberCaption(url, text) {
+  if (!text) return;
+  try {
+    const u = new URL(url, location.href);
+    const vid = u.searchParams.get('v');
+    const lang = u.searchParams.get('lang') || '';
+    if (!vid || !/^ja/i.test(lang)) return;
+    const kind = u.searchParams.get('kind') || '';
+    if (!_captionsById.has(vid)) _captionsById.set(vid, []);
+    _captionsById.get(vid).push({ lang, kind, text });
+  } catch {}
+}
+
 // Seed from the initial page load value (hard navigation).
-_cachedJaTracks = _jaTracksFrom(window.ytInitialPlayerResponse);
+_rememberPlayerResponse(window.ytInitialPlayerResponse);
 
 // --- XHR interception ---
-// YouTube player uses XHR (not fetch) for captions, so our window.fetch override
-// never sees them. Intercept XHR to cache caption text as the player fetches it.
+// YouTube uses XHR (not just fetch) for both captions and player-data
+// requests — both interceptors below are needed to keep the caches fresh
+// regardless of which transport a given navigation happens to use.
 const _OrigXHROpen = XMLHttpRequest.prototype.open;
 const _OrigXHRSend = XMLHttpRequest.prototype.send;
 XMLHttpRequest.prototype.open = function(method, url, ...args) {
@@ -25,69 +51,57 @@ XMLHttpRequest.prototype.open = function(method, url, ...args) {
   return _OrigXHROpen.apply(this, [method, url, ...args]);
 };
 XMLHttpRequest.prototype.send = function(...args) {
-  if (this._mcUrl?.includes('api/timedtext')) {
-    const mcUrl = this._mcUrl;
+  const url = this._mcUrl || '';
+  if (url.includes('api/timedtext')) {
     this.addEventListener('load', function() {
-      if (this.status === 200 && this.responseText?.length > 0) {
-        try {
-          const u = new URL(mcUrl, location.href);
-          const lang = u.searchParams.get('lang') || '';
-          if (/^ja/i.test(lang)) {
-            const kind = u.searchParams.get('kind') || '';
-            _cachedCaptions.push({ lang, kind, text: this.responseText });
-          }
-        } catch {}
+      if (this.status === 200) _rememberCaption(url, this.responseText);
+    });
+  } else if (url.includes('/youtubei/v1/player')) {
+    this.addEventListener('load', function() {
+      if (this.status === 200 && this.responseText) {
+        try { _rememberPlayerResponse(JSON.parse(this.responseText)); } catch {}
       }
     });
   }
   return _OrigXHRSend.apply(this, args);
 };
 
-// Intercept fetch so we capture the /youtubei/v1/player response on SPA navigation
-// and any timedtext that goes through fetch instead of XHR.
+// Intercept fetch for the same two endpoints, in case a given navigation
+// uses fetch instead of XHR for either of them.
 const _origFetch = window.fetch;
 window.fetch = async function(input, init) {
   const url = typeof input === 'string' ? input : (input?.url || '');
   const resp = await _origFetch.apply(this, arguments);
   if (url.includes('/youtubei/v1/player')) {
-    resp.clone().json().then(data => {
-      const tracks = _jaTracksFrom(data);
-      if (tracks.length) {
-        _cachedJaTracks = tracks;
-        _cachedCaptions = []; // clear stale captions from previous video
-      }
-    }).catch(() => {});
+    resp.clone().json().then(_rememberPlayerResponse).catch(() => {});
   }
   if (url.includes('api/timedtext')) {
-    resp.clone().text().then(text => {
-      if (text?.length > 0) {
-        try {
-          const u = new URL(url, location.href);
-          const lang = u.searchParams.get('lang') || '';
-          if (/^ja/i.test(lang)) {
-            const kind = u.searchParams.get('kind') || '';
-            _cachedCaptions.push({ lang, kind, text });
-          }
-        } catch {}
-      }
-    }).catch(() => {});
+    resp.clone().text().then(text => _rememberCaption(url, text)).catch(() => {});
   }
   return resp;
 };
 
 // Handle fetch requests from the isolated-world content script.
-// First checks _cachedCaptions (filled by player's XHR/fetch).
-// If cache is empty, auto-triggers the YouTube player to load Japanese captions.
-// Falls back to direct _origFetch (returns empty from extension context).
+// First checks _captionsById for the specific video the URL asks about
+// (filled by the player's own XHR/fetch for that video). If empty, auto-
+// triggers the YouTube player to load Japanese captions — only useful when
+// the player is currently showing that same video, which is normally the
+// case since this fires shortly after content_yt.js scores it. Falls back
+// to a direct fetch (returns empty from extension context, kept for
+// completeness).
 document.addEventListener('__mc_fetch_req', async (e) => {
   let req;
   try { req = JSON.parse(e.detail || '{}'); } catch { return; }
   const { url, reqId } = req;
 
   if (url.includes('api/timedtext')) {
-    // If cache is empty, ask the player to load Japanese captions so our XHR
-    // interceptor can catch the response. Remember previous state to restore it.
-    if (_cachedCaptions.length === 0) {
+    let expectedVid = '';
+    try { expectedVid = new URL(url, location.href).searchParams.get('v') || ''; } catch {}
+    const cached = () => _captionsById.get(expectedVid) || [];
+
+    if (cached().length === 0) {
+      // If cache is empty, ask the player to load Japanese captions so our XHR
+      // interceptor can catch the response. Remember previous state to restore it.
       try {
         const player = document.querySelector('#movie_player');
         if (player && typeof player.setOption === 'function') {
@@ -96,7 +110,7 @@ document.addEventListener('__mc_fetch_req', async (e) => {
           player.setOption('captions', 'track', { languageCode: 'ja' });
           await new Promise(resolve => {
             const poll = setInterval(() => {
-              if (_cachedCaptions.length > 0) { clearInterval(poll); resolve(); }
+              if (cached().length > 0) { clearInterval(poll); resolve(); }
             }, 150);
             setTimeout(() => { clearInterval(poll); resolve(); }, 3000);
           });
@@ -110,13 +124,14 @@ document.addEventListener('__mc_fetch_req', async (e) => {
       } catch {}
     }
 
-    if (_cachedCaptions.length > 0) {
+    const list = cached();
+    if (list.length > 0) {
       try {
         const u = new URL(url, location.href);
         const reqLang = (u.searchParams.get('lang') || '').toLowerCase();
         const reqKind = u.searchParams.get('kind') || '';
-        const hit = _cachedCaptions.find(c => c.lang.toLowerCase() === reqLang && c.kind === reqKind)
-                 || _cachedCaptions.find(c => /^ja/i.test(c.lang));
+        const hit = list.find(c => c.lang.toLowerCase() === reqLang && c.kind === reqKind)
+                 || list.find(c => /^ja/i.test(c.lang));
         if (hit) {
           document.dispatchEvent(new CustomEvent('__mc_fetch_res', {
             detail: JSON.stringify({ reqId, ok: true, status: 200, text: hit.text }),
@@ -142,15 +157,9 @@ document.addEventListener('__mc_fetch_req', async (e) => {
 });
 
 // Respond to caption-track-list requests from the isolated-world content script.
-document.addEventListener('__mc_get_ytpr', () => {
-  const live = _jaTracksFrom(window.ytInitialPlayerResponse);
-  const ytPlayerConfig = window.ytplayer?.config;
-  const configTracks = _jaTracksFrom(ytPlayerConfig);
-  const result = live.length ? live
-               : (configTracks.length ? configTracks
-               : (_cachedJaTracks || []));
-
-
+document.addEventListener('__mc_get_ytpr', (e) => {
+  const expectedVideoId = e.detail;
+  const result = _jaTracksById.get(expectedVideoId) || [];
   document.dispatchEvent(new CustomEvent('__mc_ytpr_response', {
     detail: JSON.stringify(result),
   }));
