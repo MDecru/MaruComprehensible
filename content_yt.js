@@ -225,30 +225,6 @@ async function fetchJaVTT(videoId) {
   return null;
 }
 
-// Show a brief toast when no Japanese subtitles are available
-function _ytShowNoJapaneseToast() {
-  var toast = document.createElement('div');
-  var logoUrl = chrome.runtime.getURL('icons/marumori_logo.png');
-  toast.innerHTML = '<img src="' + logoUrl + '" style="width:16px;height:16px;vertical-align:middle;margin-right:6px">' +
-    '<span style="vertical-align:middle">No Japanese Subtitles Detected</span>';
-  toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);' +
-    'z-index:2147483647;background:#232425;color:#c8d0e0;' +
-    'border:1px solid #363A3B;border-radius:10px;' +
-    'padding:8px 14px;font-size:12px;font-weight:600;' +
-    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;' +
-    'white-space:nowrap;pointer-events:none;' +
-    'opacity:0;transition:opacity .4s ease;';
-  document.body.appendChild(toast);
-  // Force layout then animate in
-  toast.offsetHeight;
-  toast.style.opacity = '1';
-  // Fade out after 3s
-  setTimeout(function() {
-    toast.style.opacity = '0';
-    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 400);
-  }, 3000);
-}
-
 async function scoreVideo() {
   const videoId = currentVideoId();
   if (!videoId || !location.pathname.startsWith('/watch')) return;
@@ -266,11 +242,12 @@ async function scoreVideo() {
     const vtt = await fetchJaVTT(videoId);
     if (token !== _ytScoreToken) return; // superseded by a later navigation
     if (!vtt && !_ytRetriedVideos.has(videoId)) {
+      // Captions/track data can still be settling right after navigation —
+      // retry once before giving up, instead of silently staying unscored
+      // until the user happens to reopen the popup (which forces a rescore).
       _ytRetriedVideos.add(videoId);
       _lastVideoId = null;
       setTimeout(() => { if (currentVideoId() === videoId) scoreVideo(); }, 4000);
-      // Show toast immediately — don't wait for the retry
-      _ytShowNoJapaneseToast();
       return;
     }
     if (vtt && _ytFoundManualJaTrack) _ytIsJapaneseContent = true;
