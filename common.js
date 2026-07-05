@@ -1041,29 +1041,39 @@ try {
 } catch {}
 
 var _timerPendingSec = 0;
+var _timerPendingVideoSec = {}; // { [videoKey]: seconds } accumulated since the last flush — mirrors mc_video_history's key scheme (e.g. "yt_<id>")
 var _timerFlushTimer = null;
 var _timerSite = null; // set once by startVideoTimeTracking — one video source per page
 function _timerFlush() {
   _timerFlushTimer = null;
   const add = _timerPendingSec;
   _timerPendingSec = 0;
-  if (add <= 0 || !chrome.runtime?.id) return;
+  const videoAdd = _timerPendingVideoSec;
+  _timerPendingVideoSec = {};
+  if (!chrome.runtime?.id) return;
+  if (add <= 0 && !Object.keys(videoAdd).length) return;
   try {
-    chrome.storage.local.get(['mc_timer_days', 'mc_timer_site_totals', 'mc_timer_source_days'], ({ mc_timer_days = {}, mc_timer_site_totals = {}, mc_timer_source_days = {} }) => {
+    chrome.storage.local.get(['mc_timer_days', 'mc_timer_site_totals', 'mc_timer_source_days', 'mc_video_watch_sec'], ({ mc_timer_days = {}, mc_timer_site_totals = {}, mc_timer_source_days = {}, mc_video_watch_sec = {} }) => {
       if (chrome.runtime.lastError) return;
-      const day = timerLogicalDay(Date.now(), _timerResetHour);
-      mc_timer_days[day] = (mc_timer_days[day] || 0) + add;
-      if (_timerSite) {
-        mc_timer_site_totals[_timerSite] = (mc_timer_site_totals[_timerSite] || 0) + add;
-        mc_timer_source_days[_timerSite] = mc_timer_source_days[_timerSite] || {};
-        mc_timer_source_days[_timerSite][day] = (mc_timer_source_days[_timerSite][day] || 0) + add;
+      if (add > 0) {
+        const day = timerLogicalDay(Date.now(), _timerResetHour);
+        mc_timer_days[day] = (mc_timer_days[day] || 0) + add;
+        if (_timerSite) {
+          mc_timer_site_totals[_timerSite] = (mc_timer_site_totals[_timerSite] || 0) + add;
+          mc_timer_source_days[_timerSite] = mc_timer_source_days[_timerSite] || {};
+          mc_timer_source_days[_timerSite][day] = (mc_timer_source_days[_timerSite][day] || 0) + add;
+        }
       }
-      chrome.storage.local.set({ mc_timer_days, mc_timer_site_totals, mc_timer_source_days });
+      for (const [key, sec] of Object.entries(videoAdd)) {
+        mc_video_watch_sec[key] = (mc_video_watch_sec[key] || 0) + sec;
+      }
+      chrome.storage.local.set({ mc_timer_days, mc_timer_site_totals, mc_timer_source_days, mc_video_watch_sec });
     });
   } catch {}
 }
-function _timerAddSeconds(sec) {
+function _timerAddSeconds(sec, videoKey) {
   _timerPendingSec += sec;
+  if (videoKey) _timerPendingVideoSec[videoKey] = (_timerPendingVideoSec[videoKey] || 0) + sec;
   if (!_timerFlushTimer) _timerFlushTimer = setTimeout(_timerFlush, 3000);
 }
 window.addEventListener('pagehide', () => {
@@ -1087,7 +1097,7 @@ function _timerHeartbeat() {
 // short id (e.g. 'yt', 'cij', 'njk', 'player') used for the per-source breakdown.
 var _timerIsRecording = false; // page-local: true while this tab is actively accumulating
 
-function startVideoTimeTracking(getVideoEl, site) {
+function startVideoTimeTracking(getVideoEl, site, getVideoKey) {
   _timerSite = site || null;
   let lastTick = null;
   setInterval(() => {
@@ -1101,10 +1111,35 @@ function startVideoTimeTracking(getVideoEl, site) {
     const now = Date.now();
     if (lastTick != null) {
       const delta = (now - lastTick) / 1000;
-      if (delta > 0 && delta < 5) _timerAddSeconds(delta);
+      if (delta > 0 && delta < 5) {
+        let key = null;
+        try { key = getVideoKey ? getVideoKey() : null; } catch {}
+        _timerAddSeconds(delta, key);
+      }
     }
     lastTick = now;
   }, 1000);
+}
+
+// Formats a seconds count as a short duration string for tooltips, e.g. 45 -> "45s", 125 -> "2m 5s".
+function mcFormatTrackedTime(sec) {
+  sec = Math.round(sec || 0);
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  if (m < 60) return `${m}m ${sec % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+// Lifetime immersion seconds tracked for one video (keyed the same way as
+// mc_video_history, e.g. "yt_<id>"), including whatever this tab has recorded
+// but not yet flushed so the figure doesn't lag behind what's on screen.
+async function mcGetVideoTrackedSeconds(key) {
+  if (!key || !chrome.runtime?.id) return 0;
+  try {
+    const { mc_video_watch_sec = {} } = await chrome.storage.local.get('mc_video_watch_sec');
+    return (mc_video_watch_sec[key] || 0) + (_timerPendingVideoSec[key] || 0);
+  } catch { return 0; }
 }
 
 // ── Shared control-bar widgets ─────────────────────────────────────────────
@@ -1112,7 +1147,7 @@ function startVideoTimeTracking(getVideoEl, site) {
 // Immersion status dot for on-video control bars. Green glow = this tab is
 // recording immersion time right now; grey = auto-detect on but idle;
 // red = auto-detect disabled. Click toggles the global auto-detect setting.
-function mcCreateTimerDotButton({ borderSide = 'right' } = {}) {
+function mcCreateTimerDotButton({ borderSide = 'right', getVideoKey } = {}) {
   const btn = document.createElement('button');
   btn.className = 'mc-timer-dot-btn';
   btn.style.cssText = [
@@ -1121,24 +1156,61 @@ function mcCreateTimerDotButton({ borderSide = 'right' } = {}) {
     'cursor:pointer', 'display:flex', 'align-items:center',
   ].join(';');
   const dot = document.createElement('span');
-  dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#666;transition:background .2s,box-shadow .2s';
+  dot.style.cssText = 'width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#666;transition:background .2s,box-shadow .2s';
   btn.appendChild(dot);
 
+  // Hidden until a video key is supplied — grows on hover to reveal the
+  // tracked-time readout, which (since this button sits inline among real
+  // siblings like the score/字幕/⚙ buttons, not floating alone) naturally
+  // slides them rightward as normal flex flow, no extra coordination needed.
+  const label = document.createElement('span');
+  label.style.cssText = [
+    'max-width:0', 'margin-left:0', 'overflow:hidden', 'white-space:nowrap', 'opacity:0', 'flex-shrink:0',
+    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+    'font-size:12px', 'font-weight:600', 'color:#ccc',
+    'transition:max-width .25s ease,margin-left .25s ease,opacity .2s ease',
+  ].join(';');
+  btn.appendChild(label);
+
+  let _baseTitle = '';
   const update = () => {
     if (!chrome.runtime?.id) return;
     if (!_timerTrackingEnabled) {
       dot.style.background = '#ED7989'; dot.style.boxShadow = 'none';
-      btn.title = 'Immersion tracking disabled — click to enable';
+      _baseTitle = 'Immersion tracking disabled — click to enable';
     } else if (_timerIsRecording) {
       dot.style.background = '#72CE9D'; dot.style.boxShadow = '0 0 5px #72CE9D';
-      btn.title = 'Recording immersion time — click to disable tracking';
+      _baseTitle = 'Recording immersion time — click to disable tracking';
     } else {
       dot.style.background = '#666'; dot.style.boxShadow = 'none';
-      btn.title = 'Immersion auto-detect on (idle) — click to disable';
+      _baseTitle = 'Immersion auto-detect on (idle) — click to disable';
     }
+    btn.title = _baseTitle;
   };
   update();
   setInterval(update, 1000);
+
+  if (getVideoKey) {
+    let _hovering = false;
+    btn.addEventListener('mouseenter', async () => {
+      _hovering = true;
+      let key = null;
+      try { key = getVideoKey(); } catch {}
+      if (!key) return;
+      const sec = await mcGetVideoTrackedSeconds(key);
+      if (!_hovering) return; // pointer already left before the lookup resolved
+      label.textContent = sec > 0 ? `Tracked ${mcFormatTrackedTime(sec)} on this video` : 'Not tracked yet';
+      label.style.maxWidth = '220px';
+      label.style.marginLeft = '7px';
+      label.style.opacity = '1';
+    });
+    btn.addEventListener('mouseleave', () => {
+      _hovering = false;
+      label.style.maxWidth = '0';
+      label.style.marginLeft = '0';
+      label.style.opacity = '0';
+    });
+  }
 
   btn.addEventListener('click', e => {
     e.stopPropagation();

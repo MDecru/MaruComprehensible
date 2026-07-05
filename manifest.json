@@ -8,7 +8,11 @@
     "48":  "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage", "scripting", "activeTab", "alarms", "notifications", "contextMenus"],
+  "permissions": ["storage", "scripting", "activeTab", "alarms", "notifications", "contextMenus", "identity"],
+  "oauth2": {
+    "client_id": "424666498170-4lbmhrrn7um5s8n7d5bab28ep7j0s3ts.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
+  },
   "host_permissions": [
     "https://public-api.marumori.io/*",
     "https://marumori.io/*",

@@ -72,12 +72,14 @@
   /* ── Tabs ── */
   .tabs { display:flex; background:var(--deep); border-bottom:1px solid var(--border); }
   .tab-btn {
-    flex:1 1 0; min-width:0; padding:11px 0; background:none; border:none;
-    font-size:11px; font-weight:700; color:var(--dim); cursor:pointer;
+    flex:1 1 0; min-width:0; padding:7px 0 8px; background:none; border:none;
+    color:var(--dim); cursor:pointer;
     border-bottom:2px solid transparent; margin-bottom:-1px;
-    transition:color .15s; letter-spacing:.2px; text-transform:uppercase;
-    box-sizing:border-box; text-align:center;
+    transition:color .15s; box-sizing:border-box; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
   }
+  .tab-icon { font-size:15px; line-height:1; font-weight:400; }
+  .tab-label { font-size:9px; font-weight:700; letter-spacing:.2px; text-transform:uppercase; }
   .tab-btn.active   { color:#72CE9D; border-bottom-color:#72CE9D; }
   .tab-btn:hover:not(.active) { color:var(--muted); }
 
@@ -248,7 +250,6 @@
   #connect-status { font-size:12px; color:var(--dim); min-height:16px; margin:4px 0 10px; }
   #tok-status     { font-size:11px; color:var(--dim); margin-top:6px; cursor:pointer; }
   #tok-status:hover { color:var(--muted); }
-  #extra-status   { font-size:11px; color:var(--dim); margin-top:4px; }
   hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
 
   /* ── Watch history (main tab) ── */
@@ -337,11 +338,12 @@
 <body>
 
 <div class="tabs">
-  <button class="tab-btn active" data-tab="main">Main</button>
-  <button class="tab-btn" data-tab="timer">Timer</button>
-  <button class="tab-btn" data-tab="history">History</button>
-  <button class="tab-btn" data-tab="vocab">Settings</button>
-  <button class="tab-btn" data-tab="advanced">Extra</button>
+  <button class="tab-btn active" data-tab="main"><span class="tab-icon" style="display:inline-block;transform:scale(.7) translateX(1px)">▶</span><span class="tab-label">Main</span></button>
+  <button class="tab-btn" data-tab="timer"><span class="tab-icon">◷</span><span class="tab-label">Timer</span></button>
+  <button class="tab-btn" data-tab="history"><span class="tab-icon">↺</span><span class="tab-label">History</span></button>
+  <button class="tab-btn" data-tab="vocab"><span class="tab-icon">⚙</span><span class="tab-label">Settings</span></button>
+  <button class="tab-btn" data-tab="api"><img class="tab-icon" src="icons/marumori_logo.png" style="width:15px;height:15px;object-fit:contain"><span class="tab-label">API</span></button>
+  <button class="tab-btn" data-tab="advanced"><span class="tab-icon">⋯</span><span class="tab-label">Extra</span></button>
 </div>
 
 <!-- ── Main ── -->
@@ -545,6 +547,28 @@
     Where the score/subtitle control bar sits on videos.
   </p>
   <hr style="margin-top:0">
+  <p class="sec-label">Immersion tracking</p>
+  <div class="theme-row">
+    <span>Manual tracking on undetected videos</span>
+    <label class="theme-switch">
+      <input type="checkbox" id="timer-tracking-toggle">
+      <span class="theme-track"></span>
+    </label>
+  </div>
+  <p style="font-size:11px;color:var(--dim);margin:-6px 0 12px;line-height:1.4">
+    On YouTube videos with no Japanese subtitles detected, adds a small dot button to start/stop immersion tracking for that video by hand.
+  </p>
+  <div class="theme-row" style="margin-bottom:4px">
+    <span>Day resets at</span>
+    <select id="timer-reset-hour"></select>
+  </div>
+  <p style="font-size:11px;color:var(--dim);margin:-2px 0 14px;line-height:1.4">
+    When the Timer tab's daily total and streak roll over to the next day.
+  </p>
+</div>
+
+<!-- ── API ── -->
+<div class="tab-panel" id="tab-api">
   <div class="mm-section">
     <h2>MaruMori vocab</h2>
     <p style="font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.5">
@@ -565,9 +589,22 @@
 <!-- ── Advanced ── -->
 <div class="tab-panel" id="tab-advanced">
   <h2>Advanced</h2>
-  <p class="sec-label">Backup &amp; restore</p>
+  <p class="sec-label">Backup to your Google Drive</p>
+  <p style="font-size:10px;color:var(--dim);margin:-2px 0 8px;line-height:1.4">
+    Save uploads your API key, vocab/kanji, known words, history &amp;
+    immersion time to a private Google Drive file; Sync merges it back in —
+    multiple devices combine, nothing gets overwritten. First click signs you
+    into Google.
+  </p>
+  <div style="display:flex;gap:8px;align-items:flex-start">
+    <button class="btn btn-green" id="save-cloud-btn" style="flex:1;margin-bottom:0">&#8593; Save</button>
+    <button class="btn btn-slate" id="sync-cloud-btn" style="flex:1;margin-bottom:0">&#8595; Sync</button>
+  </div>
+  <div id="sync-status" style="font-size:11px;margin-top:6px"></div>
+  <hr>
+  <p class="sec-label">Manual Backup / Restore</p>
   <p style="font-size:10px;color:var(--dim);margin-bottom:10px;line-height:1.4">
-    Export all data (API key, vocab, history, settings) as one file to back up or move devices.
+    Export/import everything as one file, including history &amp; immersion time — for full manual backups.
   </p>
   <div style="display:flex;gap:8px;margin-bottom:4px;align-items:flex-start">
     <button class="btn btn-green" id="export-all-btn" style="flex:1;margin-bottom:0">&#8595; Export Data</button>
@@ -581,30 +618,16 @@
   </p>
   <div id="backup-status" style="font-size:11px;margin-top:6px"></div>
   <hr>
-  <p class="sec-label">Extra known vocab</p>
-  <div style="display:flex;gap:8px;margin-bottom:4px;align-items:flex-start">
-    <label class="btn btn-amber" style="flex:1;margin-bottom:0">
-      Load JSON
-      <input type="file" id="extra-file" accept=".json" style="display:none">
-    </label>
-    <button class="btn btn-pink" id="clear-extra-btn" style="flex:0 0 auto;width:auto;margin-bottom:0">✕ Clear</button>
-  </div>
-  <div id="extra-status"></div>
-  <hr>
-  <p class="sec-label">User-marked known words</p>
+  <p class="sec-label">Known vocab</p>
   <div style="display:flex;gap:8px;margin-bottom:0;align-items:flex-start">
     <button class="btn btn-slate" id="known-words-btn" style="flex:1;margin-bottom:0">&#10003; Manage known words</button>
     <span id="known-words-count" style="font-size:11px;color:var(--dim);display:flex;align-items:center;flex-shrink:0;min-width:28px;justify-content:flex-end"></span>
   </div>
   <hr>
-  <div style="display:flex;align-items:flex-start;gap:10px">
-    <button class="btn btn-slate" id="changelog-btn" style="flex:1;margin-bottom:0">Changelog</button>
-    <span id="version-label" style="font-size:11px;color:var(--dim);flex-shrink:0"></span>
-  </div>
-  <hr>
   <div style="text-align:center;font-size:11px;color:var(--dim);line-height:1.8">
     <a href="https://marumori.io" target="_blank" style="color:#FDC281;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px"><img src="icons/marumori_logo.png" style="width:14px;height:14px;vertical-align:middle">MaruMori.io</a>
     <br><a href="https://discord.gg/fFqWXf2yg6" target="_blank" style="color:#66AAE8;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px"><img src="icons/discord.png" style="width:14px;height:14px;vertical-align:middle">MaruMori Discord</a>
+    <br><span id="changelog-btn" style="cursor:pointer;color:var(--muted);text-decoration:underline;font-weight:600">Changelog</span> <span id="version-label" style="font-size:10px"></span>
     <br><span style="font-size:10px">Unofficial App made with &lt;3 by Punchyface</span>
   </div>
 </div>

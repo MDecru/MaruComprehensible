@@ -121,16 +121,6 @@ async function preloadInTab(tabId) {
   });
 }
 
-function setExtraStatus(extraVocab, extraKanji) {
-  const el = document.getElementById('extra-status');
-  if (!extraVocab?.length && !extraKanji?.length) {
-    el.textContent = '';
-  } else {
-    el.textContent = `+${(extraVocab||[]).length} vocab · +${(extraKanji||[]).length} kanji loaded`;
-    el.style.color = '#81c784';
-  }
-}
-
 // ── Focus timer (stopwatch) ─────────────────────────────────────────────────
 
 let _swTickTimer = null;
@@ -346,21 +336,18 @@ async function initTimerResetHourSelect() {
   });
 }
 
-// Lives on the Settings tab — master switch for the automatic per-video
-// immersion tracking (manual "Add time" and the focus timer are unaffected).
-async function initTimerTrackingToggle() {
+// Lives on the Settings tab — opt-in (default off) switch for the manual
+// tracking dot content_yt.js offers on videos with no detected Japanese
+// captions. Separate from mc_timer_tracking_enabled (the Timer tab's
+// auto-detect master switch): this only affects the manual-override path,
+// not automatic per-video detection.
+async function initManualImmersionToggle() {
   const toggle = document.getElementById('timer-tracking-toggle');
   if (!toggle) return;
-  const { mc_timer_tracking_enabled } = await chrome.storage.local.get('mc_timer_tracking_enabled');
-  toggle.checked = mc_timer_tracking_enabled !== false;
+  const { mc_manual_immersion_enabled } = await chrome.storage.local.get('mc_manual_immersion_enabled');
+  toggle.checked = mc_manual_immersion_enabled === true;
   toggle.addEventListener('change', () => {
-    chrome.storage.local.set({ mc_timer_tracking_enabled: toggle.checked });
-  });
-  // Stay in sync when toggled elsewhere (Timer tab switch, on-video dot)
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.mc_timer_tracking_enabled) {
-      toggle.checked = changes.mc_timer_tracking_enabled.newValue !== false;
-    }
+    chrome.storage.local.set({ mc_manual_immersion_enabled: toggle.checked });
   });
 }
 
@@ -475,6 +462,24 @@ async function init() {
   const { mm_token, mm_vocab, mm_kanji, mm_extra_vocab, mm_extra_kanji } =
     await chrome.storage.local.get(['mm_token', 'mm_vocab', 'mm_kanji', 'mm_extra_vocab', 'mm_extra_kanji']);
 
+  const refreshVocab = async () => {
+    const { mm_token } = await chrome.storage.local.get('mm_token');
+    if (!mm_token) { setStatus('Connect first', '#f44336'); return; }
+    setStatus('Refreshing…', '#888');
+    try {
+      const { kanji, vocab } = await fetchAllVocab(mm_token);
+      await chrome.storage.local.set({ mm_vocab: vocab, mm_kanji: kanji });
+      const { mm_extra_vocab: ev = [], mm_extra_kanji: ek = [] } = await chrome.storage.local.get(['mm_extra_vocab', 'mm_extra_kanji']);
+      const { vocab: vc, kanji: kc } = _mergedCounts(vocab, kanji, ev, ek);
+      setStats(vc, kc);
+      const appr = vocab.filter(v => typeof v === 'object' && v.status === 0).length
+                  + kanji.filter(k => typeof k === 'object' && k.status === 0).length;
+      setStatus(`✓ Refreshed — ${vocab.length} vocab, ${kanji.length} kanji` + (appr > 0 ? ` · ${appr} in pipeline` : ''), '#72CE9D');
+    } catch (e) {
+      setStatus(`Error: ${e.message}`, '#f44336');
+    }
+  };
+
   if (mm_token) {
     document.getElementById('token').value = mm_token;
     const { vocab: vc, kanji: kc } = _mergedCounts(mm_vocab, mm_kanji, mm_extra_vocab, mm_extra_kanji);
@@ -482,8 +487,10 @@ async function init() {
     const apprInit = (mm_vocab || []).filter(v => typeof v === 'object' && v.status === 0).length
                    + (mm_kanji || []).filter(k => typeof k === 'object' && k.status === 0).length;
     setStatus(`✓ Connected — ${mm_vocab?.length || 0} vocab, ${mm_kanji?.length || 0} kanji` + (apprInit > 0 ? ` · ${apprInit} in pipeline` : ''), '#72CE9D');
+    // Token present but no cached vocab/kanji yet — fetch now instead of
+    // leaving a connected-but-empty state sitting there until the user notices.
+    if (!mm_vocab?.length && !mm_kanji?.length) refreshVocab();
   }
-  setExtraStatus(mm_extra_vocab, mm_extra_kanji);
 
   document.getElementById('connect-btn').addEventListener('click', async () => {
     const token = document.getElementById('token').value.trim();
@@ -512,23 +519,7 @@ async function init() {
     }
   });
 
-  document.getElementById('refresh-btn').addEventListener('click', async () => {
-    const { mm_token } = await chrome.storage.local.get('mm_token');
-    if (!mm_token) { setStatus('Connect first', '#f44336'); return; }
-    setStatus('Refreshing…', '#888');
-    try {
-      const { kanji, vocab } = await fetchAllVocab(mm_token);
-      await chrome.storage.local.set({ mm_vocab: vocab, mm_kanji: kanji });
-      const { mm_extra_vocab: ev = [], mm_extra_kanji: ek = [] } = await chrome.storage.local.get(['mm_extra_vocab', 'mm_extra_kanji']);
-      const { vocab: vc, kanji: kc } = _mergedCounts(vocab, kanji, ev, ek);
-      setStats(vc, kc);
-      const appr = vocab.filter(v => typeof v === 'object' && v.status === 0).length
-                  + kanji.filter(k => typeof k === 'object' && k.status === 0).length;
-      setStatus(`✓ Refreshed — ${vocab.length} vocab, ${kanji.length} kanji` + (appr > 0 ? ` · ${appr} in pipeline` : ''), '#72CE9D');
-    } catch (e) {
-      setStatus(`Error: ${e.message}`, '#f44336');
-    }
-  });
+  document.getElementById('refresh-btn').addEventListener('click', refreshVocab);
 
   document.getElementById('disconnect-btn').addEventListener('click', async () => {
     await chrome.storage.local.remove(['mm_token', 'mm_vocab', 'mm_kanji']);
@@ -641,31 +632,6 @@ async function init() {
     if (tab) await doScore(tab);
   });
 
-  document.getElementById('extra-file').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const el = document.getElementById('extra-status');
-    try {
-      const data = JSON.parse(await file.text());
-      const rawKanji = Array.isArray(data.kanji) ? data.kanji : [];
-      const rawVocab = Array.isArray(data.vocab) ? data.vocab : [];
-      const validKanji = rawKanji.filter(k => typeof k === 'string' && /^[一-鿿]$/.test(k));
-      const validVocab = rawVocab.filter(v => typeof v === 'string' && v.trim());
-
-      // Merge with any existing extras
-      const { mm_extra_vocab: ev = [], mm_extra_kanji: ek = [] } =
-        await chrome.storage.local.get(['mm_extra_vocab', 'mm_extra_kanji']);
-      const mergedVocab = [...new Set([...ev, ...validVocab.map(v => v.trim())])];
-      const mergedKanji = [...new Set([...ek, ...validKanji])];
-
-      await chrome.storage.local.set({ mm_extra_vocab: mergedVocab, mm_extra_kanji: mergedKanji });
-      setExtraStatus(mergedVocab, mergedKanji);
-    } catch (err) {
-      el.textContent = `Error: ${err.message}`;
-      el.style.color = '#f44336';
-    }
-    e.target.value = '';
-  });
 
   // Hover toggle
   const hoverToggle = document.getElementById('hover-toggle');
@@ -755,9 +721,61 @@ async function init() {
     }
   });
 
-  document.getElementById('clear-extra-btn').addEventListener('click', async () => {
-    await chrome.storage.local.remove(['mm_extra_vocab', 'mm_extra_kanji']);
-    setExtraStatus([], []);
+  // ── Cloud backup — Save pushes to Google Drive, Sync pulls from it ─────────
+  // (background.js does the actual Drive API calls; see saveToCloud/syncFromCloud there)
+  const syncStatusEl = document.getElementById('sync-status');
+  function setSyncStatus(text, color) {
+    if (!syncStatusEl) return;
+    syncStatusEl.textContent = text;
+    syncStatusEl.style.color = color || 'var(--dim)';
+  }
+  function fmtAge(ts) {
+    if (!ts) return 'never';
+    const mins = Math.round((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+  chrome.storage.local.get(['mc_cloud_last_saved', 'mc_cloud_last_synced'], ({ mc_cloud_last_saved, mc_cloud_last_synced }) => {
+    if (!mc_cloud_last_saved && !mc_cloud_last_synced) return;
+    const parts = [];
+    if (mc_cloud_last_saved) parts.push(`saved ${fmtAge(mc_cloud_last_saved)}`);
+    if (mc_cloud_last_synced) parts.push(`synced ${fmtAge(mc_cloud_last_synced)}`);
+    setSyncStatus(`Last ${parts.join(' · ')}`, 'var(--dim)');
+  });
+
+  document.getElementById('save-cloud-btn').addEventListener('click', () => {
+    const btn = document.getElementById('save-cloud-btn');
+    btn.disabled = true;
+    setSyncStatus('Saving to Google Drive…', '#888');
+    chrome.runtime.sendMessage({ action: 'saveToCloud' }, (res) => {
+      btn.disabled = false;
+      if (!res?.ok) { setSyncStatus(`Save failed: ${res?.error || 'unknown error'}`, '#f44336'); return; }
+      if (!res.keys?.length) { setSyncStatus('Nothing to save yet — connect your API key first', '#FDC281'); return; }
+      setSyncStatus('✓ Saved to your Google Drive', '#72CE9D');
+    });
+  });
+
+  document.getElementById('sync-cloud-btn').addEventListener('click', () => {
+    const btn = document.getElementById('sync-cloud-btn');
+    btn.disabled = true;
+    setSyncStatus('Syncing from Google Drive…', '#888');
+    chrome.runtime.sendMessage({ action: 'syncFromCloud' }, (res) => {
+      if (!res?.ok) {
+        setSyncStatus(`Sync failed: ${res?.error || 'unknown error'}`, '#f44336');
+        btn.disabled = false;
+        return;
+      }
+      if (!res.keys) {
+        setSyncStatus('Nothing saved to Drive yet — click Save on another device first', '#FDC281');
+        btn.disabled = false;
+        return;
+      }
+      setSyncStatus('✓ Synced — reloading…', '#72CE9D');
+      setTimeout(() => window.location.reload(), 700);
+    });
   });
 
   // ── Backup & restore (everything in chrome.storage.local) ─────────────────
@@ -800,14 +818,14 @@ async function init() {
       const keys = Object.keys(data || {});
       if (!keys.length) throw new Error('No data found in file');
 
-      if (!confirm(`Import ${keys.length} setting${keys.length !== 1 ? 's' : ''}/data key(s) from this backup? This replaces ALL current MaruComprehension data on this device (API key, vocab, known words, history, immersion tracking, settings) and can't be undone.`)) {
+      if (!confirm(`Import ${keys.length} setting${keys.length !== 1 ? 's' : ''}/data key(s) from this backup? API key, vocab/kanji & settings from the file take over; history, immersion time & known words are merged with what's already on this device rather than replaced.`)) {
         e.target.value = '';
         return;
       }
 
       setBackupStatus('Importing…', '#888');
-      await chrome.storage.local.clear();
-      await chrome.storage.local.set(data);
+      const res = await chrome.runtime.sendMessage({ action: 'importMerged', data });
+      if (!res?.ok) throw new Error(res?.error || 'Import failed');
       setBackupStatus('✓ Imported — reloading…', '#72CE9D');
       setTimeout(() => window.location.reload(), 700);
     } catch (err) {
@@ -934,18 +952,32 @@ async function init() {
   initTimerTab();
   initStopwatch();
   initBarPositionSelect();
+  initTimerResetHourSelect();
+  initManualImmersionToggle();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Tab switching
+  // Tab switching — remembers the active tab across a same-document reload
+  // (e.g. after clicking Sync) via sessionStorage, so reloading doesn't visually
+  // dump the user back on Main and make it look like whatever tab/data they
+  // were checking just vanished.
+  function _activateTab(name) {
+    const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
+    const panel = document.getElementById(`tab-${name}`);
+    if (!btn || !panel) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    panel.classList.add('active');
+  }
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      _activateTab(btn.dataset.tab);
+      sessionStorage.setItem('mc_active_tab', btn.dataset.tab);
     });
   });
+  const savedTab = sessionStorage.getItem('mc_active_tab');
+  if (savedTab) _activateTab(savedTab);
 
   // Light/dark theme
   chrome.storage.local.get(['light_theme', 'score_colors'], ({ light_theme, score_colors }) => {

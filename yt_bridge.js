@@ -130,8 +130,15 @@ document.addEventListener('__mc_fetch_req', async (e) => {
         const u = new URL(url, location.href);
         const reqLang = (u.searchParams.get('lang') || '').toLowerCase();
         const reqKind = u.searchParams.get('kind') || '';
-        const hit = list.find(c => c.lang.toLowerCase() === reqLang && c.kind === reqKind)
-                 || list.find(c => /^ja/i.test(c.lang));
+        // Strict kind match only — content_yt.js relies on an unspecified
+        // (manual) kind never silently resolving to a cached ASR entry just
+        // because it's the only Japanese track available. A looser "any
+        // Japanese entry" fallback here used to defeat that distinction:
+        // requesting a manual track on an ASR-only video would still get
+        // asked to activate 'ja' captions below, which caches the ASR track,
+        // which this fallback would then happily hand back as if it were
+        // the manual track being asked for.
+        const hit = list.find(c => c.lang.toLowerCase() === reqLang && c.kind === reqKind);
         if (hit) {
           document.dispatchEvent(new CustomEvent('__mc_fetch_res', {
             detail: JSON.stringify({ reqId, ok: true, status: 200, text: hit.text }),

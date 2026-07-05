@@ -76,11 +76,7 @@ function _captionUrlsFromScript(src, expectedVideoId) {
       if (data?.videoDetails?.videoId !== expectedVideoId) continue;
       const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
       for (const t of tracks) {
-        if (/^ja/.test(t.languageCode) && t.baseUrl) {
-          // manual tracks first
-          if (t.kind !== 'asr') urls.unshift(t.baseUrl);
-          else urls.push(t.baseUrl);
-        }
+        if (/^ja/.test(t.languageCode) && t.baseUrl && t.kind !== 'asr') urls.push(t.baseUrl);
       }
     } catch {}
   }
@@ -172,23 +168,25 @@ async function _fetchVTT(url) {
 
 async function fetchJaVTT(videoId) {
 
+  // Only manual (non-ASR) Japanese tracks count as "this video has usable
+  // Japanese subtitles" — auto-generated captions are often transcribing
+  // spoken Japanese on a video whose actual on-screen content is burned-in
+  // English (interview/vlog style channels do this constantly), and even
+  // when the audio genuinely is Japanese, ASR accuracy is too unreliable to
+  // score against. This matches the manual-only rule immersion tracking
+  // already applies (see _ytFoundManualJaTrack) — a video with only an ASR
+  // Japanese track is treated exactly like a video with no Japanese track
+  // at all, everywhere fetchJaVTT is used (control bar, 字幕 toggle,
+  // sidebar, hover-enable).
+
   // 1. Ask yt_bridge.js (main world) for the live caption track list.
   //    This works for both hard loads and SPA navigation.
   const jaTracks = await _getJaTracks(videoId);
-  // Prefer manual over ASR
-  const sorted = [
-    ...jaTracks.filter(t => t.kind !== 'asr'),
-    ...jaTracks.filter(t => t.kind === 'asr'),
-  ];
-  // A video is Japanese content if it has at least one manual (non-ASR)
-  // Japanese caption track — regardless of which track we successfully fetch.
-  if (jaTracks.some(t => t.kind !== 'asr')) _ytFoundManualJaTrack = true;
-  for (const track of sorted) {
+  const manualTracks = jaTracks.filter(t => t.kind !== 'asr');
+  if (manualTracks.length) _ytFoundManualJaTrack = true;
+  for (const track of manualTracks) {
     const vtt = await _fetchVTT(`${track.baseUrl}&fmt=vtt`);
-    if (vtt) {
-      if (track.kind !== 'asr') _ytFoundManualJaTrack = true;
-      return vtt;
-    }
+    if (vtt) return vtt;
   }
 
   // 2. Parse ytInitialPlayerResponse out of inline <script> tags (hard navigation fallback).
@@ -198,7 +196,7 @@ async function fetchJaVTT(videoId) {
   }
   for (const baseUrl of scriptUrls) {
     const vtt = await _fetchVTT(`${baseUrl}&fmt=vtt`);
-    if (vtt) return vtt;
+    if (vtt) { _ytFoundManualJaTrack = true; return vtt; }
   }
 
   // 3. Timedtext API — try listing available tracks first (gets the exact name parameter).
@@ -208,25 +206,22 @@ async function fetchJaVTT(videoId) {
       const xml = listResult.text;
       for (const m of xml.matchAll(/<track\b([^>]*)>/g)) {
         const attrs = m[1];
+        if (/\bkind="asr"/.test(attrs)) continue; // manual only
         const langCode = attrs.match(/lang_code="([^"]*)"/)?.[1] || '';
         if (!/^ja/i.test(langCode)) continue;
         const name = attrs.match(/\bname="([^"]*)"/)?.[1] || '';
         const vtt = await _fetchVTT(
           `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${langCode}&name=${encodeURIComponent(name)}&fmt=vtt`
         );
-        if (vtt) return vtt;
+        if (vtt) { _ytFoundManualJaTrack = true; return vtt; }
       }
     }
   } catch {}
 
-  // 4. Last resort: direct timedtext guesses
-  for (const url of [
-    `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt`,
-    `https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt&kind=asr`,
-  ]) {
-    const vtt = await _fetchVTT(url);
-    if (vtt) return vtt;
-  }
+  // 4. Last resort: direct timedtext guess for a manual track only — no ASR
+  //    fallback (that's the whole point of this function now).
+  const vtt = await _fetchVTT(`https://www.youtube.com/api/timedtext?v=${videoId}&lang=ja&fmt=vtt`);
+  if (vtt) { _ytFoundManualJaTrack = true; return vtt; }
 
   return null;
 }
@@ -266,13 +261,13 @@ async function scoreVideo() {
     }
     const player = _ytGetPlayer();
     if (player) {
-      chrome.storage.local.get('videoToolEnabled', ({ videoToolEnabled }) => {
+      chrome.storage.local.get(['videoToolEnabled', 'mc_manual_immersion_enabled'], ({ videoToolEnabled, mc_manual_immersion_enabled }) => {
         if (videoToolEnabled === false) {
           if (_ytControlBar) _ytControlBar.style.display = 'none';
           _ytHideNoSubsBanner();
           return;
         }
-        if (!vtt) { _ytShowNoSubsBanner(player); return; }
+        if (!vtt) { _ytShowNoSubsBanner(player, !!mc_manual_immersion_enabled); return; }
         _ytHideNoSubsBanner();
         _ytCreateControlBar(player, res?.score ?? null);
         _ytControlBar.style.display = 'inline-flex';
@@ -333,6 +328,9 @@ let _transcriptHoverActive = false;
 let _ytControlBar  = null;   // [%|字幕|⚙] unified bar element
 let _ytNoSubsBanner = null;  // "No Japanese subtitles found" banner (shown in the bar's spot instead)
 let _ytNoSubsTimers = [];    // pending timeouts driving the banner's slide-in/slide-out
+let _ytManualTrackBtn = null;       // persistent dot button offered when no subs were detected
+let _ytManualTrackLabelTimer = null; // pending timeout collapsing the expanded label back to icon-only
+let _ytManualTrackingActive = false; // true while manually tracking THIS video's immersion time
 let _ytSubOverlay  = null;   // subtitle div (absolute inside player)
 let _ytSubBtn      = null;   // 字幕 button inside bar
 let _ytSettingsBtn = null;   // ⚙ button inside bar (hidden when subs off)
@@ -556,6 +554,9 @@ function _ytDestroyAll() {
   _ytSettingsPnl?.remove(); _ytSettingsPnl = null;
   _ytNoSubsTimers.forEach(clearTimeout); _ytNoSubsTimers = [];
   _ytNoSubsBanner?.remove(); _ytNoSubsBanner = null;
+  clearTimeout(_ytManualTrackLabelTimer);
+  _ytManualTrackBtn?.remove(); _ytManualTrackBtn = null;
+  _ytManualTrackingActive = false;
   _ytSubBtn = null; _ytSettingsBtn = null;
   _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
   _ytPausedByHover = false;
@@ -565,6 +566,7 @@ function _ytDestroyAll() {
 function _ytResetForNewVideo() {
   _ytIsJapaneseContent = false;
   _ytFoundManualJaTrack = false;
+  _ytHideManualTrackButton();
   _ytSubCleanup?.(); _ytSubCleanup = null;
   _ytCues = null; _ytCuesVideoId = null; _ytLastCueIdx = -2;
   if (_ytSubOverlay) _ytSubOverlay.innerHTML = '';
@@ -952,10 +954,11 @@ function _ytStartTimeSync() {
 
 // Small non-interactive banner shown in the control bar's spot when no
 // Japanese captions could be found for the current video.
-function _ytShowNoSubsBanner(player) {
+function _ytShowNoSubsBanner(player, manualTrackingAllowed) {
   if (_ytControlBar) _ytControlBar.style.display = 'none';
   _ytNoSubsTimers.forEach(clearTimeout);
   _ytNoSubsTimers = [];
+  _ytHideManualTrackButton();
 
   if (!_ytNoSubsBanner) {
     const banner = document.createElement('div');
@@ -1002,6 +1005,9 @@ function _ytShowNoSubsBanner(player) {
   }, 2700));
   _ytNoSubsTimers.push(setTimeout(() => {
     banner.style.display = 'none';
+    // Hand off to the persistent manual-tracking dot right as the notice
+    // finishes hiding, instead of stacking both in the same corner at once.
+    if (manualTrackingAllowed) _ytShowManualTrackButton(player);
   }, 3000));
 }
 
@@ -1013,6 +1019,104 @@ function _ytHideNoSubsBanner() {
     _ytNoSubsBanner.style.opacity = '0';
     _ytNoSubsBanner.style.transform = 'translateY(-10px)';
   }
+  _ytHideManualTrackButton();
+}
+
+// Persistent small button offered instead of full scoring when a video has
+// no detected Japanese captions — lets the user manually flag "I'm still
+// watching this in Japanese" so immersion time counts anyway. Only ever
+// shown when the user has opted into this via the Settings tab (standard
+// off): unlike auto-detected videos, there's no caption evidence here, so
+// this is a deliberate manual override, not something to turn on by default.
+function _ytShowManualTrackButton(player) {
+  if (!_ytManualTrackBtn) {
+    const btn = document.createElement('button');
+    btn.id = 'mc-yt-manual-track';
+    btn.style.cssText = [
+      'position:absolute', 'z-index:9997', 'overflow:hidden',
+      'display:flex', 'align-items:center',
+      'height:30px', 'padding:0 9px', // same height/padding formula as the main control bar's dot+score segments, so this reads as the same widget family
+      'border-radius:7px',
+      'background:rgba(0,0,0,.78)', 'color:#ccc',
+      'border:1px solid rgba(255,255,255,.14)',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+      'font-size:13px', 'font-weight:600', 'white-space:nowrap',
+      'cursor:pointer', 'transition:width .25s ease', 'box-sizing:border-box',
+    ].join(';');
+
+    // A couple of extra px on the bottom margin (vs. top) nudges the dot up
+    // slightly — align-items:center centers its margin box, so an asymmetric
+    // margin shifts the dot itself within that centered box.
+    const dot = document.createElement('span');
+    dot.style.cssText = 'width:8px;height:8px;margin-bottom:2px;border-radius:50%;flex-shrink:0;background:#666;transition:background .2s,box-shadow .2s';
+    btn.appendChild(dot);
+
+    const label = document.createElement('span');
+    label.style.cssText = 'flex-shrink:0;white-space:nowrap;opacity:0;margin-left:7px;transition:opacity .2s ease';
+    btn.appendChild(label);
+
+    // Idle width isn't hardcoded — it's whatever the padding+dot naturally
+    // measure out to (matching the main bar's dot segment exactly, since
+    // it's built from the same padding:0 9px formula), captured once the
+    // button is in the DOM and then pinned so it has a fixed value to
+    // transition from/to.
+    let _idleWidth = 0;
+    const _expand = text => {
+      label.textContent = text;
+      label.style.opacity = '1';
+      btn.style.width = `${_idleWidth + 7 + label.scrollWidth + 10}px`; // idle width + label margin + text + right breathing room
+    };
+    const _collapse = () => {
+      label.style.opacity = '0';
+      btn.style.width = `${_idleWidth}px`;
+    };
+
+    let _baseTitle = '';
+    const updateDot = () => {
+      dot.style.background = _ytManualTrackingActive ? '#72CE9D' : '#666';
+      dot.style.boxShadow = _ytManualTrackingActive ? '0 0 5px #72CE9D' : 'none';
+      _baseTitle = _ytManualTrackingActive
+        ? 'Manually tracking immersion time on this video — click to stop'
+        : 'No Japanese subtitles detected — click to manually track immersion time anyway';
+      btn.title = _baseTitle;
+    };
+
+    // Hover slides out the tracked-time readout the same way a click slides
+    // out the Started/Stopped confirmation — one label, one animation, just
+    // a different trigger and text.
+    let _hovering = false;
+    btn.addEventListener('mouseenter', async () => {
+      _hovering = true;
+      clearTimeout(_ytManualTrackLabelTimer);
+      const videoId = currentVideoId();
+      const sec = videoId ? await mcGetVideoTrackedSeconds(`yt_${videoId}`) : 0;
+      if (!_hovering) return; // pointer already left before the lookup resolved
+      _expand(sec > 0 ? `Tracked ${mcFormatTrackedTime(sec)} on this video` : 'Not tracked yet');
+    });
+    btn.addEventListener('mouseleave', () => { _hovering = false; _collapse(); });
+
+    btn.addEventListener('click', () => {
+      _ytManualTrackingActive = !_ytManualTrackingActive;
+      updateDot();
+      _expand(_ytManualTrackingActive ? 'Started immersion tracking' : 'Stopped immersion tracking');
+      clearTimeout(_ytManualTrackLabelTimer);
+      _ytManualTrackLabelTimer = setTimeout(_collapse, 2200);
+    });
+
+    updateDot();
+    mcApplyBarPosition(btn);
+    player.appendChild(btn);
+    _idleWidth = btn.getBoundingClientRect().width;
+    btn.style.width = `${_idleWidth}px`; // pin the natural size so width becomes transitionable
+    _ytManualTrackBtn = btn;
+  }
+  _ytManualTrackBtn.style.display = 'flex';
+}
+
+function _ytHideManualTrackButton() {
+  clearTimeout(_ytManualTrackLabelTimer);
+  _ytManualTrackingActive = false;
+  if (_ytManualTrackBtn) _ytManualTrackBtn.style.display = 'none';
 }
 
 // Create the unified [%|字幕|⚙] bar; or just update the score if already created.
@@ -1035,7 +1139,10 @@ function _ytCreateControlBar(player, score) {
   ].join(';');
 
   // Immersion recording status dot (click toggles auto-detect)
-  bar.appendChild(mcCreateTimerDotButton());
+  bar.appendChild(mcCreateTimerDotButton({ getVideoKey: () => {
+    const id = currentVideoId();
+    return id ? `yt_${id}` : null;
+  } }));
 
   // Score section
   const scoreEl = document.createElement('span');
@@ -1314,10 +1421,16 @@ _ytInitBadges();
 getTokenizer().catch(() => {});
 
 // Track immersion time while a video is actually playing and the tab is visible.
-// Only track time when the current video has confirmed Japanese captions —
+// Normally only counts videos with confirmed manual Japanese captions —
 // prevents English videos that happen to have JP auto-subs from being
-// counted as Japanese immersion.
-startVideoTimeTracking(() => _ytIsJapaneseContent ? document.querySelector('video') : null, 'yt');
+// counted as Japanese immersion. _ytManualTrackingActive is the deliberate,
+// opt-in exception: the user manually flagged this specific no-captions
+// video as Japanese immersion via the mini tracking button.
+startVideoTimeTracking(
+  () => (_ytIsJapaneseContent || _ytManualTrackingActive) ? document.querySelector('video') : null,
+  'yt',
+  () => { const id = currentVideoId(); return id ? `yt_${id}` : null; },
+);
 
 // YouTube sets overflow:hidden on body, so body.marginRight does nothing.
 // Push ytd-app (the root custom element) instead.

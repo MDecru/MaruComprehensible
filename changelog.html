@@ -100,8 +100,7 @@ li:last-child { border-bottom: none; }
     <li><span class="ct feat">Feature</span> <b>Immersion Stats page</b> — dedicated view with a progress ring, current/longest streak, all-time total, a per-day/cumulative chart, a GitHub-style streak grid, and a by-source breakdown (list + stacked bar) showing how your time splits across YouTube, CIJ, your local NAS, Nihongo-Jikan, the local player, and manual entries</li>
     <li><span class="ct feat">Feature</span> <b>Focus timer</b> — countdown stopwatch for SRS review sessions; keeps running in the background even with the popup closed, can auto-add its duration to your immersion time when it finishes, and plays a sound and/or shows an on-screen effect (your choice)</li>
     <li><span class="ct feat">Feature</span> <b>Right-click "Search on MaruMori"</b> — select any word or phrase on any page and search it on MaruMori's dictionary straight from the context menu</li>
-    <li><span class="ct feat">Feature</span> <b>Full backup &amp; restore</b> — export everything (API key, vocab, known words, history, immersion tracking, settings) to one file from the Extra tab, and import it on another device</li>
-    <li><span class="ct feat">Feature</span> Local NAS viewing (mdnas/synology) is now tracked as its own source, separate from cijapanese.com</li>
+    <li><span class="ct feat">Feature</span> <b>Full backup &amp; restore</b> — export everything (API key, vocab, known words, history, immersion tracking, settings) to one file from the Extra tab; importing now merges history, immersion time, and known words with what's already on the device instead of overwriting them</li>
     <li><span class="ct feat">Feature</span> Streak grid days and per-source totals can be edited or cleared individually to correct mistracked time; an "Unknown source" entry surfaces any unattributed time so nothing is silently missing</li>
     <li><span class="ct fix">Fix</span> Immersion timer no longer tracks English or other non-Japanese YouTube videos that happen to have auto-generated Japanese subtitles — only videos with <em>manual</em> Japanese captions count as Japanese content</li>
     <li><span class="ct fix">Fix</span> Auto-scoring on YouTube and CIJ now retries automatically if captions aren't ready on the first try, instead of requiring the popup to be reopened to force a rescore</li>
@@ -113,7 +112,6 @@ li:last-child { border-bottom: none; }
     <li><span class="ct ui">UI</span> Stat cards (vocab/kanji counts, streak cards) now use solid backgrounds with centered text instead of translucent accent fills</li>
     <li><span class="ct ui">UI</span> MaruMori logo watermark on the Settings tab is larger and more visible; extension toolbar icon is now the MaruMori logo</li>
     <li><span class="ct ui">UI</span> Focus timer card shows a green border while running and an amber border while paused</li>
-    <li><span class="ct ui">UI</span> Import/Export button labels shortened to "Import Data" / "Export Data" to fit without wrapping</li>
     <li><span class="ct ui">UI</span> Number input spinners (up/down arrows) hidden for a cleaner look</li>
     <li><span class="ct ui">UI</span> Score-block hover shine animation made subtler</li>
     <li><span class="ct ui">UI</span> Removed the "Pre-load tokenizer" button — the tokenizer preloads automatically; it can still be triggered manually from the Main tab's tokenizer status line</li>
@@ -128,8 +126,6 @@ li:last-child { border-bottom: none; }
     <li><span class="ct fix">Fix</span> New subtitle cues no longer flash unstyled text before tokenization completes — wrapper stays hidden until coloring is done</li>
     <li><span class="ct fix">Fix</span> Outline thickness slider expanded from 1–5 to 1–8 with 0.5 step increments for more dramatic outlines</li>
     <li><span class="ct fix">Fix</span> Hover fluorescence (word highlight on mouseover) made more visible with thicker outline and glow</li>
-    <li><span class="ct fix">Fix</span> All top-level <code>const</code>/<code>let</code> declarations in shared content scripts converted to <code>var</code> to prevent redeclaration errors on multi-inject</li>
-    <li><span class="ct fix">Fix</span> All <code>chrome.*</code> API calls now guarded with <code>chrome.runtime?.id</code> checks to prevent "Extension context invalidated" errors after reload</li>
     <li><span class="ct fix">Fix</span> Prefix/suffix markers (<code>〜様</code>, <code>再〜</code>) in MaruMori vocab now stripped so words match correctly against tokenized text</li>
     <li><span class="ct ui">UI</span> CIJ Library website updated with the same API changes, apprentice coloring, level badges, and simplified tooltip labels</li>
     <li><span class="ct feat">Feature</span> <b>Vocab overview page</b> — click the Vocab stat card in the popup for a graphical JLPT-level breakdown of your known vocabulary; donut progress rings (combined + per-level), stacked SRS-tier bars showing learned vs total words per level, and reading-based kana/kanji matching from 361k lookup keys derived from Bunpro JLPT lists</li>
@@ -147,6 +143,9 @@ li:last-child { border-bottom: none; }
     <li><span class="ct ui">UI</span> Translation and Grammar tabs in hover tooltips now share consistent font sizes and spacing</li>
     <li><span class="ct fix">Fix</span> "No definition found" text no longer loses its left/right padding due to CSS specificity conflict</li>
     <li><span class="ct fix">Fix</span> Hover tooltip lifted 22px above words to clear furigana ruby text</li>
+    <li><span class="ct feat">Feature</span> <b>"No Japanese subtitles found" banner</b> on YouTube — a small animated banner (with the MaruMori logo) appears in the video's control-bar corner when a video has no Japanese captions, instead of silently leaving a blank score</li>
+    <li><span class="ct fix">Fix</span> YouTube score and subtitle detection no longer get stuck showing the previous video's result after navigating via sidebar or related-video clicks; a leftover wrong score in Watch History from this bug now self-corrects the next time the affected video is revisited</li>
+    <li><span class="ct feat">Feature</span> <b>Cloud backup via Google Drive</b> — Save/Sync buttons on the Extra tab back up your API key, MaruMori vocab/kanji, known words, watch history, and immersion time to a private file in your own Google Drive; Sync merges the data back in rather than overwriting, so multiple devices' history and immersion time combine instead of one replacing the other</li>
   </ul>
 </div>
 
