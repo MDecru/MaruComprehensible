@@ -281,7 +281,7 @@ async function scoreVideo() {
     }
     if (vtt && _ytFoundManualJaTrack) _ytIsJapaneseContent = true;
     if (!vtt) {
-      // No Japanese captions available — show a brief banner
+      console.log('[MC] No Japanese subtitles, showing toast. body:', !!document.body, 'getURL:', chrome.runtime.getURL('icons/marumori_logo.png'));
       _ytShowNoJapaneseToast();
     }
     const res = vtt ? await scoreVTT(vtt) : null;
