@@ -171,9 +171,11 @@
     background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center;
   }
   .score-block.scoring::before {
-    content:''; position:absolute; inset:0; z-index:1; border-radius:14px;
-    background:url('icons/pizza.png') center/48px no-repeat;
+    content:''; position:absolute; top:50%; left:50%; z-index:1;
+    width:48px; height:48px; margin:-24px 0 0 -24px;
+    background:url('icons/pizza.png') center/contain no-repeat;
     animation: mc-pizza-spin 1.2s linear infinite;
+    transform-origin:center center;
   }
   @keyframes mc-pizza-spin { to { transform:rotate(360deg); } }
   body.light-theme .score-block.scoring::after {
