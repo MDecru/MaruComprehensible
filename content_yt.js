@@ -285,6 +285,17 @@ async function scoreVideo() {
           const el = document.getElementById('mc-yt-score');
           if (el) el.title = `Watched ${entry.watchCount}× · Last: ${new Date(entry.lastWatched).toLocaleDateString()}`;
         });
+      } else if (!vtt) {
+        // A video with genuinely no Japanese captions should never have a
+        // history entry — saveVideoHistory() is only ever called with a real
+        // score. If one exists here, it's stale data from a past mis-scoring
+        // bug (e.g. a caching bug briefly attributing another video's score
+        // to this one) — remove it so badges/history stop showing it.
+        chrome.storage.local.get('mc_video_history', ({ mc_video_history = {} }) => {
+          if (!(`yt_${videoId}` in mc_video_history)) return;
+          delete mc_video_history[`yt_${videoId}`];
+          chrome.storage.local.set({ mc_video_history });
+        });
       }
     }
   } catch {
