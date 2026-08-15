@@ -46,11 +46,13 @@
   h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; color: #1a1c1f; }
   .meta { font-size: 13px; color: #6a748a; margin-bottom: 36px; }
   h2 { font-size: 16px; font-weight: 700; margin: 28px 0 8px; color: #1a1c1f; }
+  h3 { font-size: 14px; font-weight: 700; margin: 18px 0 6px; color: #3a4050; }
   p { margin-bottom: 12px; font-size: 15px; }
   ul { margin: 8px 0 12px 20px; font-size: 15px; }
   ul li { margin-bottom: 5px; }
   a { color: #66AAE8; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  code { background: #eef1f6; border-radius: 4px; padding: 1px 5px; font-size: 13px; }
   .card {
     background: #fff;
     border: 1px solid #dde1ea;
@@ -66,83 +68,261 @@
     font-size: 14px;
     color: #3a4a6a;
   }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 16px;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #dde1ea;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f2f5fa; font-weight: 700; color: #1a1c1f; }
+  .tbl-wrap { overflow-x: auto; }
+  .no-collect { background: #f4f7f4; border-left: 3px solid #7fb069; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; font-size: 14px; color: #3d5140; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
     <h1>Privacy Policy</h1>
-    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Last updated: July 3, 2026</p>
+    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Version 1.7.1 &nbsp;·&nbsp; Last updated: August 15, 2026</p>
 
     <div class="highlight">
-      Short version: MaruComprehension stores everything locally on your device. Your API token never leaves your browser except to reach MaruMori directly. No tracking, no analytics, no ads.
+      <strong>Short version:</strong> MaruComprehension has no server. The developer receives no data from you of any kind, and has no way to. Everything the extension stores lives on your own device in <code>chrome.storage.local</code>. Data leaves your device only to reach a service you chose and configured yourself — MaruMori, Jisho, YouTube's public caption endpoint, an AI provider you supply your own API key for, or your own Google Drive — and only for the feature you triggered. No analytics, no tracking, no advertising, no data selling, no third-party data brokers.
     </div>
 
-    <h2>What this extension does</h2>
+    <h2>1. Who is responsible for your data</h2>
+    <p>MaruComprehension is built and published by an independent individual developer ("the developer", "we"). It is a personal, non-commercial project.</p>
+    <p>There is <strong>no company, no backend server, and no staff</strong>. The developer operates no database, no logging infrastructure, and no account system, and therefore never receives, stores, or has any technical means of accessing your data. Where this policy says data is "sent", it is always sent directly from your own browser to a third-party service you have chosen to connect, never by way of any system the developer controls.</p>
+    <p>For any privacy question, or to exercise the rights described in section 11, contact <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
+
+    <h2>2. What this extension does</h2>
     <p>MaruComprehension is an unofficial fan app that connects to your <a href="https://marumori.io" target="_blank">MaruMori</a> account to fetch your learned vocabulary and kanji. It uses that data to:</p>
     <ul>
-      <li>Color-highlight subtitles and transcripts on <strong>Comprehensible Japanese</strong>, <strong>Nihongo-Jikan</strong>, and <strong>YouTube</strong> — known words in one color, unknown in another</li>
+      <li>Color-highlight subtitles and transcripts on <strong>Comprehensible Japanese / Natural Japanese</strong>, <strong>Nihongo-Jikan</strong>, <strong>YouTube</strong>, <strong>Netflix</strong>, <strong>Crunchyroll</strong>, <strong>Plex</strong>, <strong>NHK News Web Easy</strong>, and any additional site you explicitly allow — known words in one color, unknown in another</li>
+      <li>Let you paste or upload any Japanese text on the extension's own <strong>Transcribe Text</strong> page for the same colorized, hoverable, scored breakdown, independent of any site</li>
       <li>Calculate a <strong>comprehension score</strong> for each video based on how many subtitle words you already know</li>
       <li>Show <strong>hover cards</strong> with reading, definitions, and known/unknown status when you hover over any Japanese word in a subtitle or transcript</li>
       <li>Display a <strong>word sidebar</strong> listing all unknown words in the current video with JLPT level indicators</li>
+      <li>Show your current <strong>MaruMori SRS review level</strong> as a small badge while you do reviews on marumori.io, with an extra warning for items about to graduate, and keep a local <strong>record of your review sessions</strong> (items, accuracy, points, and a kanji/vocab/grammar split) for the review-stats screens. This reads the review page's own on-screen text to know which word or kanji is showing, and compares it against your already-cached MaruMori data; nothing is sent anywhere</li>
       <li>Save a <strong>watch history</strong> and an <strong>unknown word frequency list</strong> so you can track progress over time</li>
       <li>Let you <strong>mark words as Known</strong> directly from a hover card, stored separately from MaruMori</li>
       <li>Automatically track <strong>immersion time</strong> spent watching Japanese video, with a daily/streak view and a breakdown by source, plus a manual "add time" entry for sources it can't detect (e.g. a book)</li>
       <li>Run an optional <strong>focus timer</strong> for study sessions, which can add its duration to your immersion time and play a sound or show an on-screen notice when it finishes</li>
       <li>Add a <strong>right-click menu item</strong> to search any selected word or phrase on MaruMori's dictionary</li>
+      <li>Optionally <strong>translate a video's subtitles</strong> using an AI provider you choose and supply your own API key for, showing the translation under each subtitle line and in the transcript sidebar — either the whole video at once, or just the line you are looking at</li>
+      <li>Ask that same provider for <strong>help with a specific word or phrase</strong>: what a word with no dictionary entry means in the line it appears in, or an explanation of the grammar in the phrase currently on screen</li>
+      <li>In the <strong>local player</strong>, <strong>transcribe a video's Japanese audio</strong> when you have no subtitle file for it — the audio is read out of the file you opened, on your device, and sent to Google Gemini (the only supported provider that accepts audio) to be written down</li>
+      <li>Save that transcript as a <strong>.srt file</strong> on your device, so the same video never needs transcribing twice. The file is written by your browser's normal download; nothing is uploaded anywhere</li>
       <li>Let you <strong>export or import all extension data</strong> as a single file, to move your setup to another device</li>
+      <li>Let you optionally <strong>back up your data to your own Google Drive</strong>, and sync it back down on another device, using a Google sign-in you control</li>
     </ul>
 
-    <h2>Data stored on your device</h2>
-    <p>All data is stored locally using <code>chrome.storage.local</code> and never leaves your device except as described in Network requests below.</p>
+    <h2>3. What data the extension handles</h2>
+    <p>The categories below use the same names as the Chrome Web Store's data-disclosure categories, so they can be read directly against this item's declared data usage.</p>
+
+    <h3>Authentication information</h3>
     <ul>
-      <li><strong>MaruMori API token</strong> — pasted voluntarily to connect your account</li>
-      <li><strong>Vocab and kanji lists</strong> — downloaded from MaruMori and cached locally so scoring works without repeated API calls</li>
-      <li><strong>Watch history</strong> — titles, URLs, comprehension scores, and watch counts for Japanese videos you have watched</li>
-      <li><strong>Unknown word frequency</strong> — words that appeared as unknown across your watched videos, with occurrence counts</li>
-      <li><strong>Manually known words</strong> — words you have marked as Known from hover cards, stored separately from MaruMori</li>
-      <li><strong>Immersion tracking data</strong> — daily watch-time totals, a breakdown by source (YouTube, CIJ, Nihongo-Jikan, local player, etc.), and any manual time entries you add</li>
-      <li><strong>Focus timer settings</strong> — your last-used duration and sound/on-screen-effect preferences</li>
-      <li><strong>Settings and preferences</strong> — subtitle style, hover toggle, badge visibility, and other UI preferences</li>
+      <li><strong>MaruMori API token</strong> — pasted by you to connect your MaruMori account. Used only to authenticate requests to MaruMori's own public API.</li>
+      <li><strong>AI provider API keys</strong> — only if you paste one. Stored per provider, so keys for Google Gemini, DeepSeek, OpenAI, and Anthropic are kept separately, alongside which provider you have selected. Each key is sent only to the provider it belongs to.</li>
+      <li><strong>Google OAuth access token</strong> — only if you turn on Google Drive backup. Issued by Google to Chrome's <code>identity</code> API and held by the browser. The extension never sees, handles, or stores your Google password.</li>
     </ul>
-    <p>You can clear watch history, word data, and immersion tracking data at any time from within the extension. Removing the extension from Chrome deletes all stored data.</p>
-    <p>If you use the export feature, a copy of this data — including your MaruMori API token — is written to a JSON file you choose to save. That file stays on your device unless you move it yourself; treat it like you would a password, since importing it elsewhere restores full access to the data it contains.</p>
 
-    <h2>Network requests</h2>
-    <p>The extension contacts only the following external services, and only ever with your own device making the request directly:</p>
+    <h3>Website content</h3>
     <ul>
-      <li><strong>MaruMori API</strong> (<code>public-api.marumori.io</code>) — to fetch your vocab and kanji lists using your API token. Requested only when you connect your account or manually refresh.</li>
-      <li><strong>YouTube timedtext API</strong> (<code>youtube.com</code>) — to fetch Japanese subtitle tracks for the video currently open, for comprehension scoring. No account credentials are sent; only a public caption endpoint is used.</li>
-      <li><strong>Jisho dictionary</strong> (<code>jisho.org</code>) — to look up word definitions when you hover over a word. Only the individual word being hovered is sent.</li>
-      <li><strong>MaruMori website</strong> (<code>marumori.io</code>) — opened in a new tab when you use the right-click "Search on MaruMori" menu item, or click a dictionary link in a hover card. This is a normal page navigation, not a background request.</li>
+      <li><strong>Subtitle and transcript text</strong> from the video page you are viewing, so words can be segmented, looked up, and colored.</li>
+      <li><strong>Page text on marumori.io review screens</strong> — the word or kanji currently under review, read to display your SRS level badge.</li>
+      <li><strong>Video titles</strong>, taken from the page's own title — the same text shown in your browser tab.</li>
+      <li><strong>Text you paste or upload yourself</strong> on the Transcribe Text page.</li>
+      <li><strong>Audio from a local video file you open</strong> in the extension's own player, and only when you press "Transcribe".</li>
     </ul>
-    <p>No analytics services, crash reporters, advertising networks, or any other third-party servers are contacted. If you've configured the extension to work with a self-hosted local video server (e.g. on your own home network), it's contacted the same way any page you open in your browser would be — the extension doesn't reach out to it on its own.</p>
 
-    <h2>Data sharing</h2>
-    <p>No data is sold, shared, or transmitted to any party other than the services listed above. Those requests exist solely to provide the extension's features and contain no personally identifiable information beyond what you explicitly provide (your API token).</p>
-
-    <h2>Permissions explained</h2>
+    <h3>User activity</h3>
     <ul>
-      <li><strong>storage</strong> — saves your API token, vocabulary cache, watch history, immersion tracking data, and preferences locally on your device</li>
+      <li><strong>Watch history</strong> — titles, URLs, comprehension scores, and watch counts for Japanese videos you have watched on supported sites. This covers only pages where the extension is active; it is never a record of your general browsing, and the extension cannot see pages it has no permission for.</li>
+      <li><strong>Unknown word frequency</strong> — words that appeared as unknown across your watched videos, with occurrence counts.</li>
+      <li><strong>Immersion tracking data</strong> — daily watch-time totals, a per-source breakdown (YouTube, CIJ, Nihongo-Jikan, local player, etc.), a recent session log, per-video watched seconds, and any manual time entries you add.</li>
+      <li><strong>MaruMori review statistics</strong> — a local history of your review sessions on marumori.io: date, item count, accuracy, points, streaks, and the kanji/vocab/grammar split.</li>
+      <li><strong>Manually known words</strong> — words you have marked as Known from hover cards, stored separately from MaruMori.</li>
+    </ul>
+
+    <h3>Cached reference data and settings</h3>
+    <ul>
+      <li><strong>Vocab and kanji lists</strong> — downloaded from your MaruMori account and cached locally so scoring works without repeated API calls.</li>
+      <li><strong>Translation cache</strong> — the Japanese lines you have translated and their translations, kept per language so the same line is never sent for translation twice.</li>
+      <li><strong>AI assist cache</strong> — the word and grammar explanations you have asked for, kept per language alongside the phrase each was asked about, so the same question is never sent twice. Capped at the 400 most recent.</li>
+      <li><strong>Settings and preferences</strong> — subtitle style, hover toggle, badge visibility, focus timer duration and sound preferences, the list of extra sites you have allowed, and other UI preferences.</li>
+    </ul>
+
+    <div class="no-collect">
+      <strong>Never collected, in any circumstance:</strong> personally identifiable information (name, address, email, age, ID numbers); health information; financial and payment information; personal communications (email, messages, chats); location or IP-based geolocation; general web browsing history; keystroke logging; form contents on any site; passwords of any kind. The extension contains no analytics SDK, no crash reporter, no advertising or marketing network, no fingerprinting, and no tracking pixels of any kind, and it does not build any advertising or behavioural profile.
+    </div>
+
+    <h2>4. How this data is used</h2>
+    <p>Every piece of data above is used for one purpose only: <strong>to deliver the language-learning feature you asked for, on your own device</strong>. Specifically:</p>
+    <ul>
+      <li>Vocabulary and kanji data is compared against on-screen Japanese text to decide which words to color as known or unknown, and to calculate your comprehension score.</li>
+      <li>Credentials are used solely to authenticate to the service that issued them.</li>
+      <li>History, frequency, immersion, and review data is used solely to draw your own progress screens inside the extension.</li>
+      <li>Caches exist solely to avoid repeating a network request you have already paid for or waited on.</li>
+    </ul>
+    <p>Your data is <strong>never</strong> used to build a profile, to train any machine-learning model of ours (we operate none), for advertising or marketing, for creditworthiness or lending purposes, or for any purpose unrelated to the single purpose of the extension.</p>
+
+    <h2>5. Where data is stored</h2>
+    <ul>
+      <li><strong>On your device.</strong> All data is stored locally using <code>chrome.storage.local</code>, in your own browser profile. It is not stored on any server operated by the developer, because no such server exists.</li>
+      <li><strong>In your own Google Drive</strong>, only if you switch on the optional backup described in section 7.</li>
+      <li><strong>In a file you save yourself</strong>, only if you use the export feature. If you do, that file contains a copy of your data <em>including your MaruMori API token and any AI provider API keys</em>. It stays on your device unless you move it. Treat it like a password: importing it elsewhere restores full access to everything it contains.</li>
+    </ul>
+    <p>The extension does not use <code>chrome.storage.sync</code>, so nothing is silently replicated through your Chrome profile to other machines.</p>
+
+    <h2>6. Data sent off your device</h2>
+    <p>The extension contacts only the services below. In every case the request is made directly by your own browser to that service; nothing is proxied through, copied to, or observable by the developer.</p>
+
+    <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr><th>Destination</th><th>What is sent</th><th>When</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>MaruMori API</strong><br><code>public-api.marumori.io</code></td>
+          <td>Your MaruMori API token, to retrieve your own vocab and kanji lists.</td>
+          <td>When you connect your account or manually refresh.</td>
+        </tr>
+        <tr>
+          <td><strong>YouTube</strong><br><code>youtube.com</code></td>
+          <td>The video ID of the video currently open, to fetch its public Japanese caption track. No account credentials are sent.</td>
+          <td>When you open a YouTube video with the extension active.</td>
+        </tr>
+        <tr>
+          <td><strong>Jisho dictionary</strong><br><code>jisho.org</code></td>
+          <td>Only the single word being hovered, to fetch its definition.</td>
+          <td>When you hover a word and no local definition exists.</td>
+        </tr>
+        <tr>
+          <td><strong>MaruMori website</strong><br><code>marumori.io</code></td>
+          <td>Nothing beyond a normal page navigation — a new tab is opened at a dictionary URL.</td>
+          <td>When you use "Search on MaruMori" or click a hover-card dictionary link.</td>
+        </tr>
+        <tr>
+          <td><strong>Google sign-in &amp; Drive</strong><br><code>accounts.google.com</code>, <code>www.googleapis.com</code></td>
+          <td>Your Google OAuth token and the backup file described in section 7.</td>
+          <td>Only if you connect Drive backup, and only on "Save", "Sync", or an auto-save interval you switched on yourself.</td>
+        </tr>
+        <tr>
+          <td><strong>AI provider you selected</strong><br><code>generativelanguage.googleapis.com</code> (Google Gemini), <code>api.deepseek.com</code> (DeepSeek), <code>api.openai.com</code> (OpenAI), or <code>api.anthropic.com</code> (Anthropic)</td>
+          <td>Your own API key for that provider, plus the specific content listed below.</td>
+          <td>Only if you have saved a key, and only when you press an AI button.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>What each AI action sends</h3>
+    <p>Requests go only to the one provider you have selected, authenticated with the API key you supplied for it. The four AI buttons are "Translate" in the subtitle settings panel, "AI Translate phrase" in the subtitle bar's ⋮ menu, "AI Assist" on a hover card, and "AI Grammar" in the This Phrase tab.</p>
+    <ul>
+      <li><strong>Translate</strong> — the Japanese subtitle lines of the video you are watching (every line for the whole-video button, or just the one line for "AI Translate phrase").</li>
+      <li><strong>AI Assist</strong> — the word you clicked (with its dictionary form and reading), the subtitle line it appears in, at most one subtitle line either side, and the video title.</li>
+      <li><strong>AI Grammar</strong> — the subtitle line shown in This Phrase, at most one subtitle line either side, and the video title.</li>
+      <li><strong>Transcribe audio</strong> (local player only) — the audio track of the video file you opened, converted to 16 kHz mono and sent in pieces of about a minute. Audio only: the picture is never sent, and no filename, title, or other detail goes with it. This action requires Google Gemini, the only supported provider that accepts audio; if another provider is selected, the extension refuses rather than sending the audio elsewhere.</li>
+    </ul>
+    <p>Nothing else is included: no MaruMori data, no vocabulary lists, no watch or review history, no account identifiers, no browsing history. Video titles are taken from the page's own title, the same text shown in your browser tab. Anything already answered on this device is served from the local cache and is not sent a second time. AI features are entirely optional and inert until you add a key.</p>
+    <p><strong>Your relationship with the AI provider is your own.</strong> You are that provider's customer, not ours; usage is billed to your account with them, and their handling of what you send is governed by their privacy policy and terms, not this one. Please review them: <a href="https://policies.google.com/privacy" target="_blank">Google</a>, <a href="https://www.deepseek.com/privacy" target="_blank">DeepSeek</a>, <a href="https://openai.com/policies/privacy-policy" target="_blank">OpenAI</a>, <a href="https://www.anthropic.com/legal/privacy" target="_blank">Anthropic</a>.</p>
+    <p>No analytics service, crash reporter, advertising network, content delivery tracker, or any other third-party server is contacted. If you have allowed the extension on a self-hosted media server on your own network (e.g. Plex or Jellyfin), it is contacted the same way any page you open in your browser would be — the extension never reaches out to it on its own.</p>
+
+    <h2>7. Google Drive backup (optional, off by default)</h2>
+    <p>You may choose to connect a Google account to back up your data. This feature is <strong>disabled by default</strong> and does nothing until you sign in yourself.</p>
+    <ul>
+      <li>Sign-in uses Chrome's built-in <code>identity</code> API — no password is ever seen or handled by this extension.</li>
+      <li>Data is written to a single JSON file in your Google Drive's <strong>appDataFolder</strong> — a hidden, per-app storage space Google creates for each app you authorize. It does not appear in your regular Drive file list, and no other app can read it.</li>
+      <li>The extension requests only the <code>drive.appdata</code> scope. It cannot see, create, or modify any other file in your Drive.</li>
+      <li><strong>What is backed up:</strong> your MaruMori API token, any AI provider API keys and your selected provider, vocab/kanji cache, manually-known words, immersion time (daily and per-site totals plus the recent session log), per-video watched seconds, and watch/word history. It does <em>not</em> include the per-source-per-day breakdown used for the stats chart, or the translation cache — those stay local-only, to keep the backup file small. (The translation cache is carried over only by the local export/import file.)</li>
+      <li><strong>"Save"</strong> uploads your current local data to that file, overwriting what was there. <strong>"Sync"</strong> downloads it and merges it into this device — historical data (immersion time, watch/word history, known words) is added to what is already here rather than replacing it, so using this on a second device will not erase either device's progress.</li>
+      <li><strong>Automatic backup:</strong> a separate opt-in switch, off by default, re-runs exactly the same upload as the "Save" button on an interval you choose. It only ever runs after you have connected Drive and switched it on, it writes to the same private appDataFolder file, and it sends nothing that a manual "Save" would not. Switching it off stops it immediately.</li>
+      <li>You can revoke access at any time from your <a href="https://myaccount.google.com/permissions" target="_blank">Google Account permissions page</a>, which also deletes the backup file.</li>
+    </ul>
+    <p>MaruComprehension's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+    <h2>8. Data sharing and disclosure</h2>
+    <p><strong>The developer receives no user data and therefore discloses none.</strong> Beyond that:</p>
+    <ul>
+      <li>Your data is <strong>never sold</strong>, rented, licensed, or traded to anyone, under any circumstances.</li>
+      <li>Your data is <strong>never shared</strong> with advertisers, data brokers, analytics vendors, marketing partners, or any other third party.</li>
+      <li>The only parties that ever receive anything are the services listed in section 6 — MaruMori, Jisho, YouTube, your chosen AI provider, and your own Google Drive — each of which receives only the minimum described there, only when you trigger the feature, and only because you connected it.</li>
+      <li>There is no transfer of data on any change of ownership, merger, or acquisition, because there is no data holding to transfer.</li>
+      <li>The developer cannot disclose your data in response to a legal request, subpoena, or law-enforcement demand, as the developer holds none of it.</li>
+    </ul>
+
+    <h2>9. Limited Use certification</h2>
+    <p>MaruComprehension's use of information received from any source complies with the <a href="https://developer.chrome.com/docs/webstore/program-policies/limited-use/" target="_blank">Chrome Web Store User Data Policy</a>, including the Limited Use requirements. Specifically, the extension:</p>
+    <ul>
+      <li>uses data only to provide or improve the single, user-facing purpose described in section 2;</li>
+      <li>does not transfer data to third parties except as strictly necessary to provide that purpose at your request, as itemised in section 6;</li>
+      <li>does not use or transfer data for serving advertisements of any kind, including personalized, retargeted, or interest-based advertising;</li>
+      <li>does not use or transfer data to determine creditworthiness or for lending purposes;</li>
+      <li>does not sell data to anyone;</li>
+      <li>allows no human to read your data, other than yourself — no developer, contractor, or employee has any access path to it.</li>
+    </ul>
+
+    <h2>10. Data retention and deletion</h2>
+    <p>Because all data is stored locally, <strong>you control retention entirely</strong>. Nothing expires on a schedule set by us, and nothing is retained anywhere after you remove it.</p>
+    <ul>
+      <li><strong>Local data</strong> is kept on your device until you delete it. The AI assist cache is additionally capped at the 400 most recent entries, with older entries dropped automatically.</li>
+      <li><strong>Clearing specific data:</strong> watch history, word data, review statistics, and immersion tracking data can each be cleared at any time from within the extension.</li>
+      <li><strong>Removing credentials:</strong> deleting your MaruMori token or an AI API key from the extension's settings removes it from storage immediately.</li>
+      <li><strong>Deleting everything:</strong> removing the extension from Chrome deletes all locally stored data permanently. Chrome discards the extension's entire <code>chrome.storage.local</code> area on uninstall.</li>
+      <li><strong>Deleting the Drive backup:</strong> revoke the extension at your <a href="https://myaccount.google.com/permissions" target="_blank">Google Account permissions page</a>; Google deletes the appDataFolder contents for a revoked app. You may also press "Save" after clearing local data to overwrite the file's contents first.</li>
+      <li><strong>Exported files</strong> are outside the extension's control once written; delete them yourself as you would any other file.</li>
+    </ul>
+    <p>Data already sent to a third-party service at your request (for example, a subtitle line sent to an AI provider) is retained according to <em>that</em> service's own policy, and must be deleted through them. The extension has no ability to recall it.</p>
+
+    <h2>11. Your rights</h2>
+    <p>Depending on where you live, you may have rights of access, portability, rectification, and erasure over your personal data. Because the developer holds no copy of your data, these rights are exercised directly and immediately by you:</p>
+    <ul>
+      <li><strong>Access and portability</strong> — the export feature writes your complete data set to a JSON file you keep.</li>
+      <li><strong>Rectification</strong> — all stored values are editable or clearable from the extension's own screens.</li>
+      <li><strong>Erasure</strong> — see section 10; uninstalling deletes everything.</li>
+      <li><strong>Objection and withdrawal of consent</strong> — every feature that sends data anywhere is opt-in and individually switchable; turning one off stops it at once.</li>
+    </ul>
+    <p>If you have a question these steps do not answer, contact <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
+
+    <h2>12. Security</h2>
+    <ul>
+      <li>All external requests use HTTPS.</li>
+      <li>Credentials are stored in <code>chrome.storage.local</code>, which is sandboxed to the extension and unreadable by web pages or other extensions.</li>
+      <li>The extension has no remote-code execution: it loads no scripts from any server, and all code shipped is contained in the reviewed package.</li>
+      <li>The main residual risk is the export file, which contains credentials in plain text by design so it can be imported elsewhere. Store it accordingly.</li>
+    </ul>
+
+    <h2>13. Permissions explained</h2>
+    <ul>
+      <li><strong>storage</strong> — saves your API token, vocabulary cache, watch history, review statistics, immersion tracking data, and preferences locally on your device</li>
       <li><strong>activeTab</strong> — reads the current tab's URL so the popup can show the correct comprehension score for the page you are on</li>
       <li><strong>scripting</strong> — injects the subtitle coloring and hover card logic into supported video pages; fetches YouTube caption files from within the page context (required because YouTube rejects requests from extension origins); and shows the focus timer's sound/on-screen effect on the page you're viewing when a session ends</li>
-      <li><strong>alarms</strong> — keeps the focus timer counting down accurately in the background, even while the popup is closed</li>
+      <li><strong>alarms</strong> — keeps the focus timer counting down accurately in the background while the popup is closed, and drives the optional Drive auto-save interval if you switch it on</li>
       <li><strong>notifications</strong> — shows a system notification when the focus timer finishes, if an on-page effect couldn't be shown</li>
       <li><strong>contextMenus</strong> — adds the "Search on MaruMori" item to the right-click menu</li>
-      <li><strong>Host permissions</strong> — limited to the specific sites the extension supports: Comprehensible Japanese, Nihongo-Jikan, YouTube, MaruMori (site and API), Jisho, and — if you've set it up — your own self-hosted local video server</li>
+      <li><strong>identity</strong> — lets you optionally sign in with your own Google account for the Drive backup feature in section 7. Requested only when you connect Drive; never used automatically or for any other purpose</li>
+      <li><strong>Host permissions</strong> — limited to the sites the extension supports: Comprehensible Japanese / Natural Japanese (<code>cijapanese.com</code>, <code>nijapanese.com</code>), Nihongo-Jikan (<code>nihongo-jikan.com</code>), YouTube, Netflix, Crunchyroll, Plex (<code>app.plex.tv</code>), NHK News Web Easy, MaruMori (site and API), Jisho, and the four AI provider endpoints, which are contacted only if you set up a key and press an AI button</li>
+      <li><strong>Optional host permission</strong> (<code>*://*/*</code>) — the "Allow this page" control in the popup lets you grant access to one additional site of your choice, for self-hosted media servers such as Plex or Jellyfin whose address cannot be known in advance and so cannot be listed above. This permission is declared as optional and is <strong>never granted at install time</strong>: Chrome grants nothing until you click "Allow this page" on a specific site, each site must be approved individually, and each can be revoked the same way at any time. Sites you have not approved remain completely inaccessible to the extension, and data from an approved site is handled exactly as described in section 3 — read on your device to color words, never transmitted anywhere</li>
     </ul>
 
+    <h2>14. Children's privacy</h2>
+    <p>This extension is not directed at children under 13 and does not knowingly collect data from them. As no data reaches the developer, no such data could be collected inadvertently.</p>
+
+    <h2>15. Changes to this policy</h2>
+    <p>If this policy changes materially, the "Last updated" date above will be revised, and the change will be reflected in this page before the corresponding extension version is published. Continued use of the extension after a change constitutes acceptance of the updated policy.</p>
+
+    <h2>16. Contact</h2>
+    <p>Questions, concerns, or privacy requests: <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
+
     <h2>Disclaimer</h2>
-    <p>MaruComprehension is an independent, unofficial fan app created by a MaruMori user. It is not affiliated with, endorsed by, or in any way associated with <a href="https://marumori.io" target="_blank">MaruMori.io</a>, Comprehensible Japanese, or Nihongo-Jikan. All trademarks and brand names belong to their respective owners.</p>
-
-    <h2>Children's privacy</h2>
-    <p>This extension is not directed at children under 13 and does not knowingly collect data from them.</p>
-
-    <h2>Changes to this policy</h2>
-    <p>If this policy changes materially, the "Last updated" date above will be revised. Continued use of the extension after a change constitutes acceptance of the updated policy.</p>
-
-    <h2>Contact</h2>
-    <p>Questions or concerns? Email <a href="mailto:marucomprehension@gmail.com">marucomprehension@gmail.com</a>.</p>
+    <p>MaruComprehension is an independent, unofficial fan app created by a MaruMori user. It is not affiliated with, endorsed by, or in any way associated with <a href="https://marumori.io" target="_blank">MaruMori.io</a>, Comprehensible Japanese, Natural Japanese, or Nihongo-Jikan. All trademarks and brand names belong to their respective owners.</p>
   </div>
 </div>
 </body>
