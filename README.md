@@ -9,7 +9,6 @@ Works on:
 - **Comprehensible Japanese** (cijapanese.com) — transcript coloring, hover definitions, word sidebar
 - **Nihongo-Jikan** (nihongo-jikan.com) — transcript coloring, hover definitions, word sidebar
 - **Local player** — drop any video + `.vtt`/`.srt` subtitle file for offline scoring
-- **Local NAS** — mdnas.local / synology CIJ replicas
 
 ## Features
 
@@ -33,7 +32,7 @@ Works on:
 
 ### Load unpacked (developer mode)
 
-1. Download `MaruComprehension-v1.5.zip` from the [latest release](https://github.com/MDecru/MaruComprehensible/releases)
+1. Download the newest `.zip` from the [latest release](https://github.com/MDecru/MaruComprehensible/releases)
 2. Unzip it anywhere on your computer
 3. Open Chrome and go to `chrome://extensions`
 4. Enable **Developer mode** (toggle top-right)
@@ -68,7 +67,7 @@ Works on:
 - Click **≡** to open the word sidebar
 - Green dot = immersion tracking active; click to toggle
 
-### CIJ / Nihongo-Jikan / Local NAS
+### CIJ / Nihongo-Jikan
 
 - Comprehension badge and control bar appear on the player
 - Hover on the transcript for word coloring — enable from the popup's Main tab
