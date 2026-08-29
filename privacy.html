@@ -89,7 +89,7 @@
 <div class="wrap">
   <div class="card">
     <h1>Privacy Policy</h1>
-    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Version 1.7.3 &nbsp;·&nbsp; Last updated: August 22, 2026</p>
+    <p class="meta">MaruComprehension Chrome Extension &nbsp;·&nbsp; Version 1.7.4 &nbsp;·&nbsp; Last updated: August 23, 2026</p>
 
     <div class="highlight">
       <strong>Short version:</strong> MaruComprehension has no server. The developer receives no data from you of any kind, and has no way to. Everything the extension stores lives on your own device in <code>chrome.storage.local</code>. Data leaves your device only to reach a service you chose and configured yourself — MaruMori, Jisho, YouTube's public caption endpoint, an AI provider you supply your own API key for, or your own Google Drive — and only for the feature you triggered. No analytics, no tracking, no advertising, no data selling, no third-party data brokers.
@@ -104,10 +104,12 @@
     <p>MaruComprehension is an unofficial fan app that connects to your <a href="https://marumori.io" target="_blank">MaruMori</a> account to fetch your learned vocabulary and kanji. It uses that data to:</p>
     <ul>
       <li>Color-highlight subtitles and transcripts on <strong>Comprehensible Japanese / Natural Japanese</strong>, <strong>Nihongo-Jikan</strong>, <strong>YouTube</strong>, <strong>Netflix</strong>, <strong>Crunchyroll</strong>, <strong>Plex</strong>, <strong>NHK News Web Easy</strong>, and any additional site you explicitly allow — known words in one color, unknown in another</li>
+      <li>On <strong>BookWalker's web reader</strong>, color and explain a passage <em>you have highlighted yourself</em>. BookWalker draws its pages as images, not text, so the extension cannot and does not read the page: the only text it ever sees is the sentence BookWalker itself puts on screen in its own marker dialog when you make a selection. That text is tokenized on your device, colored against your vocabulary, given hover cards, and listed word by word with readings and meanings from the local dictionary. If you never highlight anything, this does nothing at all, and nothing is sent anywhere unless you press one of the two optional AI buttons described in section 6</li>
       <li>Let you paste or upload any Japanese text on the extension's own <strong>Transcribe Text</strong> page for the same colorized, hoverable, scored breakdown, independent of any site</li>
       <li>Calculate a <strong>comprehension score</strong> for each video based on how many subtitle words you already know</li>
       <li>Show <strong>hover cards</strong> with reading, definitions, and known/unknown status when you hover over any Japanese word in a subtitle or transcript</li>
       <li>Display a <strong>word sidebar</strong> listing all unknown words in the current video with JLPT level indicators</li>
+      <li><strong>Read a MaruMori grammar lesson aloud</strong>, using the speech voices your browser already has. Only the lesson&rsquo;s own explanation text is read; example sentences are played using MaruMori&rsquo;s own recordings instead. Nothing happens until you press a speaker button, and no API key is involved. Where the spoken text goes depends on the voice you choose &mdash; see the speech row in section 6.</li>
       <li>Show your current <strong>MaruMori SRS review level</strong> as a small badge while you do reviews on marumori.io, with an extra warning for items about to graduate, and keep a local <strong>record of your review sessions</strong> (items, accuracy, points, and a kanji/vocab/grammar split) for the review-stats screens. This reads the review page's own on-screen text to know which word or kanji is showing, and compares it against your already-cached MaruMori data; nothing is sent anywhere</li>
       <li>Save a <strong>watch history</strong> and an <strong>unknown word frequency list</strong> so you can track progress over time</li>
       <li>Let you <strong>mark words as Known</strong> directly from a hover card, stored separately from MaruMori</li>
@@ -216,6 +218,11 @@
           <td>Only if you connect Drive backup, and only on "Save", "Sync", or an auto-save interval you switched on yourself.</td>
         </tr>
         <tr>
+          <td><strong>Your browser&rsquo;s speech engine</strong><br>Chrome&rsquo;s <code>Google 日本語</code> and <code>Google US English</code> are <em>online</em> voices supplied by Google; local voices (Kyoko, Samantha, and the rest of your system&rsquo;s) synthesise on your device and send nothing.</td>
+          <td>The lesson text being read aloud, and nothing else. This is handled by the browser itself through its standard speech API &mdash; the extension makes no network request of its own for it.</td>
+          <td>Only while you are having a MaruMori grammar lesson read aloud, and only if the selected voice is an online one. Choosing a local voice in the read-aloud dropdown keeps it entirely on your device.</td>
+        </tr>
+        <tr>
           <td><strong>AI provider you selected</strong><br><code>generativelanguage.googleapis.com</code> (Google Gemini), <code>api.deepseek.com</code> (DeepSeek), <code>api.openai.com</code> (OpenAI), <code>api.anthropic.com</code> (Anthropic) — or any OpenAI-compatible endpoint you add yourself in Settings &rarr; API, in which case the address is the one you entered and nothing is sent to it until you have granted this extension access to that host.</td>
           <td>Your own API key for that provider, plus the specific content listed below.</td>
           <td>Only if you have saved a key, and only when you press an AI button.</td>
@@ -225,11 +232,12 @@
     </div>
 
     <h3>What each AI action sends</h3>
-    <p>Requests go only to the one provider you have selected — including a custom endpoint of your own — authenticated with the API key you supplied for it (a self-hosted endpoint may need none). The four AI buttons are "Translate" in the subtitle settings panel, "AI Translate phrase" in the subtitle bar's ⋮ menu, "AI Assist" on a hover card, and "AI Grammar" in the This Phrase tab.</p>
+    <p>Requests go only to the one provider you have selected — including a custom endpoint of your own — authenticated with the API key you supplied for it (a self-hosted endpoint may need none). The AI buttons are "Translate" in the subtitle settings panel, "AI Translate phrase" in the subtitle bar's ⋮ menu, "AI Assist" on a hover card, "AI Grammar" in the This Phrase tab, and "Translate" and "Grammar" in BookWalker's marker dialog.</p>
     <ul>
       <li><strong>Translate</strong> — the Japanese subtitle lines of the video you are watching (every line for the whole-video button, or just the one line for "AI Translate phrase").</li>
       <li><strong>AI Assist</strong> — the word you clicked (with its dictionary form and reading), the subtitle line it appears in, at most one subtitle line either side, and the video title.</li>
       <li><strong>AI Grammar</strong> — the subtitle line shown in This Phrase, at most one subtitle line either side, and the video title.</li>
+      <li><strong>Translate and Grammar in BookWalker</strong> (one button each) — only the single passage you highlighted, exactly as BookWalker displayed it in its own marker dialog, plus the book title from the page's title bar. There are no neighbouring lines to send, because the extension has no access to the rest of the page. Neither button does anything until you press it: highlighting a passage on its own never contacts a provider, and the word list shown beside it is produced entirely on your device.</li>
       <li><strong>Transcribe audio</strong> (local player only) — the audio track of the video file you opened, converted to 16 kHz mono and sent in pieces of about a minute. Audio only: the picture is never sent, and no filename, title, or other detail goes with it. This action requires Google Gemini, the only supported provider that accepts audio; if another provider is selected, the extension refuses rather than sending the audio elsewhere.</li>
     </ul>
     <p>Nothing else is included: no MaruMori data, no vocabulary lists, no watch or review history, no account identifiers, no browsing history. Video titles are taken from the page's own title, the same text shown in your browser tab. Anything already answered on this device is served from the local cache and is not sent a second time. AI features are entirely optional and inert until you add a key.</p>
@@ -309,7 +317,7 @@
       <li><strong>notifications</strong> — shows a system notification when the focus timer finishes, if an on-page effect couldn't be shown</li>
       <li><strong>contextMenus</strong> — adds the "Search on MaruMori" item to the right-click menu</li>
       <li><strong>identity</strong> — lets you optionally sign in with your own Google account for the Drive backup feature in section 7. Requested only when you connect Drive; never used automatically or for any other purpose</li>
-      <li><strong>Host permissions</strong> — limited to the sites the extension supports: Comprehensible Japanese / Natural Japanese (<code>cijapanese.com</code>, <code>nijapanese.com</code>), Nihongo-Jikan (<code>nihongo-jikan.com</code>), YouTube, Netflix, Crunchyroll, Plex (<code>app.plex.tv</code>), NHK News Web Easy, MaruMori (site and API), Jisho, and the four built-in AI provider endpoints, which are contacted only if you set up a key and press an AI button</li>
+      <li><strong>Host permissions</strong> — limited to the sites the extension supports: Comprehensible Japanese / Natural Japanese (<code>cijapanese.com</code>, <code>nijapanese.com</code>), Nihongo-Jikan (<code>nihongo-jikan.com</code>), YouTube, Netflix, Crunchyroll, Plex (<code>app.plex.tv</code>), BookWalker's reader (<code>viewer.bookwalker.jp</code>), NHK News Web Easy, MaruMori (site and API), Jisho, and the four built-in AI provider endpoints, which are contacted only if you set up a key and press an AI button</li>
       <li><strong>Optional host permission</strong> (<code>*://*/*</code>) — two controls in the popup can each grant access to one additional address of your choice, neither of which can be known in advance and so neither of which can be listed above: "Allow this page", for self-hosted media servers such as Plex or Jellyfin, and "Save endpoint" in Settings → API, for a custom AI endpoint you add. This permission is declared as optional and is <strong>never granted at install time</strong>: Chrome grants nothing until you click "Allow this page" on a specific site, each address must be approved individually, and each can be revoked the same way at any time. Addresses you have not approved remain completely inaccessible to the extension. Data from an approved <em>site</em> is handled exactly as described in section 3 — read on your device to color words, never transmitted anywhere; an approved <em>AI endpoint</em> is a destination rather than a source, and receives only what section 6 describes, only when you press an AI button</li>
     </ul>
 
